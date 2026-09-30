@@ -1,0 +1,317 @@
+"""学園祭（2026-11-21）の模擬店「質問に答えると、自分だけのモンスターカードができる」の試作。
+
+流れ：
+  1. 2択の質問8問に答える → オリジナルの16タイプのどれかに決まる
+  2. 好きなものを1つと、絵柄（かわいい／かっこいい）を選ぶ
+  3. Geminiが、タイプと好きなものを混ぜたモンスターの名前・わざ・説明を作り、絵を描く
+  4. レア度はサーバー側で抽選する（AIには決めさせない）
+  5. 2人のカード番号から相性を出せる
+
+GEMINI_API_KEY が無いときは「お試しモード」で、ダミーの中身と仮の絵を返す。
+
+試してもらった人の反応（いくらなら買うか）は data/log.jsonl に残す。
+タイプ・好きなもの・レア度・答えた値段・日時だけで、名前などの個人情報は取らない。
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import os
+import random
+import threading
+from datetime import datetime
+from pathlib import Path
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify, render_template, request
+
+from types_data import AXIS_WORDS, QUESTIONS, TYPES, base_stats, best_partners, decide_type, match
+
+load_dotenv()
+
+app = Flask(__name__)
+
+API_KEY = os.environ.get("GEMINI_API_KEY", "")
+TEXT_MODEL = os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
+IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+MOCK = not API_KEY or os.environ.get("MOCK") == "1"
+
+DATA_DIR = Path(__file__).parent / "data"
+LOG_PATH = DATA_DIR / "log.jsonl"
+_lock = threading.Lock()
+
+# レア度はここで抽選する。合計100。
+RARITIES = [("N", 60), ("R", 25), ("SR", 12), ("UR", 3)]
+RARITY_BONUS = {"N": 0, "R": 15, "SR": 30, "UR": 60}
+
+# 実在キャラ・有名作品は作らない（著作権）。AIの判定より先に、ここで確実に弾く。
+BLOCKED_WORDS = [
+    "ピカチュウ", "ポケモン", "ポケットモンスター", "マリオ", "ルイージ", "カービィ", "ゼルダ",
+    "ドラえもん", "アンパンマン", "ミッキー", "ミニー", "ディズニー", "キティ", "サンリオ",
+    "ちいかわ", "ハチワレ", "スヌーピー", "ドラゴンボール", "悟空", "ワンピース", "ルフィ",
+    "鬼滅", "炭治郎", "ナルト", "呪術", "コナン", "しんちゃん", "ドラクエ", "ガンダム",
+    "ゴジラ", "ウルトラマン", "仮面ライダー", "プリキュア",
+]
+
+STYLES = {
+    "cute": ("Cute chibi original monster, round soft shapes, big sparkling eyes, pastel and bright colors, "
+             "cheerful expression, soft cel shading, simple radial background"),
+    "cool": ("Cool majestic original creature, dynamic heroic pose, sharp elegant design, dramatic rim lighting, "
+             "rich detailed fantasy illustration, epic atmospheric background"),
+}
+IMAGE_COMMON = ("single character, full body, centered, trading card game art, "
+                "no text, no letters, no logos, no frame, not resembling any existing franchise character. ")
+
+CARD_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "allowed": {"type": "boolean"},
+        "reason": {"type": "string"},
+        "monster": {"type": "string"},
+        "move": {"type": "string"},
+        "move_text": {"type": "string"},
+        "flavor": {"type": "string"},
+        "image_prompt": {"type": "string"},
+    },
+    "required": ["allowed", "reason", "monster", "move", "move_text", "flavor", "image_prompt"],
+}
+
+CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診断の結果と好きなものから、
+その人の分身になるオリジナルモンスターのカードを作る係です。お客さんは小学生から大人まで。
+
+性格タイプ：{type_name}（{type_desc}）
+強み：{strong}／弱点：{weak}
+属性：{element}
+好きなもの：「{favorite}」
+絵柄：{style}
+
+好きなものが次にあたるときは allowed=false にして、reason に子どもにも分かるやさしい言葉で
+「好きなものをちがう言い方にしてね」と伝える（例も1つ添える）。
+- 実在するアニメ・ゲーム・漫画のキャラクターや作品名
+- 実在する有名人・政治家など特定の人物
+- 暴力・性的・差別・いじめにつながる内容
+それ以外は allowed=true で reason は空文字。
+
+allowed=true のとき：
+- monster：性格と好きなものを混ぜたモンスターの名前。二つ名つきで12文字前後（例：「ラーメン愛の隊長 メンドラゴ」）
+- move：わざの名前（10文字以内）。好きなものにちなむ
+- move_text：わざの説明（30文字以内）。性格が出ていて、くすっと笑える
+- flavor：図鑑の説明（50文字以内）。大人が読んでも「わかる」と思える、性格のあるあるを入れる
+- image_prompt：絵を描くための英語の説明。モチーフ「{motif}」に、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルモンスター1体。既存キャラに似せない。文字は入れない
+"""
+
+
+def draw_rarity() -> str:
+    names, weights = zip(*RARITIES)
+    return random.choices(names, weights=weights, k=1)[0]
+
+
+def read_log() -> list[dict]:
+    if not LOG_PATH.exists():
+        return []
+    return [json.loads(l) for l in LOG_PATH.read_text(encoding="utf-8").splitlines() if l.strip()]
+
+
+def write_log(entry: dict) -> None:
+    DATA_DIR.mkdir(exist_ok=True)
+    entry["at"] = datetime.now().isoformat(timespec="seconds")
+    with _lock, LOG_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def blocked(text: str) -> bool:
+    return any(w.lower() in text.lower() for w in BLOCKED_WORDS)
+
+
+def mock_card(t: dict, favorite: str) -> dict:
+    return {
+        "allowed": True, "reason": "",
+        "monster": f"{favorite[:5]}の{t['name']}",
+        "move": f"{favorite[:5]}アタック",
+        "move_text": "お試しモードなので、まだ本気を出していない",
+        "flavor": "キーを入れると、AIがあなたの性格のあるあるを書いてくれる。",
+        "image_prompt": t["motif"],
+    }
+
+
+def mock_image(element: str) -> str:
+    colors = {"ほのお": "#ff7a45", "みず": "#40a9ff", "くさ": "#73d13d", "でんき": "#fadb14",
+              "こおり": "#87e8de", "やみ": "#9254de", "ひかり": "#ffe58f", "かぜ": "#b7eb8f"}
+    c = colors.get(element, "#ccc")
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
+           f'<rect width="200" height="200" fill="{c}"/>'
+           f'<circle cx="100" cy="110" r="55" fill="#fff" opacity=".85"/>'
+           f'<circle cx="80" cy="100" r="8"/><circle cx="120" cy="100" r="8"/>'
+           f'<path d="M80 130 Q100 145 120 130" stroke="#000" stroke-width="5" fill="none"/></svg>')
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
+
+
+def ai_card(t: dict, favorite: str, style: str) -> dict:
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=API_KEY)
+    prompt = CARD_PROMPT.format(
+        type_name=t["name"], type_desc=t["desc"], strong=t["strong"], weak=t["weak"],
+        element=t["element"], favorite=favorite, motif=t["motif"],
+        style="かわいい" if style == "cute" else "かっこいい",
+    )
+    resp = client.models.generate_content(
+        model=TEXT_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=CARD_SCHEMA,
+            temperature=1.0,
+        ),
+    )
+    return json.loads(resp.text)
+
+
+def ai_image(prompt: str, style: str) -> str:
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=API_KEY)
+    resp = client.models.generate_content(
+        model=IMAGE_MODEL,
+        contents=f"{STYLES[style]}, {IMAGE_COMMON}Subject: {prompt}",
+        config=types.GenerateContentConfig(
+            response_modalities=["IMAGE"],
+            image_config=types.ImageConfig(aspect_ratio="1:1"),
+        ),
+    )
+    for part in resp.candidates[0].content.parts:
+        if part.inline_data and part.inline_data.data:
+            data = part.inline_data.data
+            if isinstance(data, str):
+                data = base64.b64decode(data)
+            mime = part.inline_data.mime_type or "image/png"
+            return f"data:{mime};base64," + base64.b64encode(data).decode()
+    raise RuntimeError("絵が返ってきませんでした")
+
+
+@app.route("/")
+def index():
+    questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
+    return render_template("index.html", mock=MOCK, questions=questions)
+
+
+@app.post("/api/card")
+def make_card():
+    body = request.get_json(silent=True) or {}
+    answers = body.get("answers") or []
+    favorite = str(body.get("favorite", "")).strip()
+    style = body.get("style") if body.get("style") in STYLES else "cute"
+
+    if len(answers) != len(QUESTIONS) or any(
+        pick not in (q["a"][1], q["b"][1]) for q, pick in zip(QUESTIONS, answers)
+    ):
+        return jsonify({"ok": False, "reason": "質問にぜんぶ答えてね"}), 400
+    if not favorite:
+        return jsonify({"ok": False, "reason": "好きなものを入れてね"}), 400
+    if len(favorite) > 20:
+        return jsonify({"ok": False, "reason": "好きなものは20文字までにしてね"}), 400
+    if blocked(favorite):
+        write_log({"event": "refused", "favorite": favorite, "by": "list"})
+        return jsonify({"ok": False, "reason": "ごめんね、アニメやゲームにいるキャラクターはカードにできないんだ。"
+                                           "ほかの好きなものを入れてみて！（例：カレー、ねこ、サッカー）"})
+
+    code = decide_type(answers)
+    t = TYPES[code]
+    try:
+        card = mock_card(t, favorite) if MOCK else ai_card(t, favorite, style)
+    except Exception as e:
+        app.logger.exception("カードの中身の生成に失敗")
+        return jsonify({"ok": False, "reason": f"カードを作れませんでした（{type(e).__name__}）。もう一度試してね"}), 502
+
+    if not card.get("allowed"):
+        write_log({"event": "refused", "favorite": favorite, "by": "ai"})
+        return jsonify({"ok": False, "reason": card.get("reason") or "その好きなものはカードにできないんだ。ほかのものにしてね"})
+
+    try:
+        image = mock_image(t["element"]) if MOCK else ai_image(card["image_prompt"], style)
+    except Exception as e:
+        app.logger.exception("絵の生成に失敗")
+        return jsonify({"ok": False, "reason": f"絵を描けませんでした（{type(e).__name__}）。もう一度試してね"}), 502
+
+    rarity = draw_rarity()
+    hp, atk = base_stats(code)
+    hp += random.randint(-10, 10) + RARITY_BONUS[rarity]
+    atk += random.randint(-10, 10) + RARITY_BONUS[rarity]
+
+    with _lock:
+        serial = sum(1 for r in read_log() if r["event"] == "card") + 1
+    write_log({"event": "card", "serial": serial, "type": code, "favorite": favorite,
+               "style": style, "rarity": rarity, "mock": MOCK})
+    return jsonify({
+        "ok": True,
+        "serial": serial,
+        "rarity": rarity,
+        "type_code": code,
+        "type_name": t["name"],
+        "type_desc": t["desc"],
+        "axes": [AXIS_WORDS[c] for c in code],
+        "strong": t["strong"],
+        "weak": t["weak"],
+        "partners": best_partners(code),
+        "element": t["element"],
+        "monster": card["monster"],
+        "hp": hp,
+        "attack": atk,
+        "move": card["move"],
+        "move_text": card["move_text"],
+        "flavor": card["flavor"],
+        "image": image,
+    })
+
+
+@app.post("/api/match")
+def match_cards():
+    """2枚のカード番号から相性を出す。家族や友だちで見せ合う用。"""
+    body = request.get_json(silent=True) or {}
+    cards = {r["serial"]: r for r in read_log() if r["event"] == "card"}
+    try:
+        a, b = cards[int(body.get("a"))], cards[int(body.get("b"))]
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"ok": False, "reason": "そのカード番号は見つからないよ"}), 404
+    if a["serial"] == b["serial"]:
+        return jsonify({"ok": False, "reason": "ちがうカードの番号を入れてね"}), 400
+    m = match(a["type"], b["type"])
+    write_log({"event": "match", "a": a["serial"], "b": b["serial"], "score": m["score"]})
+    return jsonify({"ok": True, "a": TYPES[a["type"]]["name"], "b": TYPES[b["type"]]["name"], **m})
+
+
+@app.post("/api/feedback")
+def feedback():
+    body = request.get_json(silent=True) or {}
+    price = body.get("price")
+    if price not in (0, 100, 200, 300, 400, 500, 700, 1000):
+        return jsonify({"ok": False}), 400
+    write_log({"event": "feedback", "serial": body.get("serial"), "price": price,
+               "again": bool(body.get("again"))})
+    return jsonify({"ok": True})
+
+
+@app.get("/api/stats")
+def stats():
+    """試してもらった結果のまとめ。企画書に使う。お試しモードで作ったカードは数えない。"""
+    rows = read_log()
+    real = {r["serial"] for r in rows if r["event"] == "card" and not r.get("mock")}
+    fb = [r for r in rows if r["event"] == "feedback" and r.get("serial") in real]
+    prices = [r["price"] for r in fb]
+    return jsonify({
+        "cards": len(real),
+        "refused": sum(1 for r in rows if r["event"] == "refused"),
+        "matches": sum(1 for r in rows if r["event"] == "match"),
+        "answers": len(fb),
+        "want_again": sum(1 for r in fb if r.get("again")),
+        "avg_price": round(sum(prices) / len(prices)) if prices else None,
+        "would_pay_300_or_more": sum(1 for p in prices if p >= 300),
+    })
+
+
+if __name__ == "__main__":
+    print("お試しモード（キー無し）" if MOCK else f"AIモード：{TEXT_MODEL} / {IMAGE_MODEL}")
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8120)), debug=False)

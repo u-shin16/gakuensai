@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>モンスター診断カード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root { --bg: #1b1433; --panel: #2a2150; --panel2: #3b2f6e; --text: #fff; --muted: #b9b0d9; --accent: #ffcc33; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: radial-gradient(circle at 50% 0, #3b2a78, var(--bg) 70%);
+    color: var(--text); font-family: "M PLUS Rounded 1c", sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding: 24px 16px 60px;
+  }
+  .wrap { width: 100%; max-width: 440px; display: flex; flex-direction: column; align-items: center; }
+  h1 { margin: 0 0 6px; font-size: 1.6rem; letter-spacing: .05em; text-align: center; }
+  .lead { margin: 0 0 20px; color: var(--muted); font-size: .92rem; text-align: center; line-height: 1.7; }
+  .mock { background: #ff5577; color: #fff; font-size: .75rem; padding: 4px 10px; border-radius: 99px; margin-bottom: 14px; }
+  button {
+    font: inherit; font-weight: 800; border: 0; border-radius: 14px; cursor: pointer;
+    padding: 14px 18px; background: var(--accent); color: #3a2400;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  button.sub { background: var(--panel); color: var(--text); }
+  .big { font-size: 1.15rem; padding: 18px 40px; }
+  .hidden { display: none !important; }
+
+  /* 質問 */
+  .progress { width: 100%; height: 8px; background: var(--panel); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+  .progress i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+  .qnum { color: var(--muted); font-size: .85rem; margin-bottom: 10px; }
+  .qtext { font-size: 1.25rem; font-weight: 800; text-align: center; margin: 6px 0 22px; line-height: 1.5; }
+  .choices { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+  .choices button { background: var(--panel2); color: var(--text); padding: 20px 16px; font-size: 1rem; line-height: 1.4; }
+  .choices button:active { background: var(--accent); color: #3a2400; }
+  .back { margin-top: 18px; background: none; color: var(--muted); font-weight: 500; padding: 6px; }
+
+  /* 好きなもの・絵柄 */
+  label.h { font-weight: 800; margin: 6px 0 10px; display: block; text-align: center; }
+  input[type=text], input[type=number] {
+    width: 100%; font: inherit; font-size: 1.1rem; padding: 14px 16px; border-radius: 14px;
+    border: 3px solid #5b4aa8; background: #fff; color: #222;
+  }
+  .examples { margin: 10px 0 22px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .examples button { background: var(--panel); color: var(--muted); padding: 6px 12px; font-size: .8rem; font-weight: 500; }
+  .styles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-bottom: 24px; }
+  .styles button { background: var(--panel2); color: var(--text); padding: 16px 8px; border: 3px solid transparent; }
+  .styles button.on { border-color: var(--accent); }
+  .styles small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-top: 4px; }
+
+  #status { min-height: 1.5em; color: var(--muted); text-align: center; margin-top: 8px; line-height: 1.6; }
+  #status.error { color: #ff8fa3; }
+  .spinner { width: 56px; height: 56px; margin: 16px auto; border-radius: 50%;
+    border: 6px solid #5b4aa8; border-top-color: var(--accent); animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== カード（54×86mm の比率） ===== */
+  .stage { perspective: 1000px; margin-top: 4px; }
+  .card {
+    width: 300px; aspect-ratio: 54 / 86; border-radius: 16px; padding: 10px;
+    position: relative; overflow: hidden; color: #222; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    animation: reveal .9s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes reveal { from { transform: rotateY(180deg) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+  .card.N  { background: linear-gradient(160deg, #d9dde3, #9aa3ad); }
+  .card.R  { background: linear-gradient(160deg, #7ec8ff, #2f6fd6); }
+  .card.SR { background: linear-gradient(160deg, #ffe27a, #d19a00); }
+  .card.UR { background: linear-gradient(120deg, #ff6ec7, #ffd86e, #6effa8, #6ec9ff, #c86eff, #ff6ec7);
+             background-size: 300% 300%; animation: reveal .9s cubic-bezier(.2,.8,.2,1), holo 4s linear infinite; }
+  @keyframes holo { to { background-position: 300% 0; } }
+  .inner { background: #fffdf5; border-radius: 10px; height: 100%; display: flex; flex-direction: column; padding: 8px; gap: 5px; }
+  .top { display: flex; align-items: center; gap: 6px; }
+  .rarity { font-weight: 800; font-size: .72rem; padding: 2px 8px; border-radius: 99px; color: #fff; background: #555; }
+  .UR .rarity { background: linear-gradient(90deg, #ff4fa3, #7a5cff); }
+  .SR .rarity { background: #c98a00; }
+  .R .rarity { background: #2f6fd6; }
+  .ctype { font-size: .68rem; font-weight: 800; color: #6a5acd; }
+  .element { margin-left: auto; font-size: .7rem; font-weight: 800; color: #555; }
+  .name { font-weight: 800; font-size: 1rem; line-height: 1.2; }
+  .art { border-radius: 8px; overflow: hidden; aspect-ratio: 1; background: #eee; border: 3px solid rgba(0,0,0,.15); }
+  .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .stats { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 6px; align-items: center; font-size: .7rem; font-weight: 800; }
+  .bar { height: 7px; border-radius: 99px; background: #e8e3d3; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffb347, #ff5e62); }
+  .bar.hp i { background: linear-gradient(90deg, #7be495, #2bb673); }
+  .move { background: #f3eedc; border-radius: 6px; padding: 4px 7px; font-size: .7rem; }
+  .move b { display: block; font-size: .8rem; }
+  .flavor { font-size: .64rem; color: #666; line-height: 1.4; flex: 1; }
+  .foot { display: flex; justify-content: space-between; font-size: .6rem; color: #888; font-weight: 800; }
+
+  /* 診断結果 */
+  .panel { margin-top: 20px; background: var(--panel); border-radius: 16px; padding: 16px 18px; width: 100%; }
+  .panel h2 { margin: 0 0 4px; font-size: 1.2rem; }
+  .axes { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+  .axes span { background: var(--panel2); border-radius: 99px; padding: 3px 10px; font-size: .75rem; }
+  .panel dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: .9rem; }
+  .panel dt { color: var(--accent); font-weight: 800; }
+  .panel dd { margin: 0; }
+  .panel p { margin: 0 0 10px; line-height: 1.6; }
+
+  .actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row input { width: 110px; text-align: center; }
+  .matchres { margin-top: 14px; text-align: center; }
+  .matchres .score { font-size: 2.4rem; font-weight: 800; color: var(--accent); }
+  .matchres ul { text-align: left; margin: 8px 0 0; padding-left: 1.2em; font-size: .88rem; line-height: 1.6; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
+  .chips button { background: var(--panel2); color: var(--text); padding: 8px 12px; font-size: .85rem; }
+  .chips button.on { background: var(--accent); color: #3a2400; }
+  .center { text-align: center; }
+  .thanks { color: var(--accent); font-weight: 800; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>モンスター診断カード</h1>
+  {% if mock %}<div class="mock">お試しモード：AIを使わずダミーのカードを出しています</div>{% endif %}
+
+  <!-- 1. はじめ -->
+  <section id="s-start" class="wrap">
+    <p class="lead">8つの質問に答えると、<br>あなたの性格からモンスターが生まれます。<br>AIがその場で描く、世界に1枚だけのカード。</p>
+    <button class="big" id="startBtn">診断をはじめる</button>
+  </section>
+
+  <!-- 2. 質問 -->
+  <section id="s-quiz" class="wrap hidden">
+    <div class="progress"><i id="bar"></i></div>
+    <div class="qnum" id="qnum"></div>
+    <div class="qtext" id="qtext"></div>
+    <div class="choices"><button id="optA"></button><button id="optB"></button></div>
+    <button class="back" id="prevBtn">← ひとつ前にもどる</button>
+  </section>
+
+  <!-- 3. 好きなもの・絵柄 -->
+  <section id="s-fav" class="wrap hidden">
+    <label class="h" for="favorite">さいごに、あなたの好きなものは？</label>
+    <input id="favorite" type="text" maxlength="20" placeholder="例：ラーメン" autocomplete="off">
+    <div class="examples">
+      <button type="button">ラーメン</button><button type="button">ねこ</button><button type="button">サッカー</button>
+      <button type="button">コーヒー</button><button type="button">昼寝</button><button type="button">宇宙</button>
+    </div>
+    <label class="h">絵柄をえらんでね</label>
+    <div class="styles" id="styles">
+      <button type="button" data-v="cute" class="on">かわいい<small>まるっこい・やさしい色</small></button>
+      <button type="button" data-v="cool">かっこいい<small>するどい・迫力がある</small></button>
+    </div>
+    <button class="big" id="makeBtn">カードを作る！</button>
+    <div id="loading" class="hidden"><div class="spinner"></div></div>
+    <div id="status"></div>
+  </section>
+
+  <!-- 4. 結果 -->
+  <section id="s-result" class="wrap hidden">
+    <div class="stage" id="stage"></div>
+
+    <div class="actions">
+      <button type="button" id="saveBtn">画像を保存</button>
+      <button type="button" class="sub" id="nextBtn">つぎの人が診断する</button>
+    </div>
+
+    <div class="panel" id="typePanel"></div>
+
+    <div class="panel">
+      <h2>だれかと相性を見る</h2>
+      <p>一緒に来た人もカードを作ったら、その人のカード番号（左下の No.）を入れてね。</p>
+      <div class="row"><input id="otherNo" type="number" min="1" placeholder="No."><button type="button" id="matchBtn">相性を見る</button></div>
+      <div class="matchres" id="matchRes"></div>
+    </div>
+
+    <div class="panel center" id="survey">
+      <p><b>このカード、いくらなら買う？</b></p>
+      <div class="chips" id="prices"></div>
+      <p><b>もう1枚（ちがう絵柄や好きなもので）作りたい？</b></p>
+      <div class="chips" id="againChips">
+        <button type="button" data-v="1">作りたい！</button><button type="button" data-v="0">1枚でいい</button>
+      </div>
+      <button type="button" id="sendBtn" disabled>答える</button>
+      <div class="thanks hidden" id="thanks">ありがとう！</div>
+    </div>
+  </section>
+</div>
+
+<script>
+const QUESTIONS = {{ questions | tojson }};
+const PRICES = [0, 100, 200, 300, 400, 500, 700, 1000];
+const LOADING_MSGS = ['性格を読みといています…', 'モンスターが生まれそう…', 'AIが絵を描いています…', '色をぬっています…', 'レア度を決めています…'];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let answers = [], style = 'cute', current = null, survey = { price: null, again: null };
+
+function show(id) {
+  ['s-start', 's-quiz', 's-fav', 's-result'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
+  window.scrollTo({ top: 0 });
+}
+
+function renderQuestion() {
+  const i = answers.length;
+  if (i >= QUESTIONS.length) { show('s-fav'); $('favorite').focus(); return; }
+  const q = QUESTIONS[i];
+  $('bar').style.width = (i / QUESTIONS.length * 100) + '%';
+  $('qnum').textContent = `質問 ${i + 1} / ${QUESTIONS.length}`;
+  $('qtext').textContent = q.q;
+  $('optA').textContent = q.a[0];
+  $('optB').textContent = q.b[0];
+  $('prevBtn').classList.toggle('hidden', i === 0);
+}
+
+$('startBtn').onclick = () => { answers = []; show('s-quiz'); renderQuestion(); };
+$('optA').onclick = () => { answers.push(QUESTIONS[answers.length].a[1]); renderQuestion(); };
+$('optB').onclick = () => { answers.push(QUESTIONS[answers.length].b[1]); renderQuestion(); };
+$('prevBtn').onclick = () => { answers.pop(); renderQuestion(); };
+
+document.querySelectorAll('.examples button').forEach((b) => b.onclick = () => { $('favorite').value = b.textContent; });
+document.querySelectorAll('#styles button').forEach((b) => b.onclick = () => {
+  document.querySelectorAll('#styles button').forEach((x) => x.classList.remove('on'));
+  b.classList.add('on'); style = b.dataset.v;
+});
+
+$('makeBtn').onclick = async () => {
+  const favorite = $('favorite').value.trim();
+  if (!favorite) { $('status').className = 'error'; $('status').textContent = '好きなものを入れてね'; return; }
+  $('makeBtn').disabled = true;
+  $('loading').classList.remove('hidden');
+  $('status').className = '';
+  let i = 0; $('status').textContent = LOADING_MSGS[0];
+  const timer = setInterval(() => { i = (i + 1) % LOADING_MSGS.length; $('status').textContent = LOADING_MSGS[i]; }, 2500);
+  const t0 = Date.now();
+  try {
+    const res = await fetch('/api/card', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers, favorite, style }) });
+    const data = await res.json();
+    if (!data.ok) { $('status').className = 'error'; $('status').textContent = data.reason; return; }
+    current = data;
+    current.seconds = Math.round((Date.now() - t0) / 1000);
+    renderResult(data);
+    show('s-result');
+  } catch (err) {
+    $('status').className = 'error'; $('status').textContent = '通信に失敗しました。もう一度試してね';
+  } finally {
+    clearInterval(timer); $('loading').classList.add('hidden'); $('makeBtn').disabled = false;
+  }
+};
+
+function renderResult(c) {
+  const pct = (v) => Math.min(100, Math.round(v / 220 * 100));
+  $('stage').innerHTML = `
+    <div class="card ${c.rarity}" id="card"><div class="inner">
+      <div class="top"><span class="rarity">${c.rarity}</span><span class="ctype">${esc(c.type_name)}</span><span class="element">${esc(c.element)}</span></div>
+      <div class="name">${esc(c.monster)}</div>
+      <div class="art"><img src="${c.image}" alt=""></div>
+      <div class="stats">
+        <span>HP</span><div class="bar hp"><i style="width:${pct(c.hp)}%"></i></div><span>${c.hp}</span>
+        <span>こうげき</span><div class="bar"><i style="width:${pct(c.attack)}%"></i></div><span>${c.attack}</span>
+      </div>
+      <div class="move"><b>わざ：${esc(c.move)}</b>${esc(c.move_text)}</div>
+      <div class="flavor">${esc(c.flavor)}</div>
+      <div class="foot"><span>No.${String(c.serial).padStart(4, '0')}</span><span>2026.11.21</span></div>
+    </div></div>`;
+  $('typePanel').innerHTML = `
+    <h2>あなたは「${esc(c.type_name)}」タイプ</h2>
+    <div class="axes">${c.axes.map((a) => `<span>${esc(a)}</span>`).join('')}</div>
+    <p>${esc(c.type_desc)}</p>
+    <dl>
+      <dt>強み</dt><dd>${esc(c.strong)}</dd>
+      <dt>弱点</dt><dd>${esc(c.weak)}</dd>
+      <dt>相性◎</dt><dd>${c.partners.map(esc).join('、')}</dd>
+    </dl>`;
+  $('matchRes').innerHTML = ''; $('otherNo').value = '';
+  survey = { price: null, again: null };
+  document.querySelectorAll('.chips button').forEach((b) => b.classList.remove('on'));
+  $('sendBtn').disabled = true; $('sendBtn').classList.remove('hidden'); $('thanks').classList.add('hidden');
+}
+
+$('saveBtn').onclick = async () => {
+  const canvas = await html2canvas($('card'), { backgroundColor: null, scale: 3 });
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = `card-${String(current.serial).padStart(4, '0')}.png`;
+  a.click();
+};
+
+$('nextBtn').onclick = () => {
+  answers = []; $('favorite').value = ''; $('status').textContent = '';
+  show('s-start');
+};
+
+$('matchBtn').onclick = async () => {
+  const b = $('otherNo').value;
+  if (!b) return;
+  const res = await fetch('/api/match', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ a: current.serial, b: Number(b) }) });
+  const m = await res.json();
+  if (!m.ok) { $('matchRes').innerHTML = `<p style="color:#ff8fa3">${esc(m.reason)}</p>`; return; }
+  $('matchRes').innerHTML = `
+    <div>${esc(m.a)} × ${esc(m.b)}</div>
+    <div class="score">${m.score}%</div>
+    <div><b>${esc(m.title)}</b></div>
+    <ul>${m.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>`;
+};
+
+$('prices').innerHTML = PRICES.map((p) => `<button type="button" data-v="${p}">${p === 0 ? '買わない' : p + '円'}</button>`).join('');
+function chip(groupId, key) {
+  $(groupId).querySelectorAll('button').forEach((b) => b.onclick = () => {
+    $(groupId).querySelectorAll('button').forEach((x) => x.classList.remove('on'));
+    b.classList.add('on');
+    survey[key] = Number(b.dataset.v);
+    $('sendBtn').disabled = survey.price === null || survey.again === null;
+  });
+}
+chip('prices', 'price'); chip('againChips', 'again');
+$('sendBtn').onclick = async () => {
+  await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serial: current.serial, price: survey.price, again: survey.again === 1 }) });
+  $('sendBtn').classList.add('hidden'); $('thanks').classList.remove('hidden');
+};
+</script>
+</body>
+</html>
