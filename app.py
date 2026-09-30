@@ -193,6 +193,8 @@ def ai_card(code: str, favorite: str, style: str) -> dict:
             response_mime_type="application/json",
             response_schema=CARD_SCHEMA,
             temperature=1.0,
+            # 考える時間を切る。入れたままだと文章だけで約10秒かかり、行列が止まる（2026-09-30に実測）
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
         ),
     )
     return json.loads(resp.text)
