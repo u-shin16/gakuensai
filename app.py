@@ -79,9 +79,12 @@ BLOCKED_WORDS = [
 # つやつやしたAIっぽい絵にも、平たすぎるちゃちな絵にもならないようにする。
 STYLES = {
     "cute": ("Warm Japanese picture-book illustration, gouache and colored pencil texture, hand-painted brush strokes, "
-             "visible paper grain, soft natural shading, gentle rounded cute character design"),
+             "visible paper grain, soft natural shading. CUTE: chibi proportions with a big round head, big round sparkling eyes, "
+             "soft rounded shapes, gentle smiling expression"),
     "cool": ("Warm Japanese picture-book illustration, gouache and colored pencil texture, hand-painted brush strokes, "
-             "visible paper grain, soft natural shading, brave and heroic character design with a confident pose"),
+             "visible paper grain, soft natural shading. COOL: a noble, strong guardian beast with tall heroic proportions "
+             "(not chibi), sharp confident eyes, a dignified serious expression, dynamic powerful pose, bold silhouette, "
+             "deeper and richer colors, dramatic composition. It must not look cute or babyish, no big round eyes"),
 }
 IMAGE_COMMON = ("Single character, full body, centered, facing the viewer. "
                 "Behind the character, a gentle picture-book background scene with a few small props and scenery related to the subject, "
@@ -145,6 +148,7 @@ allowed=true のとき：
   恋愛「{love}」／友情「{friend}」／勉強・仕事「{study}」／お金「{money}」
 - lucky：ラッキーアイテムを1つ（12文字以内）。好きなものをそのまま書かず、少しひねったもの（例：ラーメン→「なるとのキーホルダー」）
 - image_prompt：絵を描くための英語の説明。モチーフ「{motif}」に、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルモンスター1体。既存キャラに似せない。文字は入れない
+  絵柄が「かっこいい」なら、強くて凛々しい姿（ちびキャラ・赤ちゃんっぽい姿にしない）として書く。「かわいい」なら、まるっこくて愛らしい姿として書く
 """
 
 
@@ -222,7 +226,8 @@ def ai_image(prompt: str, style: str, hue: str) -> str:
     client = genai.Client(api_key=API_KEY)
     resp = client.models.generate_content(
         model=IMAGE_MODEL,
-        contents=f"{STYLES[style]}. {IMAGE_COMMON.format(hue=hue)}Subject: {prompt}",
+        # 絵柄の指定は最初と最後の両方に置く（途中の説明に引っぱられて「かわいい」寄りになるのを防ぐ）
+        contents=f"{STYLES[style]}. {IMAGE_COMMON.format(hue=hue)}Subject: {prompt}. Style reminder: {STYLES[style]}",
         config=types.GenerateContentConfig(
             response_modalities=["IMAGE"],
             image_config=types.ImageConfig(aspect_ratio="1:1"),
