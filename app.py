@@ -82,7 +82,9 @@ STYLES = {
     "cool": ("Warm Japanese picture-book illustration, gouache and colored pencil texture, hand-painted brush strokes, "
              "visible paper grain, soft natural shading, brave and heroic character design with a confident pose"),
 }
-IMAGE_COMMON = ("Single character, full body, centered, facing the viewer, simple soft background in muted tones of {hue}. "
+IMAGE_COMMON = ("Single character, full body, centered, facing the viewer. "
+                "Behind the character, a gentle picture-book background scene with a few small props and scenery related to the subject, "
+                "in soft tones of {hue}; not busy, the character stays the clear focus. "
                 "Absolutely no text, no letters, no numbers, no signature, no stamp, no logo, no frame. "
                 "Not glossy, not 3D, not resembling any existing franchise character. ")
 

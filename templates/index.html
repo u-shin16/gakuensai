@@ -72,7 +72,7 @@
     animation: reveal .9s cubic-bezier(.2,.8,.2,1);
   }
   @keyframes reveal { from { transform: rotateY(180deg) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
-  .inner { background: var(--tint); border-radius: 9px; height: 100%; display: flex; flex-direction: column; padding: 10px 11px 9px; gap: 4px; }
+  .inner { background: var(--pat), var(--tint); border-radius: 9px; height: 100%; display: flex; flex-direction: column; padding: 10px 11px 9px; gap: 4px; }
   .top { display: flex; align-items: center; font-size: .6rem; font-weight: 800; color: var(--tc); }
   .you { font-size: .62rem; color: #7a7290; font-weight: 800; margin-top: 2px; }
   .kana { font-size: .56rem; font-weight: 800; color: var(--tc); opacity: .8; letter-spacing: .08em; margin-top: 2px; margin-bottom: -4px; }
@@ -222,9 +222,19 @@ function tint(hex, t) {
   return `rgb(${mix(n >> 16)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`;
 }
 
+// カードの地に敷く、テーマ色の小さな星と点の模様（SVGを背景画像にする）
+function pattern(hex) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+    <g fill="${hex}" fill-opacity=".16">
+      <path d="M11 5l1.6 3.6L16 10l-3.4 1.4L11 15l-1.6-3.6L6 10l3.4-1.4z"/>
+      <circle cx="33" cy="30" r="1.8"/><circle cx="36" cy="9" r="1.1"/><circle cx="8" cy="34" r="1.1"/>
+    </g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
 function renderResult(c) {
   $('stage').innerHTML = `
-    <div class="card" id="card" style="--tc:${c.color};--tint:${tint(c.color, .88)};--soft:${tint(c.color, .6)}"><div class="inner">
+    <div class="card" id="card" style="--tc:${c.color};--tint:${tint(c.color, .88)};--soft:${tint(c.color, .6)};--pat:${pattern(c.color).replace(/"/g, '&quot;')}"><div class="inner">
       <div class="top"><span>No.${String(c.serial).padStart(4, '0')}</span></div>
       <div class="you">あなたは</div>
       <div class="kana">${esc(c.type_kana)}</div>
@@ -243,7 +253,9 @@ function renderResult(c) {
 }
 
 $('saveBtn').onclick = async () => {
-  const canvas = await html2canvas($('card'), { backgroundColor: null, scale: 3 });
+  // 複製したカードで出現アニメーションが最初から再生され、反転・半透明のまま写るのを防ぐ
+  const canvas = await html2canvas($('card'), { backgroundColor: null, scale: 3,
+    onclone: (doc) => { doc.getElementById('card').style.animation = 'none'; } });
   const a = document.createElement('a');
   a.href = canvas.toDataURL('image/png');
   a.download = `card-${String(current.serial).padStart(4, '0')}.png`;
