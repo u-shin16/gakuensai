@@ -89,7 +89,8 @@ STYLES = {
 IMAGE_COMMON = ("Single character, full body, centered, facing the viewer. "
                 "Behind the character, a gentle picture-book background scene with a few small props and scenery related to the subject, "
                 "in soft tones of {hue}; not busy, the character stays the clear focus. "
-                "Full-bleed: the painting fills the whole square edge to edge, no white border, no margin, no paper edge. "
+                "Full-bleed: the painting fills the whole square edge to edge, no white border, no margin, no paper edge, "
+                "no vignette, no fading to white at the edges, not a picture drawn on a sheet of paper. "
                 "Absolutely no text, no letters, no numbers, no signature, no stamp, no logo, no frame. "
                 "Not glossy, not 3D, not resembling any existing franchise character. ")
 
