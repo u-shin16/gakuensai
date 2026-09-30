@@ -23,8 +23,9 @@ PAPER_BRIGHT = 190   # 四隅がこれより明るいときだけ「紙のふち
 CORNER_SPREAD = 30   # 四隅の色の差がこれ以内なら、同じ紙の色とみなす
 NEAR_PAPER = 28      # 紙の色からこの差以内の点を「紙」とみなす
 PAPER_RATIO = 0.55   # 境目より外側の列・行が、平均でこの割合以上紙なら「ふち」とみなす
-SHARP_DROP = 0.4     # 境目で、紙の割合がこれ以上一気に下がること
-EDGE_RATIO = 0.25    # 紙の割合がこれより下がった列・行を、絵の部分の始まり（境目）とみなす
+SHARP_DROP = 0.35    # 境目で、紙の割合がこれ以上一気に下がること
+SHADOW_NEAR = 70     # 境目の外側では、紙の色からこの差までの色（紙の上の影など）も埋める
+CONTENT_MIN = 0.04   # 紙以外の点がこの割合以上ある列・行を「絵の中身がある」とみなす
 
 
 def _corner_colors(img: Image.Image) -> list[tuple[float, ...]]:
@@ -65,15 +66,14 @@ def trim_margins(data: bytes) -> bytes:
     def cut(n: int, strip) -> int:
         limit = int(n * MAX_TRIM)
         ratios = [ratio(strip(i)) for i in range(limit)]
-        for k, r in enumerate(ratios):
-            if r < EDGE_RATIO:
-                if k == 0:
-                    return 0
-                # 境目がくっきりしているか（直前の数ピクセルから一気に紙が減るか）。
-                # 白くぼかした背景（ビネット）はゆるやかに減るので、ここで外れる。
-                before = ratios[max(0, k - 6):k]
-                sharp = sum(before) / len(before) - r >= SHARP_DROP
-                return k if sharp and sum(ratios[:k]) / k >= PAPER_RATIO else 0
+        for k in range(1, len(ratios)):
+            # 境目がぼやけている絵もあるので、12ピクセル手前と比べる
+            before = ratios[max(0, k - 12):max(1, k - 9)]
+            # 境目：直前の数ピクセルから紙の割合が一気に下がるところ。
+            # ふちが広いと、上下の行にも左右のふちの紙が混ざるので、「0に近いか」ではなく「一気に下がったか」で見る。
+            # 白くぼかした背景（ビネット）はゆるやかに下がるので、ここで外れる。
+            if sum(before) / len(before) - ratios[k] >= SHARP_DROP:
+                return k if sum(ratios[:k]) / k >= PAPER_RATIO else 0
         return 0
 
     left = cut(w, lambda i: (i, 0, i + 1, h))
@@ -83,44 +83,65 @@ def trim_margins(data: bytes) -> bytes:
     if (left, top, right, bottom) == (0, 0, w, h):
         return data
 
-    # 切り取ると、ふちまではみ出して描かれた頭や足まで切れてしまう（2026-09-30に発生）。
-    # なので切らずに、ふちの「紙の色の点」だけを、すぐ内側の背景の色で塗りつぶす。
-    # 行ごと・列ごとに境目の少し内側の色を使うので、背景の色の変化もそのまま外へ伸びる。
-    px = np.asarray(img).astype(np.float32)
+    # ① 絵の中身がある範囲（ふちからはみ出したキャラの一部も含む）まで切り詰める。
+    #    ふちが広い絵を全部塗ると、たてすじの枠のように見えて汚くなったため（2026-09-30）。
+    arr = np.asarray(img).astype(np.float32)
     ref = np.array(paper, dtype=np.float32)
-    pad, depth, blur = 8, 24, 161
+    content = np.abs(arr - ref).max(axis=2) > SHADOW_NEAR
+    cols = np.where(content.mean(axis=0) >= CONTENT_MIN)[0]
+    rows = np.where(content.mean(axis=1) >= CONTENT_MIN)[0]
+    if len(cols) == 0 or len(rows) == 0:
+        return data
+    x0, x1, y0, y1 = cols[0], cols[-1] + 1, rows[0], rows[-1] + 1
+    px = arr[y0:y1, x0:x1].copy()
+    ch, cw = px.shape[:2]
+    depth, blur, fringe = 24, 161, 60
 
     def smooth(line: np.ndarray) -> np.ndarray:
-        """塗る色を行（列）方向に少しぼかす。ぼかさないと横すじ・縦すじが目立つ。"""
+        """塗る色を行（列）方向に大きくぼかす。ぼかさないとすじが目立つ。"""
         k = np.ones(blur, dtype=np.float32) / blur
         padded = np.pad(line, ((blur // 2, blur // 2), (0, 0)), mode="edge")
         return np.stack([np.convolve(padded[:, c], k, mode="valid") for c in range(3)], axis=1)
 
-    def fill(arr: np.ndarray, band: np.ndarray, color: np.ndarray) -> None:
-        is_paper = np.abs(arr - ref).max(axis=2) <= NEAR_PAPER + 12
-        m = band & is_paper
-        arr[m] = color[m]
+    # ② 切り詰めたあと、角の丸みなどに残った紙の色だけを、すぐ内側の色で塗る
+    near = lambda a: np.abs(a - ref).max(axis=2) <= NEAR_PAPER + 12
+    for side in ("top", "bottom", "left", "right"):
+        if side in ("top", "bottom") and ch > 2 * fringe + depth:
+            sl = slice(fringe, fringe + depth) if side == "top" else slice(ch - fringe - depth, ch - fringe)
+            src = np.broadcast_to(smooth(px[sl, :].mean(axis=0))[None, :, :], px.shape)
+            band = np.zeros((ch, cw), bool)
+            band[:fringe] = side == "top"
+            if side == "bottom":
+                band[ch - fringe:] = True
+        elif side in ("left", "right") and cw > 2 * fringe + depth:
+            sl = slice(fringe, fringe + depth) if side == "left" else slice(cw - fringe - depth, cw - fringe)
+            src = np.broadcast_to(smooth(px[:, sl].mean(axis=1))[:, None, :], px.shape)
+            band = np.zeros((ch, cw), bool)
+            if side == "left":
+                band[:, :fringe] = True
+            else:
+                band[:, cw - fringe:] = True
+        else:
+            continue
+        m = band & near(px)
+        px[m] = src[m]
 
-    # 上下を先に塗り、そのあと左右を塗る（角は左右の塗りで埋まる）
-    if top:
-        src = smooth(px[min(top + pad, h - 1):min(top + pad + depth, h), :].mean(axis=0))
-        band = np.zeros((h, w), bool); band[:top + 2, :] = True
-        fill(px, band, np.broadcast_to(src[None, :, :], px.shape))
-    if bottom < h:
-        src = smooth(px[max(bottom - pad - depth, 0):max(bottom - pad, 1), :].mean(axis=0))
-        band = np.zeros((h, w), bool); band[bottom - 2:, :] = True
-        fill(px, band, np.broadcast_to(src[None, :, :], px.shape))
-    if left:
-        src = smooth(px[:, min(left + pad, w - 1):min(left + pad + depth, w)].mean(axis=1))
-        band = np.zeros((h, w), bool); band[:, :left + 2] = True
-        fill(px, band, np.broadcast_to(src[:, None, :], px.shape))
-    if right < w:
-        src = smooth(px[:, max(right - pad - depth, 0):max(right - pad, 1)].mean(axis=1))
-        band = np.zeros((h, w), bool); band[:, right - 2:] = True
-        fill(px, band, np.broadcast_to(src[:, None, :], px.shape))
-    out = np.clip(px, 0, 255)
+    # ③ 正方形にする。足りない分は、端の色をなめらかに伸ばして埋める（絵は切らない）
+    side_len = max(ch, cw)
+    sq = np.zeros((side_len, side_len, 3), np.float32)
+    oy, ox = (side_len - ch) // 2, (side_len - cw) // 2
+    sq[oy:oy + ch, ox:ox + cw] = px
+    if cw < side_len:
+        lcol = smooth(px[:, :depth].mean(axis=1)); rcol = smooth(px[:, -depth:].mean(axis=1))
+        sq[oy:oy + ch, :ox] = lcol[:, None, :]
+        sq[oy:oy + ch, ox + cw:] = rcol[:, None, :]
+    if ch < side_len:
+        trow = smooth(sq[oy:oy + depth].mean(axis=0)); brow = smooth(sq[oy + ch - depth:oy + ch].mean(axis=0))
+        sq[:oy] = trow[None, :, :]
+        sq[oy + ch:] = brow[None, :, :]
+    out = Image.fromarray(np.clip(sq, 0, 255).astype(np.uint8)).resize((w, w), Image.LANCZOS)
     buf = io.BytesIO()
-    Image.fromarray(out.astype(np.uint8)).save(buf, format="PNG")
+    out.save(buf, format="PNG")
     return buf.getvalue()
 
 
