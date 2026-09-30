@@ -24,6 +24,7 @@ import random
 import re
 import secrets
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
@@ -91,7 +92,7 @@ IMAGE_COMMON = ("Single character, full body, centered, facing the viewer. "
                 "in soft tones of {hue}; not busy, the character stays the clear focus. "
                 "Full-bleed: the painting fills the whole square edge to edge, no white border, no margin, no paper edge, "
                 "no vignette, no fading to white at the edges, not a picture drawn on a sheet of paper. "
-                "Absolutely no text, no letters, no numbers, no signature, no stamp, no logo, no frame. "
+                "Absolutely no text, no letters, no numbers, no signature, no stamp, no logo, no brand marks (no sports brand stripes or swooshes), no real team uniforms, no frame. "
                 "Not glossy, not 3D, not resembling any existing franchise character. ")
 
 CARD_SCHEMA = {
@@ -141,12 +142,12 @@ allowed=true のとき：
   - 文末は「〜しがち。」「〜ことがある。」「〜ときもある。」のどれかにそろえる（です・ますや「〜よね」は使わない）
   - 小学生でも意味がすぐ分かる、ふつうの日本語にする。たとえ話や詩的な言い回しは使わない。悪口にしない
 - message：守り神からこの人への「ひとこと」。カードに大きく載る。次の決まりを必ず守る。
-  - 形は「（この人のいいところを1つ、具体的にほめる）＋（好きなもの「{favorite}」にからめた、次にやってみたいこと）」の2文
-  - 40文字以内（句読点も数える）
-  - ほめ方は「すごいね」に頼らず、「〇〇できるのは、きみのいいところだね」「〇〇なきみに、ぼくはいつも助けられているよ」など言い方を変える
+  - 2文で書く。1文目でこの人のいいところを1つほめ、2文目では、そのいいところが好きなもの「{favorite}」の場面でどう活きるかを言う。
+    1文目と2文目は必ず意味がつながること。2文目だけ別の話（「〜を見に行こう」「一緒に〜しよう」など）にしない
+  - 形の例（中身は写さない）：「〇〇できるところが、きみのいいところだね。その力があれば、△△でもきっと〇〇できるよ。」
+  - 45文字以内（句読点も数える）
   - 小学生が読んでも意味がすぐ分かる、ふつうの話し言葉の日本語にする。声に出して読んで不自然な文にしない
   - たとえ話・詩的な言い回しは使わない（「心の〇〇」「〇〇の世界」「〇〇を奏でる」「輝き」など）
-  - 好きなものは、実際にするこうどうや物として出す（例：ラーメンなら「ラーメンを食べに行く」、ねこなら「ねこと遊ぶ」）
   - 一人称は「ぼく」。相手は「きみ」。命令や説教にしない。「見守っている」「そばにいる」「大好き」は使わない
 - love（恋愛）・friend（友情）・study（勉強・仕事）・money（お金）：占いの結果の文。実在の占い（動物キャラ占い・星座占いなど）と同じ書き方にする。
   - です・ます調でそろえる。「◎」「〜ね」「〜よ」「〜してみて」「〜しよう」は使わない
@@ -233,6 +234,44 @@ def ai_card(code: str, favorite: str, style: str, profile: list[str], used_names
     if card.get("catch", "").endswith("あります。"):
         card["catch"] = card["catch"][:-5] + "ある。"
     return card
+
+
+MESSAGE_PROMPT = """あなたは、ある人を守る守り神です。その人にカードで渡す「ひとこと」を書きます。
+読むのは小学生から大人まで。
+
+その人の性格：{type_name}（{type_desc}）
+いいところ：{strong}
+この人だけの傾き：{profile}
+好きなもの：「{favorite}」
+
+決まり：
+- 2文で書く。1文目でいいところを1つ、具体的にほめる。2文目では、そのいいところが「{favorite}」の場面でどう活きるかを書く
+- 1文目と2文目の意味が、読んだ人が「なるほど」と思えるほど自然につながること。つながりが弱い組み合わせ（例：人の気持ちが分かる → 電車の乗り換えが上手）は使わない
+- 合わせて45文字以内（句読点も数える）
+- 一人称は「ぼく」、相手は「きみ」。やさしい話し言葉。命令や説教、たとえ話、詩的な言い回しは使わない
+- 「見守っている」「そばにいる」「大好き」は使わない
+- 書いたあと、声に出して読んで不自然なところがないか確かめ、あれば直してから答える
+
+ひとことの文だけを答える（かぎかっこは付けない）。"""
+
+
+def ai_message(code: str, favorite: str, profile: list[str]) -> str:
+    """守り神のひとことだけを、考える時間つきで作る。1文目と2文目のつながりを良くするため（2026-09-30）。"""
+    from google import genai
+    from google.genai import types
+
+    t = TYPES[code]
+    client = genai.Client(api_key=API_KEY)
+    resp = client.models.generate_content(
+        model=TEXT_MODEL,
+        contents=MESSAGE_PROMPT.format(type_name=t["name"], type_desc=t["desc"], strong=t["strong"],
+                                       profile="、".join(profile), favorite=favorite),
+        config=types.GenerateContentConfig(
+            temperature=0.9,
+            thinking_config=types.ThinkingConfig(thinking_budget=1024),
+        ),
+    )
+    return "".join((resp.text or "").split()).strip("「」")  # 改行や空白が入ることがあるので詰める
 
 
 def ai_image(prompt: str, style: str, hue: str) -> str:
@@ -372,7 +411,18 @@ def make_card():
         return jsonify({"ok": False, "reason": card.get("reason") or "その好きなものはカードにできないんだ。ほかのものにしてね"})
 
     try:
-        image = mock_image(t["color"]) if mock else ai_image(card["image_prompt"], style, t["hue"])
+        if mock:
+            image = mock_image(t["color"])
+        else:
+            # 絵を描いている間に、守り神のひとことを「考える時間つき」で作り直す（待ち時間は増えない）
+            with ThreadPoolExecutor(max_workers=2) as ex:
+                f_img = ex.submit(ai_image, card["image_prompt"], style, t["hue"])
+                f_msg = ex.submit(ai_message, code, favorite, profile)
+                image = f_img.result()
+                try:
+                    card["message"] = f_msg.result() or card["message"]
+                except Exception:
+                    app.logger.exception("ひとことの作り直しに失敗（最初の文を使う）")
     except Exception as e:
         app.logger.exception("絵の生成に失敗")
         return jsonify({"ok": False, "reason": f"絵を描けませんでした（{type(e).__name__}）。もう一度試してね"}), 502
