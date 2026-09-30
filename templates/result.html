@@ -23,6 +23,7 @@
   .mname { text-align: center; margin: 8px 0 2px; color: var(--muted); font-size: .85rem; }
   .mname b { color: var(--text); font-size: 1.1rem; }
   .msg { text-align: center; margin: 4px 0 6px; line-height: 1.7; font-size: .95rem; }
+  .panel .lead { color: var(--muted); font-size: .85rem; margin-bottom: 12px; }
   .save { display: block; text-align: center; color: var(--accent); font-size: .85rem; margin-bottom: 8px; }
   .panel { background: var(--panel); border-radius: 16px; padding: 16px 18px; margin-top: 14px; }
   .panel h2 { margin: 0 0 10px; font-size: 1.05rem; }
@@ -65,7 +66,8 @@
   </div>
 
   <div class="panel">
-    <h2>あなたへのアドバイス</h2>
+    <h2>守り神 {{ r.monster }} が占う、あなたの運勢</h2>
+    <p class="lead">あなたの性格をよく知る守り神が、これからの運勢を占いました。</p>
     <dl>
       <dt>恋愛</dt><dd>{{ r.love }}</dd>
       <dt>友情</dt><dd>{{ r.friend }}</dd>
