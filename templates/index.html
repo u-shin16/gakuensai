@@ -77,11 +77,13 @@
   .you { font-size: .62rem; color: #7a7290; font-weight: 800; margin-top: 2px; }
   .kana { font-size: .56rem; font-weight: 800; color: var(--tc); opacity: .8; letter-spacing: .08em; margin-top: 2px; margin-bottom: -4px; }
   .tname { font-size: 1.3rem; font-weight: 800; color: var(--tc); line-height: 1.15; }
-  .art { border-radius: 10px; overflow: hidden; aspect-ratio: 1; background: var(--soft); border: 2px solid var(--tc); width: 100%; margin-top: 2px; }
+  /* 絵の枠は必ず正方形。文が長くても押しつぶされて絵の上下が切れないよう、縮ませない（2026-09-30） */
+  .art { border-radius: 10px; overflow: hidden; aspect-ratio: 1; background: var(--soft); border: 2px solid var(--tc);
+    width: 76%; align-self: center; flex-shrink: 0; margin-top: 2px; }
   .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .mname { font-size: .6rem; color: #7a7290; font-weight: 800; }
   .mname b { color: var(--tc); font-size: .78rem; }
-  .catch { font-size: .66rem; line-height: 1.45; }
+  .catch { font-size: .64rem; line-height: 1.45; }
   .bottom { margin-top: auto; display: flex; gap: 8px; align-items: flex-end; }
   .bottom .info { flex: 1; font-size: .58rem; line-height: 1.5; color: #555; }
   .bottom .info b { color: var(--tc); }
