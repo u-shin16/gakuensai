@@ -68,13 +68,8 @@
     animation: reveal .9s cubic-bezier(.2,.8,.2,1);
   }
   @keyframes reveal { from { transform: rotateY(180deg) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
-  .card.daikichi { background: linear-gradient(120deg, #f5c542, #fff1b8, #e0a800, #fff1b8, #f5c542); background-size: 300% 300%;
-    animation: reveal .9s cubic-bezier(.2,.8,.2,1), shine 5s linear infinite; }
-  @keyframes shine { to { background-position: 300% 0; } }
   .inner { background: #fffdf8; border-radius: 9px; height: 100%; display: flex; flex-direction: column; padding: 10px 11px 9px; gap: 4px; }
   .top { display: flex; align-items: center; font-size: .6rem; font-weight: 800; color: #9a90b8; }
-  .luck { margin-left: auto; font-size: .62rem; font-weight: 800; color: #6a5acd; border: 1.5px solid #cfc6ee; border-radius: 99px; padding: 0 7px; }
-  .daikichi .luck { color: #a5750a; border-color: #e0b84a; background: #fff6d6; }
   .you { font-size: .62rem; color: #9a90b8; font-weight: 800; margin-top: 2px; }
   .tname { font-size: 1.3rem; font-weight: 800; color: #3b2a78; line-height: 1.15; }
   .art { border-radius: 10px; overflow: hidden; aspect-ratio: 1; background: #eee; width: 100%; margin-top: 2px; }
@@ -144,7 +139,7 @@
 
 <script>
 const QUESTIONS = {{ questions | tojson }};
-const LOADING_MSGS = ['性格を読みといています…', '守り神をよび出しています…', 'AIが絵を描いています…', '運勢を占っています…', 'もうすぐです…'];
+const LOADING_MSGS = ['性格を読みといています…', '守り神をよび出しています…', 'AIが絵を描いています…', 'あるあるを考えています…', 'もうすぐです…'];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -206,8 +201,8 @@ $('makeBtn').onclick = async () => {
 
 function renderResult(c) {
   $('stage').innerHTML = `
-    <div class="card ${c.fortune === '大吉' ? 'daikichi' : ''}" id="card"><div class="inner">
-      <div class="top"><span>No.${String(c.serial).padStart(4, '0')}</span><span class="luck">今日の運勢 ${esc(c.fortune)}</span></div>
+    <div class="card" id="card"><div class="inner">
+      <div class="top"><span>No.${String(c.serial).padStart(4, '0')}</span></div>
       <div class="you">あなたは</div>
       <div class="tname">${esc(c.type_name)}</div>
       <div class="art"><img src="${c.image}" alt=""></div>

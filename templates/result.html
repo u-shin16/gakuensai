@@ -25,7 +25,6 @@
   .panel { background: var(--panel); border-radius: 16px; padding: 16px 18px; margin-top: 14px; }
   .panel h2 { margin: 0 0 10px; font-size: 1.05rem; }
   .panel p { margin: 0; line-height: 1.7; }
-  .luck { display: inline-block; font-size: 1.5rem; font-weight: 800; color: var(--accent); margin-bottom: 6px; }
   dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; line-height: 1.6; }
   dt { color: var(--accent); font-weight: 800; white-space: nowrap; }
   dd { margin: 0; }
@@ -62,8 +61,7 @@
   </div>
 
   <div class="panel">
-    <h2>今日の運勢</h2>
-    <div class="luck">{{ r.fortune }}</div>
+    <h2>あなたへのアドバイス</h2>
     <dl>
       <dt>恋愛</dt><dd>{{ r.love }}</dd>
       <dt>友情</dt><dd>{{ r.friend }}</dd>

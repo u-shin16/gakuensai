@@ -4,7 +4,6 @@
   1. 2択の質問8問に答える → オリジナルの16タイプのどれかに決まる
   2. 好きなものを1つと、絵柄（かわいい／かっこいい）を選ぶ
   3. Geminiが、タイプと好きなものを混ぜた守り神モンスターの名前・あるある・恋愛や金運などの言葉を作り、絵を描く
-  4. 運勢（大吉〜末吉）はサーバー側で抽選し、AIはその運勢に合わせておみくじの言葉を書く
   5. カードのQRコードから、その人だけの結果ページ（/r/<ランダムな文字列>）で詳しい占いと相性を見られる
      URLは連番にしない（番号を変えるだけで他人の結果が見えないようにするため）
   6. 2人のカード番号から相性を出せる
@@ -12,7 +11,7 @@
 GEMINI_API_KEY が無いときは「お試しモード」で、ダミーの中身と仮の絵を返す。
 
 作ったカードと相性を見た記録は data/log.jsonl に残す。
-タイプ・好きなもの・運勢・日時だけで、名前などの個人情報は取らない。
+タイプ・好きなもの・日時だけで、名前などの個人情報は取らない。
 """
 
 from __future__ import annotations
@@ -52,9 +51,6 @@ PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{16}$")
 _lock = threading.Lock()
 
-# 運勢の抽選。凶は入れない（子ども連れが多いため）。合計100。
-# 大吉は枠が金色になる。「もう1回」の理由になるので、出すぎないようにしている。
-FORTUNES = [("大吉", 10), ("中吉", 20), ("小吉", 25), ("吉", 30), ("末吉", 15)]
 
 # 実在キャラ・有名作品は作らない（著作権）。AIの判定より先に、ここで確実に弾く。
 BLOCKED_WORDS = [
@@ -92,10 +88,9 @@ CARD_SCHEMA = {
 }
 
 CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診断の結果と好きなものから、
-その人だけのおみくじを書く係です。おみくじには、その人を守るオリジナルモンスター（守り神）が描かれます。
+その人だけの診断カードを書く係です。カードには、その人を守るオリジナルモンスター（守り神）が描かれます。
 お客さんは小学生から大人まで。
 
-運勢：{fortune}
 
 性格タイプ：{type_name}（{type_desc}）
 強み：{strong}／弱点：{weak}
@@ -113,16 +108,11 @@ CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診
 allowed=true のとき：
 - monster：性格と好きなものを混ぜた、この人の守り神モンスターの名前。カタカナ中心で8文字以内（例：「メンドラゴ」）
 - catch：この人の「あるある」を1文で（40文字以内）。好きなものを自然に混ぜ、大人が読んでも「わかる、当たってる」と思える内容にする。悪口にしない
-- love（恋愛）・friend（友情）・study（勉強・仕事）・money（金運）：それぞれ20文字以内のおみくじの言葉。
-  運勢の良さに合わせ、性格にちなんだ具体的なアドバイスにする。末吉でも前向きに。大人も子どもも読める言葉で
+- love（恋愛）・friend（友情）・study（勉強・仕事）・money（金運）：それぞれ20文字以内のアドバイス。
+  性格にちなんだ具体的で前向きなアドバイスにする。大人も子どもも読める言葉で
 - lucky：ラッキーアイテムを1つ（10文字以内）。好きなものに少し関係するもの
 - image_prompt：絵を描くための英語の説明。モチーフ「{motif}」に、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルモンスター1体。既存キャラに似せない。文字は入れない
 """
-
-
-def draw_fortune() -> str:
-    names, weights = zip(*FORTUNES)
-    return random.choices(names, weights=weights, k=1)[0]
 
 
 def read_log() -> list[dict]:
@@ -166,14 +156,14 @@ def mock_image(element: str) -> str:
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
 
-def ai_card(t: dict, favorite: str, style: str, fortune: str) -> dict:
+def ai_card(t: dict, favorite: str, style: str) -> dict:
     from google import genai
     from google.genai import types
 
     client = genai.Client(api_key=API_KEY)
     prompt = CARD_PROMPT.format(
         type_name=t["name"], type_desc=t["desc"], strong=t["strong"], weak=t["weak"],
-        element=t["element"], favorite=favorite, motif=t["motif"], fortune=fortune,
+        element=t["element"], favorite=favorite, motif=t["motif"],
         style="かわいい" if style == "cute" else "かっこいい",
     )
     resp = client.models.generate_content(
@@ -284,9 +274,8 @@ def make_card():
 
     code = decide_type(answers)
     t = TYPES[code]
-    fortune = draw_fortune()
     try:
-        card = mock_card(t, favorite) if MOCK else ai_card(t, favorite, style, fortune)
+        card = mock_card(t, favorite) if MOCK else ai_card(t, favorite, style)
     except Exception as e:
         app.logger.exception("カードの中身の生成に失敗")
         return jsonify({"ok": False, "reason": f"カードを作れませんでした（{type(e).__name__}）。もう一度試してね"}), 502
@@ -305,12 +294,12 @@ def make_card():
     with _lock:
         serial = sum(1 for r in read_log() if r["event"] == "card") + 1
     result = {
-        "serial": serial, "fortune": fortune, "type_code": code, "favorite": favorite, "style": style,
+        "serial": serial, "type_code": code, "favorite": favorite, "style": style,
         **{k: card[k] for k in ("monster", "catch", "love", "friend", "study", "money", "lucky")},
     }
     token = save_result(result, image)
     write_log({"event": "card", "serial": serial, "token": token, "type": code, "favorite": favorite,
-               "style": style, "fortune": fortune, "mock": MOCK})
+               "style": style, "mock": MOCK})
     url = f"{PUBLIC_BASE_URL or request.host_url.rstrip('/')}/r/{token}"
     return jsonify({"ok": True, **result_payload(load_result(token), token), "url": url, "qr": qr_svg(url)})
 
