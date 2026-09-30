@@ -41,7 +41,20 @@ app = Flask(__name__)
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 TEXT_MODEL = os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
 IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
-MOCK = not API_KEY or os.environ.get("MOCK") == "1"
+
+DATA_DIR_EARLY = Path(__file__).parent / "data"
+MODE_PATH = DATA_DIR_EARLY / "mode.json"
+
+
+def is_mock() -> bool:
+    """ダミーモード（AIを使わない・0円）か。キーが無ければ必ずダミー。
+    実戦モード（Geminiを使う・1枚約6円）は画面の切り替えで選ぶ。既定はダミー。"""
+    if not API_KEY or os.environ.get("MOCK") == "1":
+        return True
+    try:
+        return json.loads(MODE_PATH.read_text(encoding="utf-8")).get("mode") != "real"
+    except (FileNotFoundError, ValueError):
+        return True
 
 DATA_DIR = Path(__file__).parent / "data"
 LOG_PATH = DATA_DIR / "log.jsonl"
@@ -249,7 +262,7 @@ def result_payload(r: dict, token: str) -> dict:
 @app.route("/")
 def index():
     questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
-    return render_template("index.html", mock=MOCK, questions=questions)
+    return render_template("index.html", mock=is_mock(), has_key=bool(API_KEY), questions=questions)
 
 
 @app.post("/api/card")
@@ -272,10 +285,11 @@ def make_card():
         return jsonify({"ok": False, "reason": "ごめんね、アニメやゲームにいるキャラクターはカードにできないんだ。"
                                            "ほかの好きなものを入れてみて！（例：カレー、ねこ、サッカー）"})
 
+    mock = is_mock()
     code = decide_type(answers)
     t = TYPES[code]
     try:
-        card = mock_card(t, favorite) if MOCK else ai_card(t, favorite, style)
+        card = mock_card(t, favorite) if mock else ai_card(t, favorite, style)
     except Exception as e:
         app.logger.exception("カードの中身の生成に失敗")
         return jsonify({"ok": False, "reason": f"カードを作れませんでした（{type(e).__name__}）。もう一度試してね"}), 502
@@ -285,7 +299,7 @@ def make_card():
         return jsonify({"ok": False, "reason": card.get("reason") or "その好きなものはカードにできないんだ。ほかのものにしてね"})
 
     try:
-        image = mock_image(t["element"]) if MOCK else ai_image(card["image_prompt"], style)
+        image = mock_image(t["element"]) if mock else ai_image(card["image_prompt"], style)
     except Exception as e:
         app.logger.exception("絵の生成に失敗")
         return jsonify({"ok": False, "reason": f"絵を描けませんでした（{type(e).__name__}）。もう一度試してね"}), 502
@@ -299,9 +313,22 @@ def make_card():
     }
     token = save_result(result, image)
     write_log({"event": "card", "serial": serial, "token": token, "type": code, "favorite": favorite,
-               "style": style, "mock": MOCK})
+               "style": style, "mock": mock})
     url = f"{PUBLIC_BASE_URL or request.host_url.rstrip('/')}/r/{token}"
     return jsonify({"ok": True, **result_payload(load_result(token), token), "url": url, "qr": qr_svg(url)})
+
+
+@app.post("/api/mode")
+def set_mode():
+    """ダミー／実戦の切り替え。"""
+    mode = (request.get_json(silent=True) or {}).get("mode")
+    if mode not in ("dummy", "real"):
+        return jsonify({"ok": False}), 400
+    if mode == "real" and not API_KEY:
+        return jsonify({"ok": False, "reason": "Geminiのキーが入っていないので実戦モードにできません"}), 400
+    MODE_PATH.parent.mkdir(exist_ok=True)
+    MODE_PATH.write_text(json.dumps({"mode": mode}), encoding="utf-8")
+    return jsonify({"ok": True, "mode": mode})
 
 
 @app.get("/r/<token>")
@@ -345,5 +372,5 @@ def stats():
 
 
 if __name__ == "__main__":
-    print("お試しモード（キー無し）" if MOCK else f"AIモード：{TEXT_MODEL} / {IMAGE_MODEL}")
+    print("ダミーモード" if is_mock() else f"実戦モード：{TEXT_MODEL} / {IMAGE_MODEL}")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8120)), debug=False)
