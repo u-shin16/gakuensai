@@ -231,7 +231,7 @@ function renderResult(c) {
       <div class="tname">${esc(c.type_name)}</div>
       <div class="art"><img src="${c.image}" alt=""></div>
       <div class="mname">守り神 <b>${esc(c.monster)}</b></div>
-      <div class="catch">${esc(c.catch)}</div>
+      <div class="catch">「${esc(c.message || c.catch)}」</div>
       <div class="bottom">
         <div class="info">
           2026.11.21 守り神診断

@@ -93,6 +93,7 @@ CARD_SCHEMA = {
         "reason": {"type": "string"},
         "monster": {"type": "string"},
         "catch": {"type": "string"},
+        "message": {"type": "string"},
         "love": {"type": "string"},
         "friend": {"type": "string"},
         "study": {"type": "string"},
@@ -100,7 +101,7 @@ CARD_SCHEMA = {
         "lucky": {"type": "string"},
         "image_prompt": {"type": "string"},
     },
-    "required": ["allowed", "reason", "monster", "catch", "love", "friend", "study", "money", "lucky", "image_prompt"],
+    "required": ["allowed", "reason", "monster", "catch", "message", "love", "friend", "study", "money", "lucky", "image_prompt"],
 }
 
 CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診断の結果と好きなものから、
@@ -124,6 +125,8 @@ CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診
 allowed=true のとき：
 - monster：性格と好きなものを混ぜた、この人の守り神モンスターの名前。カタカナ中心で8文字以内（例：「メンドラゴ」）
 - catch：この人の「あるある」を1文で（40文字以内）。好きなものを自然に混ぜ、大人が読んでも「わかる、当たってる」と思える内容にする。悪口にしない
+- message：守り神からこの人への「ひとこと」。**必ず35文字以内（句読点も数える）、1文か短い2文**。守り神がこの人に話しかける口調で、性格と好きなものにふれながら、そっと励ます・見守る内容にする。
+  一人称は「ぼく」か「わたし」。命令や説教にしない。「見守っている」「そばにいる」「大好き」は使わず、その人の性格や好きなものにちなんだ具体的な応援にする。カードに大きく載るので、読み返したくなる温かい言葉にする
 - love（恋愛）・friend（友情）・study（勉強・仕事）・money（お金）：下の元の文をもとにする。
   - 4つのうち1〜2つだけ、好きなもの「{favorite}」を自然に入れて言い換える。残りは元の文をほぼそのまま使う
   - 意味は変えない。それぞれ25文字を超えない
@@ -158,7 +161,8 @@ def mock_card(code: str, favorite: str) -> dict:
     return {
         "allowed": True, "reason": "",
         "monster": f"{favorite[:4]}モン",
-        "catch": "お試しモード：キーを入れると、AIがあなたのあるあるを書いてくれる。",
+        "catch": "（ダミー）キーを入れると、AIがあなたのあるあるを書いてくれる。",
+        "message": "（ダミー）ぼくがずっと、きみを見守っているよ。",
         "love": love, "friend": friend, "study": study, "money": money,
         "lucky": "（ダミー）おまもり",
         "image_prompt": t["motif"],
@@ -321,7 +325,7 @@ def make_card():
         serial = sum(1 for r in read_log() if r["event"] == "card") + 1
     result = {
         "serial": serial, "type_code": code, "favorite": favorite, "style": style,
-        **{k: card[k] for k in ("monster", "catch", "love", "friend", "study", "money", "lucky")},
+        **{k: card[k] for k in ("monster", "catch", "message", "love", "friend", "study", "money", "lucky")},
     }
     token = save_result(result, image)
     write_log({"event": "card", "serial": serial, "token": token, "type": code, "favorite": favorite,
