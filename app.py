@@ -248,6 +248,7 @@ def result_payload(r: dict, token: str) -> dict:
         **r,
         "token": token,
         "type_name": t["name"],
+        "type_kana": t["kana"],
         "color": t["color"],
         "type_desc": t["desc"],
         "axes": [AXIS_WORDS[c] for c in r["type_code"]],

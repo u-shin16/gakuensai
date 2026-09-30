@@ -14,7 +14,8 @@
     font-family: "M PLUS Rounded 1c", sans-serif; padding: 20px 16px 48px; display: flex; justify-content: center; }
   main { width: 100%; max-width: 440px; }
   .kicker { color: var(--muted); font-size: .8rem; text-align: center; }
-  h1 { text-align: center; margin: 2px 0 6px; font-size: 1.7rem; }
+  .kana { text-align: center; color: var(--muted); font-size: .8rem; letter-spacing: .1em; margin-top: 4px; }
+  h1 { text-align: center; margin: 0 0 6px; font-size: 1.7rem; }
   .axes { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
   .axes span { background: var(--panel2); border-radius: 99px; padding: 3px 10px; font-size: .75rem; }
   .art { border-radius: 18px; overflow: hidden; aspect-ratio: 1; }
@@ -42,6 +43,7 @@
 <body>
 <main>
   <div class="kicker">No.{{ '%04d' % r.serial }}　あなたは</div>
+  <div class="kana">{{ r.type_kana }}</div>
   <h1>{{ r.type_name }}</h1>
   <div class="axes">{% for a in r.axes %}<span>{{ a }}</span>{% endfor %}</div>
 
