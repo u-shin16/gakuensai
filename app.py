@@ -33,7 +33,7 @@ import qrcode.image.svg
 from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
 from trim import edge_color, trim_margins
-from types_data import ADVICE, AXIS_WORDS, QUESTIONS, TYPES, axis_profile, best_partners, decide_type, match, rival
+from types_data import ADVICE, AXIS_WORDS, CREATURES, QUESTIONS, TYPES, axis_profile, best_partners, decide_type, match, rival
 
 load_dotenv()
 
@@ -152,7 +152,8 @@ allowed=true のとき：
   - 好きなものは入れない。項目の話題から外れない（勉強・仕事は勉強か仕事の場面のまま）
   - 下はこのタイプの傾向の例。そのまま写さない
     恋愛「{love}」／友情「{friend}」／勉強・仕事「{study}」／お金「{money}」
-- image_prompt：絵を描くための英語の説明。モチーフ「{motif}」に、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルモンスター1体。既存キャラに似せない。文字は入れない
+- image_prompt：絵を描くための英語の説明。もとになる生き物は「{creature}」。その姿に、性格の雰囲気「{motif}」と、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルの守り神1体。
+  ドラゴン・トカゲ・ヘビの姿にはしない（好きなものがそれ自体の場合だけ例外）。既存キャラに似せない。文字は入れない
   絵柄が「かっこいい」なら、強くて凛々しい姿（ちびキャラ・赤ちゃんっぽい姿にしない）として書く。「かわいい」なら、まるっこくて愛らしい姿として書く
 """
 
@@ -205,7 +206,7 @@ def ai_card(code: str, favorite: str, style: str, profile: list[str], used_names
     client = genai.Client(api_key=API_KEY)
     prompt = CARD_PROMPT.format(
         type_name=t["name"], type_desc=t["desc"], strong=t["strong"], weak=t["weak"],
-        element=t["element"], favorite=favorite, motif=t["motif"],
+        element=t["element"], favorite=favorite, motif=t["motif"], creature=random.choice(CREATURES),
         love=love, friend=friend, study=study, money=money,
         profile="、".join(profile), used_names="、".join(used_names) or "（まだなし）",
         style="かわいい" if style == "cute" else "かっこいい",
