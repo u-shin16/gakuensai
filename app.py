@@ -74,14 +74,16 @@ BLOCKED_WORDS = [
     "ゴジラ", "ウルトラマン", "仮面ライダー", "プリキュア",
 ]
 
+# AIっぽい絵（つやつや・光・リアルな陰影・細かい背景）にならないよう、平面的な絵柄に固定する。
 STYLES = {
-    "cute": ("Cute chibi original monster, round soft shapes, big sparkling eyes, pastel and bright colors, "
-             "cheerful expression, soft cel shading, simple radial background"),
-    "cool": ("Cool majestic original creature, dynamic heroic pose, sharp elegant design, dramatic rim lighting, "
-             "rich detailed fantasy illustration, epic atmospheric background"),
+    "cute": ("Flat vector mascot character illustration, cute round simple shapes, thick uniform dark outlines, "
+             "flat colors only, limited palette of 4 colors, like a hand-drawn Japanese yuru-chara sticker"),
+    "cool": ("Bold flat graphic character illustration, sharp simple shapes, thick uniform black ink outlines, "
+             "flat colors only, limited palette of 3 colors plus black, like a screen-printed poster or hand-inked badge"),
 }
-IMAGE_COMMON = ("single character, full body, centered, trading card game art, "
-                "no text, no letters, no logos, no frame, not resembling any existing franchise character. ")
+IMAGE_COMMON = ("No gradients, no shading, no glow, no sparkles, no 3D, no realistic lighting, no painterly detail. "
+                "Single character, full body, centered, facing the viewer, plain solid flat background in color {color}, "
+                "no scenery, no text, no letters, no logos, no frame, not resembling any existing franchise character. ")
 
 CARD_SCHEMA = {
     "type": "object",
@@ -157,10 +159,7 @@ def mock_card(t: dict, favorite: str) -> dict:
     }
 
 
-def mock_image(element: str) -> str:
-    colors = {"ほのお": "#ff7a45", "みず": "#40a9ff", "くさ": "#73d13d", "でんき": "#fadb14",
-              "こおり": "#87e8de", "やみ": "#9254de", "ひかり": "#ffe58f", "かぜ": "#b7eb8f"}
-    c = colors.get(element, "#ccc")
+def mock_image(c: str) -> str:
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
            f'<rect width="200" height="200" fill="{c}"/>'
            f'<circle cx="100" cy="110" r="55" fill="#fff" opacity=".85"/>'
@@ -191,14 +190,14 @@ def ai_card(t: dict, favorite: str, style: str) -> dict:
     return json.loads(resp.text)
 
 
-def ai_image(prompt: str, style: str) -> str:
+def ai_image(prompt: str, style: str, color: str) -> str:
     from google import genai
     from google.genai import types
 
     client = genai.Client(api_key=API_KEY)
     resp = client.models.generate_content(
         model=IMAGE_MODEL,
-        contents=f"{STYLES[style]}, {IMAGE_COMMON}Subject: {prompt}",
+        contents=f"{STYLES[style]}. {IMAGE_COMMON.format(color=color)}Subject: {prompt}",
         config=types.GenerateContentConfig(
             response_modalities=["IMAGE"],
             image_config=types.ImageConfig(aspect_ratio="1:1"),
@@ -249,6 +248,7 @@ def result_payload(r: dict, token: str) -> dict:
         **r,
         "token": token,
         "type_name": t["name"],
+        "color": t["color"],
         "type_desc": t["desc"],
         "axes": [AXIS_WORDS[c] for c in r["type_code"]],
         "strong": t["strong"],
@@ -299,7 +299,7 @@ def make_card():
         return jsonify({"ok": False, "reason": card.get("reason") or "その好きなものはカードにできないんだ。ほかのものにしてね"})
 
     try:
-        image = mock_image(t["element"]) if mock else ai_image(card["image_prompt"], style)
+        image = mock_image(t["color"]) if mock else ai_image(card["image_prompt"], style, t["color"])
     except Exception as e:
         app.logger.exception("絵の生成に失敗")
         return jsonify({"ok": False, "reason": f"絵を描けませんでした（{type(e).__name__}）。もう一度試してね"}), 502
