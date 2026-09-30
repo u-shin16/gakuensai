@@ -46,6 +46,46 @@ def _paper_color(img: Image.Image) -> tuple[int, int, int] | None:
     return tuple(round(sum(c[i] for c in corners) / 4) for i in range(3))
 
 
+def frame_box(data: bytes) -> tuple[int, int, int, int] | None:
+    """紙のふちの線があれば、ふちの内側（絵の部分）の範囲 (left, top, right, bottom) を返す。なければ None。"""
+    img = Image.open(io.BytesIO(data)).convert("RGB")
+    paper = _paper_color(img)
+    if paper is None:
+        return None
+    w, h = img.size
+
+    # 紙の色との差が小さい点を白（255）、それ以外を黒（0）にした白黒画像
+    diff = ImageChops.difference(img, Image.new("RGB", img.size, paper)).convert("L")
+    mask = diff.point(lambda v: 255 if v <= NEAR_PAPER else 0)
+
+    def ratio(box: tuple[int, int, int, int]) -> float:
+        return ImageStat.Stat(mask.crop(box)).mean[0] / 255
+
+    # 紙のふちは、絵の部分との境目がくっきりした直線になる（その列から先は、ほぼ全部が紙以外）。
+    # 背景が無地で明るいだけの絵は、境目がなく、キャラの上下に背景が残るので、そこまで紙以外にならない。
+    # この違いで「本当に紙のふちがあるか」を見分け、ある辺だけを削る。
+    def cut(n: int, strip) -> int:
+        limit = int(n * MAX_TRIM)
+        ratios = [ratio(strip(i)) for i in range(limit)]
+        for k in range(1, len(ratios)):
+            # 境目がぼやけている絵もあるので、12ピクセル手前と比べる
+            before = ratios[max(0, k - 12):max(1, k - 9)]
+            # 境目：直前の数ピクセルから紙の割合が一気に下がるところ。
+            # ふちが広いと、上下の行にも左右のふちの紙が混ざるので、「0に近いか」ではなく「一気に下がったか」で見る。
+            # 白くぼかした背景（ビネット）はゆるやかに下がるので、ここで外れる。
+            if sum(before) / len(before) - ratios[k] >= SHARP_DROP:
+                return k if sum(ratios[:k]) / k >= PAPER_RATIO else 0
+        return 0
+
+    left = cut(w, lambda i: (i, 0, i + 1, h))
+    right = w - cut(w, lambda i: (w - 1 - i, 0, w - i, h))
+    top = cut(h, lambda i: (0, i, w, i + 1))
+    bottom = h - cut(h, lambda i: (0, h - 1 - i, w, h - i))
+    if (left, top, right, bottom) == (0, 0, w, h):
+        return None
+    return left, top, right, bottom
+
+
 def trim_margins(data: bytes) -> bytes:
     img = Image.open(io.BytesIO(data)).convert("RGB")
     paper = _paper_color(img)
@@ -154,3 +194,64 @@ def edge_color(data: bytes) -> str:
     means = [ImageStat.Stat(st).mean for st in strips]
     r, g, bl = (round(sum(m[i] for m in means) / 4) for i in range(3))
     return f"#{r:02x}{g:02x}{bl:02x}"
+
+
+def has_bright_edges(data: bytes) -> bool:
+    """絵の外側が、白っぽい紙の色やぼかしで終わっているか。
+    ふちの線がなくても、四隅を白くぼかした絵はカードで余白に見えるため、これも見つける（2026-09-30）。"""
+    img = Image.open(io.BytesIO(data)).convert("RGB")
+    w, h = img.size
+    b = max(4, int(min(w, h) * 0.03))
+    strips = [img.crop((0, 0, w, b)), img.crop((0, h - b, w, h)), img.crop((0, 0, b, h)), img.crop((w - b, 0, w, h))]
+    bright = 0
+    for st in strips:
+        a = np.asarray(st).astype(np.int16)
+        light = (a.min(axis=2) >= 215) & ((a.max(axis=2) - a.min(axis=2)) <= 40)   # 白に近く、色が薄い点
+        if light.mean() >= 0.5:
+            bright += 1
+    return bright >= 2
+
+
+def zoom_to_clean(data: bytes, max_cut: float = 0.16) -> bytes:
+    """端に紙の色・白っぽい部分がなくなるまで、中心に向かって少しずつ拡大して切り取る（2026-09-30）。
+    塗って埋めると、すじや枠の跡が見えたため、最後の手段は「塗らずに切る」にした。
+    1辺で切るのは最大16%まで（キャラが大きく切れないように）。"""
+    img = Image.open(io.BytesIO(data)).convert("RGB")
+    w, h = img.size
+    a = np.asarray(img).astype(np.int16)
+    # 白・クリーム色に近い点。薄いむらさきや水色の背景（ちゃんと色がある）は含めない
+    light = (a.min(axis=2) >= 222) & ((a.max(axis=2) - a.min(axis=2)) <= 32)
+    # 紙のふちの線（くっきりした境目）がある絵は、その境目で切って正方形にする。
+    # 「端がきれいになるまで拡大」だと、キャラの白い部分に引っかかって拡大しすぎたため（2026-09-30）
+    box = frame_box(data)
+    if box is not None:
+        l, t, r, bt = box
+        pad = 6
+        l, t, r, bt = l + pad, t + pad, r - pad, bt - pad
+        cw, ch = r - l, bt - t
+        side = min(cw, ch)
+        x0 = l + (cw - side) // 2
+        y0 = t + (ch - side) // 2
+        img = img.crop((x0, y0, x0 + side, y0 + side)).resize((w, h), Image.LANCZOS)
+        a = np.asarray(img).astype(np.int16)
+        light = (a.min(axis=2) >= 222) & ((a.max(axis=2) - a.min(axis=2)) <= 32)
+
+    def clean(c: int) -> bool:
+        b = max(3, int((w - 2 * c) * 0.02))
+        sides = [light[c:c + b, c:w - c], light[h - c - b:h - c, c:w - c], light[c:h - c, c:c + b], light[c:h - c, w - c - b:w - c]]
+        return all(sd.mean() < 0.12 for sd in sides)
+
+    if clean(0):
+        if box is None:
+            return data
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    step = max(1, w // 100)
+    c = 0
+    while c < int(w * max_cut) and not clean(c):
+        c += step
+    out = img.crop((c, c, w - c, h - c)).resize((w, h), Image.LANCZOS)
+    buf = io.BytesIO()
+    out.save(buf, format="PNG")
+    return buf.getvalue()

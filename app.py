@@ -33,7 +33,7 @@ import qrcode
 import qrcode.image.svg
 from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
-from trim import edge_color, trim_margins
+from trim import edge_color, has_bright_edges, trim_margins, zoom_to_clean
 from types_data import ADVICE, AXIS_WORDS, CREATURES, QUESTIONS, TYPES, axis_profile, best_partners, decide_type, match, rival
 
 load_dotenv()
@@ -80,17 +80,19 @@ BLOCKED_WORDS = [
 # つやつやしたAIっぽい絵にも、平たすぎるちゃちな絵にもならないようにする。
 STYLES = {
     "cute": ("Warm Japanese picture-book illustration, gouache and colored pencil texture, hand-painted brush strokes, "
-             "visible paper grain, soft natural shading. CUTE: chibi proportions with a big round head, big round sparkling eyes, "
+             "soft natural shading. CUTE: chibi proportions with a big round head, big round sparkling eyes, "
              "soft rounded shapes, gentle smiling expression"),
     "cool": ("Warm Japanese picture-book illustration, gouache and colored pencil texture, hand-painted brush strokes, "
-             "visible paper grain, soft natural shading. COOL: a noble, strong guardian beast with tall heroic proportions "
+             "soft natural shading. COOL: a noble, strong guardian beast with tall heroic proportions "
              "(not chibi), sharp confident eyes, a dignified serious expression, dynamic powerful pose, bold silhouette, "
              "deeper and richer colors, dramatic composition. It must not look cute or babyish, no big round eyes"),
 }
 IMAGE_COMMON = ("Single character, full body, centered, facing the viewer. "
                 "Behind the character, a gentle picture-book background scene with a few small props and scenery related to the subject, "
-                "in soft tones of {hue}; not busy, the character stays the clear focus. "
-                "Full-bleed: the painting fills the whole square edge to edge, no white border, no margin, no paper edge, "
+                "in clearly colored medium tones of {hue} (never a white or pale background); not busy, the character stays the clear focus. "
+                "The guardian must not look like a human person: it is a creature or a living object. "
+                "Full-bleed composition like a full-page spread in a picture book: the background scene is painted all the way to every edge "
+                "and continues beyond the frame, no white border, no margin, no paper edge, no inner panel or rounded frame, "
                 "no vignette, no fading to white at the edges, not a picture drawn on a sheet of paper. "
                 "Absolutely no text, no letters, no numbers, no signature, no stamp, no logo, no brand marks (no sports brand stripes or swooshes), no real team uniforms, no frame. "
                 "Not glossy, not 3D, not resembling any existing franchise character. ")
@@ -235,12 +237,56 @@ MESSAGE_PROMPT = """あなたは、ある人を守る守り神です。その人
 決まり：
 - 2文で書く。1文目でいいところを1つ、具体的にほめる。2文目では、そのいいところが「{favorite}」の場面でどう活きるかを書く
 - 1文目と2文目の意味が、読んだ人が「なるほど」と思えるほど自然につながること。つながりが弱い組み合わせ（例：人の気持ちが分かる → 電車の乗り換えが上手）は使わない
+- 好きなもの「{favorite}」は、その言葉をそのまま文に入れる（「一杯」「あれ」などに言い換えない）
+- ほめる中身は具体的にする（「ステキなもの」「いろいろ」のようなぼんやりした言葉は使わない）
 - 合わせて45文字以内（句読点も数える）
 - 一人称は「ぼく」、相手は「きみ」。やさしい話し言葉。命令や説教、たとえ話、詩的な言い回しは使わない
 - 「見守っている」「そばにいる」「大好き」は使わない
 - 書いたあと、声に出して読んで不自然なところがないか確かめ、あれば直してから答える
 
 ひとことの文だけを答える（かぎかっこは付けない）。"""
+
+
+PROOF_PROMPT = """次の文は、守り神が小学生から大人までの人に渡すカードに書く「ひとこと」です。
+好きなもの：「{favorite}」
+文：「{text}」
+
+次の点を1つずつ確かめる。
+1. 日本語として自然か（助詞・語順・言い回しがおかしくないか。声に出して読んで引っかからないか）
+2. 1文目と2文目の意味が自然につながっているか
+3. 好きなもの「{favorite}」がそのままの言葉で入っていて、使い方が自然か
+4. 何のことか分からない言葉やぼんやりした言葉（「ステキなもの」「一杯」など）がないか
+5. 45文字以内か。一人称「ぼく」、相手「きみ」、命令・説教・たとえ話がないか
+
+1つでも問題があれば、意味を保ったまま、小学生でもすぐ分かる自然な日本語に書き直す。問題がなければそのまま返す。"""
+
+PROOF_SCHEMA = {
+    "type": "object",
+    "properties": {"ok": {"type": "boolean"}, "problem": {"type": "string"}, "text": {"type": "string"}},
+    "required": ["ok", "problem", "text"],
+}
+
+
+def proofread(text: str, favorite: str) -> str:
+    """ひとことを別の係がチェックして、不自然なら直す（2026-09-30、ゆーしん「絶対に変な日本語にならないように」）。"""
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=API_KEY)
+    resp = client.models.generate_content(
+        model=TEXT_MODEL,
+        contents=PROOF_PROMPT.format(text=text, favorite=favorite),
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=PROOF_SCHEMA,
+            temperature=0.3,
+            thinking_config=types.ThinkingConfig(thinking_budget=1024),
+        ),
+    )
+    r = json.loads(resp.text)
+    if not r.get("ok"):
+        app.logger.info("ひとことを直した：%s → %s（%s）", text, r.get("text"), r.get("problem"))
+    return "".join((r.get("text") or text).split()).strip("「」")
 
 
 def ai_message(code: str, favorite: str, profile: list[str]) -> str:
@@ -259,7 +305,49 @@ def ai_message(code: str, favorite: str, profile: list[str]) -> str:
             thinking_config=types.ThinkingConfig(thinking_budget=1024),
         ),
     )
-    return "".join((resp.text or "").split()).strip("「」")  # 改行や空白が入ることがあるので詰める
+    draft = "".join((resp.text or "").split()).strip("「」")  # 改行や空白が入ることがあるので詰める
+    return proofread(draft, favorite)
+
+
+EXTEND_PROMPT = ("Edit this illustration: the background must fill the whole square to every edge. "
+                 "Repaint every white, cream, or very pale area near the edges and corners (borders, paper margins, inner frames, "
+                 "white vignettes, fading to white) with clearly colored background scenery in medium tones of {hue}, "
+                 "in the same painting style. Keep the character exactly the same, same size and position. No text.")
+
+
+def extend_background(data: bytes, mime: str, hue: str) -> bytes:
+    """ふちや白い四隅が出た絵を、AIに背景を端まで描き足してもらう（2026-09-30）。"""
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=API_KEY)
+    resp = client.models.generate_content(
+        model=IMAGE_MODEL,
+        contents=[types.Part.from_bytes(data=data, mime_type=mime), EXTEND_PROMPT.format(hue=hue)],
+        config=types.GenerateContentConfig(response_modalities=["IMAGE"], image_config=types.ImageConfig(aspect_ratio="1:1")),
+    )
+    for part in resp.candidates[0].content.parts:
+        if part.inline_data and part.inline_data.data:
+            d = part.inline_data.data
+            return base64.b64decode(d) if isinstance(d, str) else d
+    return data
+
+
+def fill_to_edges(image_uri: str, hue: str) -> str:
+    """余白を絶対に出さない（ゆーしんの指示）。
+    ① 紙のふちや白い四隅があれば、AIに背景を端まで描き足してもらう（ふちの線がある絵はこれでほぼ消える）
+    ② それでも残ったふちは、保存するときに zoom_to_clean が中心に向かって少し拡大して切る"""
+    header, b64 = image_uri.split(",", 1)
+    data = base64.b64decode(b64)
+    if not (has_bright_edges(data) or trim_margins(data) != data):
+        return image_uri
+    try:
+        data = extend_background(data, header.split(":")[1].split(";")[0], hue)
+        app.logger.info("余白があったので、背景を描き足した（残り：白い四隅=%s）", has_bright_edges(data))
+    except Exception:
+        app.logger.exception("背景の描き足しに失敗（元の絵のまま、保存時の処理で埋める）")
+        return image_uri
+    return "data:image/png;base64," + base64.b64encode(data).decode()
 
 
 def ai_image(prompt: str, style: str, hue: str) -> str:
@@ -294,7 +382,8 @@ def save_result(result: dict, image_data_uri: str) -> str:
     ext = "svg" if "svg" in header else "png"
     raw = base64.b64decode(b64)
     if ext == "png":
-        raw = trim_margins(raw)  # AIが描いた白い紙のふちを切り取る
+        # 描き足しても残った紙のふち・白い四隅は、中心に向かって少し拡大して切る（塗らない。塗ると跡が見えたため）
+        raw = zoom_to_clean(raw)
     (RESULT_DIR / f"{token}.{ext}").write_bytes(raw)
     art_bg = edge_color(raw) if ext == "png" else ""
     result = {**result, "image_file": f"{token}.{ext}", "art_bg": art_bg, "created_at": datetime.now().isoformat(timespec="seconds")}
@@ -383,39 +472,40 @@ def make_card():
     t = TYPES[code]
     profile = axis_profile(answers)
     used = used_monster_names()
+    pool = ThreadPoolExecutor(max_workers=2)
+    # 守り神のひとこと（作る→チェックして直す、で約10秒）は、ほかに頼らないので最初に始めておく。
+    # 文章→絵（合わせて約10秒）と並行して進むので、待ち時間は増えない。
+    f_msg = None if mock else pool.submit(ai_message, code, favorite, profile)
     try:
-        if mock:
-            card = mock_card(code, favorite)
-        else:
-            card = ai_card(code, favorite, style, profile, used[-150:])
-            # 守り神の名前がほかの人とかぶったら、1回だけ作り直す（人とかぶらないことを一番大事にする）
-            if card.get("allowed") and card.get("monster") in used:
-                card = ai_card(code, favorite, style, profile, used[-150:] + [card["monster"]])
-    except Exception as e:
-        app.logger.exception("カードの中身の生成に失敗")
-        return jsonify({"ok": False, "reason": f"カードを作れませんでした（{type(e).__name__}）。もう一度試してね"}), 502
+        try:
+            if mock:
+                card = mock_card(code, favorite)
+            else:
+                card = ai_card(code, favorite, style, profile, used[-150:])
+                # 守り神の名前がほかの人とかぶったら、1回だけ作り直す（人とかぶらないことを一番大事にする）
+                if card.get("allowed") and card.get("monster") in used:
+                    card = ai_card(code, favorite, style, profile, used[-150:] + [card["monster"]])
+        except Exception as e:
+            app.logger.exception("カードの中身の生成に失敗")
+            return jsonify({"ok": False, "reason": f"カードを作れませんでした（{type(e).__name__}）。もう一度試してね"}), 502
 
-    if not card.get("allowed"):
-        write_log({"event": "refused", "favorite": favorite, "by": "ai"})
-        return jsonify({"ok": False, "reason": card.get("reason") or "その好きなものはカードにできないんだ。ほかのものにしてね"})
+        if not card.get("allowed"):
+            write_log({"event": "refused", "favorite": favorite, "by": "ai"})
+            return jsonify({"ok": False, "reason": card.get("reason") or "その好きなものはカードにできないんだ。ほかのものにしてね"})
 
-    try:
-        if mock:
-            image = mock_image(t["color"])
-        else:
-            # 絵を描いている間に、守り神のひとことを「考える時間つき」で作り直す（待ち時間は増えない）
-            with ThreadPoolExecutor(max_workers=2) as ex:
-                f_img = ex.submit(ai_image, card["image_prompt"], style, t["hue"])
-                f_msg = ex.submit(ai_message, code, favorite, profile)
-                image = f_img.result()
-                try:
-                    card["message"] = f_msg.result() or card["message"]
-                except Exception:
-                    app.logger.exception("ひとことの作り直しに失敗（最初の文を使う）")
-    except Exception as e:
-        app.logger.exception("絵の生成に失敗")
-        return jsonify({"ok": False, "reason": f"絵を描けませんでした（{type(e).__name__}）。もう一度試してね"}), 502
+        try:
+            image = mock_image(t["color"]) if mock else fill_to_edges(ai_image(card["image_prompt"], style, t["hue"]), t["hue"])
+        except Exception as e:
+            app.logger.exception("絵の生成に失敗")
+            return jsonify({"ok": False, "reason": f"絵を描けませんでした（{type(e).__name__}）。もう一度試してね"}), 502
 
+        if f_msg is not None:
+            try:
+                card["message"] = f_msg.result() or card["message"]
+            except Exception:
+                app.logger.exception("ひとことの作成に失敗（最初の文章の係が書いた文を使う）")
+    finally:
+        pool.shutdown(wait=False)
 
     with _lock:
         serial = sum(1 for r in read_log() if r["event"] == "card") + 1
