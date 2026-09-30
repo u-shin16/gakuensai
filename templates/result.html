@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{ r.type_name }}｜守り神診断</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #1b1433; --panel: #2a2150; --panel2: #3b2f6e; --text: #fff; --muted: #b9b0d9; --accent: #ffcc33; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(circle at 50% 0, #3b2a78, var(--bg) 70%); color: var(--text);
+    font-family: "M PLUS Rounded 1c", sans-serif; padding: 20px 16px 48px; display: flex; justify-content: center; }
+  main { width: 100%; max-width: 440px; }
+  .kicker { color: var(--muted); font-size: .8rem; text-align: center; }
+  h1 { text-align: center; margin: 2px 0 6px; font-size: 1.7rem; }
+  .axes { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
+  .axes span { background: var(--panel2); border-radius: 99px; padding: 3px 10px; font-size: .75rem; }
+  .art { border-radius: 18px; overflow: hidden; aspect-ratio: 1; }
+  .art img { width: 100%; display: block; }
+  .mname { text-align: center; margin: 8px 0 2px; color: var(--muted); font-size: .85rem; }
+  .mname b { color: var(--text); font-size: 1.1rem; }
+  .save { display: block; text-align: center; color: var(--accent); font-size: .85rem; margin-bottom: 8px; }
+  .panel { background: var(--panel); border-radius: 16px; padding: 16px 18px; margin-top: 14px; }
+  .panel h2 { margin: 0 0 10px; font-size: 1.05rem; }
+  .panel p { margin: 0; line-height: 1.7; }
+  .luck { display: inline-block; font-size: 1.5rem; font-weight: 800; color: var(--accent); margin-bottom: 6px; }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; line-height: 1.6; }
+  dt { color: var(--accent); font-weight: 800; white-space: nowrap; }
+  dd { margin: 0; }
+  .row { display: flex; gap: 8px; margin-top: 10px; }
+  input { flex: 1; min-width: 0; font: inherit; font-size: 1.05rem; padding: 12px 14px; border-radius: 12px; border: 3px solid #5b4aa8; }
+  button { font: inherit; font-weight: 800; border: 0; border-radius: 12px; padding: 12px 16px; background: var(--accent); color: #3a2400; cursor: pointer; }
+  .matchres { margin-top: 14px; text-align: center; }
+  .matchres .score { font-size: 2.6rem; font-weight: 800; color: var(--accent); }
+  .matchres ul { text-align: left; margin: 8px 0 0; padding-left: 1.2em; line-height: 1.7; font-size: .9rem; }
+  .err { color: #ff8fa3; }
+  footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: .8rem; line-height: 1.8; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">No.{{ '%04d' % r.serial }}　あなたは</div>
+  <h1>{{ r.type_name }}</h1>
+  <div class="axes">{% for a in r.axes %}<span>{{ a }}</span>{% endfor %}</div>
+
+  <div class="art"><img src="{{ r.image }}" alt="守り神 {{ r.monster }}"></div>
+  <div class="mname">あなたの守り神 <b>{{ r.monster }}</b></div>
+  <a class="save" href="{{ r.image }}" download>守り神の絵を保存する</a>
+
+  <div class="panel">
+    <h2>どんな人？</h2>
+    <p>{{ r.type_desc }}</p>
+    <p style="margin-top:8px">「{{ r.catch }}」</p>
+  </div>
+
+  <div class="panel">
+    <h2>強みと弱点</h2>
+    <dl><dt>強み</dt><dd>{{ r.strong }}</dd><dt>弱点</dt><dd>{{ r.weak }}</dd></dl>
+  </div>
+
+  <div class="panel">
+    <h2>今日の運勢</h2>
+    <div class="luck">{{ r.fortune }}</div>
+    <dl>
+      <dt>恋愛</dt><dd>{{ r.love }}</dd>
+      <dt>友情</dt><dd>{{ r.friend }}</dd>
+      <dt>勉強・仕事</dt><dd>{{ r.study }}</dd>
+      <dt>お金</dt><dd>{{ r.money }}</dd>
+      <dt>ラッキー</dt><dd>{{ r.lucky }}</dd>
+    </dl>
+  </div>
+
+  <div class="panel">
+    <h2>相性</h2>
+    <dl>
+      <dt>相性◎</dt><dd>{{ r.partners | join('、') }}</dd>
+      <dt>刺激しあう</dt><dd>{{ r.rival }}（ちがうからこそ、一緒にいると新しい発見がある）</dd>
+    </dl>
+    <p style="margin-top:14px">一緒に診断した人のカード番号（左上の No.）を入れると、2人の相性がわかります。</p>
+    <div class="row"><input id="other" type="number" min="1" inputmode="numeric" placeholder="相手の No."><button id="matchBtn">相性を見る</button></div>
+    <div class="matchres" id="res"></div>
+  </div>
+
+  <footer>
+    2026.11.21 学園祭の模擬店「守り神診断」<br>
+    つくった人のほかのアプリ → <a href="https://webtool-labs.com/" target="_blank" rel="noopener">RakuYade</a>
+  </footer>
+</main>
+<script>
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+document.getElementById('matchBtn').onclick = async () => {
+  const b = document.getElementById('other').value;
+  const out = document.getElementById('res');
+  if (!b) return;
+  const res = await fetch('/api/match', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ a: {{ r.serial }}, b: Number(b) }) });
+  const m = await res.json();
+  if (!m.ok) { out.innerHTML = `<p class="err">${esc(m.reason)}</p>`; return; }
+  out.innerHTML = `<div>${esc(m.a)} × ${esc(m.b)}</div><div class="score">${m.score}%</div>
+    <div><b>${esc(m.title)}</b></div><ul>${m.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>`;
+};
+</script>
+</body>
+</html>

@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>性格みくじ</title>
+<title>守り神診断</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&family=Shippori+Mincho+B1:wght@500;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root { --bg: #1b1433; --panel: #2a2150; --panel2: #3b2f6e; --text: #fff; --muted: #b9b0d9; --accent: #ffcc33; }
@@ -19,12 +19,12 @@
   h1 { margin: 0 0 6px; font-size: 1.6rem; letter-spacing: .05em; text-align: center; }
   .lead { margin: 0 0 20px; color: var(--muted); font-size: .92rem; text-align: center; line-height: 1.7; }
   .mock { background: #ff5577; color: #fff; font-size: .75rem; padding: 4px 10px; border-radius: 99px; margin-bottom: 14px; }
-  button {
-    font: inherit; font-weight: 800; border: 0; border-radius: 14px; cursor: pointer;
+  button, a.btn {
+    font: inherit; font-weight: 800; border: 0; border-radius: 14px; cursor: pointer; text-decoration: none;
     padding: 14px 18px; background: var(--accent); color: #3a2400;
   }
   button:disabled { opacity: .5; cursor: default; }
-  button.sub { background: var(--panel); color: var(--text); }
+  .sub { background: var(--panel) !important; color: var(--text) !important; }
   .big { font-size: 1.15rem; padding: 18px 40px; }
   .hidden { display: none !important; }
 
@@ -39,8 +39,9 @@
   .back { margin-top: 18px; background: none; color: var(--muted); font-weight: 500; padding: 6px; }
 
   /* 好きなもの・絵柄 */
-  label.h { font-weight: 800; margin: 6px 0 10px; display: block; text-align: center; }
-  input[type=text], input[type=number] {
+  label.h { font-weight: 800; margin: 6px 0 10px; display: block; text-align: center; line-height: 1.6; }
+  label.h small { font-weight: 500; color: var(--muted); }
+  input[type=text] {
     width: 100%; font: inherit; font-size: 1.1rem; padding: 14px 16px; border-radius: 14px;
     border: 3px solid #5b4aa8; background: #fff; color: #222;
   }
@@ -57,71 +58,52 @@
     border: 6px solid #5b4aa8; border-top-color: var(--accent); animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ===== おみくじ（54×86mm の比率） ===== */
+  /* ===== カード（54×86mm の比率） ===== */
   .stage { perspective: 1000px; margin-top: 4px; }
   .card {
-    width: 300px; aspect-ratio: 54 / 86; border-radius: 6px; padding: 7px; position: relative; overflow: hidden;
-    color: #2b1a10; font-family: "Shippori Mincho B1", serif;
-    background: #c8321e; box-shadow: 0 12px 40px rgba(0,0,0,.5);
-    animation: unroll .9s cubic-bezier(.2,.8,.2,1); transform-origin: top;
+    width: 300px; aspect-ratio: 54 / 86; border-radius: 14px; padding: 8px; position: relative; overflow: hidden;
+    color: #2a2340; background: linear-gradient(160deg, #e6defa, #b3a4e0); box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    animation: reveal .9s cubic-bezier(.2,.8,.2,1);
   }
-  @keyframes unroll { from { transform: scaleY(.05); opacity: 0; } to { transform: none; opacity: 1; } }
-  .card.daikichi { background: linear-gradient(135deg, #b8860b, #ffe08a, #b8860b, #ffe08a, #b8860b); background-size: 300% 300%;
-    animation: unroll .9s cubic-bezier(.2,.8,.2,1), shine 5s linear infinite; }
+  @keyframes reveal { from { transform: rotateY(180deg) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+  .card.daikichi { background: linear-gradient(120deg, #f5c542, #fff1b8, #e0a800, #fff1b8, #f5c542); background-size: 300% 300%;
+    animation: reveal .9s cubic-bezier(.2,.8,.2,1), shine 5s linear infinite; }
   @keyframes shine { to { background-position: 300% 0; } }
-  .inner { height: 100%; border: 1.5px solid #c8321e; outline: 3px solid #fbf6ea; outline-offset: -5px;
-    background: #fbf6ea radial-gradient(circle at 20% 10%, rgba(200,160,110,.12), transparent 40%);
-    border-radius: 3px; display: flex; flex-direction: column; padding: 10px 11px 8px; gap: 3px; }
-  .daikichi .inner { border-color: #b8860b; }
-  .head { display: flex; justify-content: space-between; align-items: baseline; font-size: .6rem; font-weight: 800; color: #c8321e; letter-spacing: .1em; }
-  .fortune { text-align: center; font-size: 2.1rem; font-weight: 800; color: #c8321e; line-height: 1.05; letter-spacing: .15em; margin-top: 2px; }
-  .daikichi .fortune { color: #a5750a; text-shadow: 0 0 6px rgba(255,210,90,.6); }
-  .tline { text-align: center; font-size: .66rem; }
-  .tline b { font-size: .84rem; }
-  .art { border-radius: 50%; overflow: hidden; aspect-ratio: 1; width: 52%; margin: 2px auto 0; border: 2px solid #c8321e; background: #eee; }
-  .daikichi .art { border-color: #b8860b; }
+  .inner { background: #fffdf8; border-radius: 9px; height: 100%; display: flex; flex-direction: column; padding: 10px 11px 9px; gap: 4px; }
+  .top { display: flex; align-items: center; font-size: .6rem; font-weight: 800; color: #9a90b8; }
+  .luck { margin-left: auto; font-size: .62rem; font-weight: 800; color: #6a5acd; border: 1.5px solid #cfc6ee; border-radius: 99px; padding: 0 7px; }
+  .daikichi .luck { color: #a5750a; border-color: #e0b84a; background: #fff6d6; }
+  .you { font-size: .62rem; color: #9a90b8; font-weight: 800; margin-top: 2px; }
+  .tname { font-size: 1.3rem; font-weight: 800; color: #3b2a78; line-height: 1.15; }
+  .art { border-radius: 10px; overflow: hidden; aspect-ratio: 1; background: #eee; width: 100%; margin-top: 2px; }
   .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .mname { text-align: center; font-size: .58rem; color: #7a5a40; }
-  .mname b { font-size: .7rem; color: #2b1a10; }
-  .catch { font-size: .64rem; line-height: 1.45; text-align: center; padding: 3px 2px; border-top: 1px dashed #c8a080; border-bottom: 1px dashed #c8a080; }
-  .rows { margin: 2px 0 0; font-size: .6rem; line-height: 1.45; display: grid; grid-template-columns: auto 1fr; gap: 1px 6px; flex: 1; align-content: start; }
-  .rows dt { font-weight: 800; color: #fff; background: #c8321e; border-radius: 2px; padding: 0 4px; height: fit-content; margin-top: 1px; font-size: .56rem; }
-  .daikichi .rows dt { background: #a5750a; }
-  .rows dd { margin: 0; }
-  .foot { display: flex; justify-content: space-between; font-size: .52rem; color: #9a7a60; font-weight: 800; }
-
-  /* 診断結果 */
-  .panel { margin-top: 20px; background: var(--panel); border-radius: 16px; padding: 16px 18px; width: 100%; }
-  .panel h2 { margin: 0 0 4px; font-size: 1.2rem; }
-  .axes { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
-  .axes span { background: var(--panel2); border-radius: 99px; padding: 3px 10px; font-size: .75rem; }
-  .panel dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: .9rem; }
-  .panel dt { color: var(--accent); font-weight: 800; }
-  .panel dd { margin: 0; }
-  .panel p { margin: 0 0 10px; line-height: 1.6; }
+  .mname { font-size: .6rem; color: #9a90b8; font-weight: 800; }
+  .mname b { color: #3b2a78; font-size: .78rem; }
+  .catch { font-size: .66rem; line-height: 1.45; }
+  .bottom { margin-top: auto; display: flex; gap: 8px; align-items: flex-end; }
+  .bottom .info { flex: 1; font-size: .58rem; line-height: 1.5; color: #555; }
+  .bottom .info b { color: #6a5acd; }
+  .qr { width: 58px; text-align: center; font-size: .42rem; color: #9a90b8; font-weight: 800; line-height: 1.3; }
+  .qr img { width: 58px; height: 58px; display: block; }
 
   .actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
-  .row { display: flex; gap: 8px; align-items: center; }
-  .row input { width: 110px; text-align: center; }
-  .matchres { margin-top: 14px; text-align: center; }
-  .matchres .score { font-size: 2.4rem; font-weight: 800; color: var(--accent); }
-  .matchres ul { text-align: left; margin: 8px 0 0; padding-left: 1.2em; font-size: .88rem; line-height: 1.6; }
-
+  .panel { margin-top: 20px; background: var(--panel); border-radius: 16px; padding: 16px 18px; width: 100%; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
   .chips button { background: var(--panel2); color: var(--text); padding: 8px 12px; font-size: .85rem; }
   .chips button.on { background: var(--accent); color: #3a2400; }
   .center { text-align: center; }
+  .center p { margin: 0 0 10px; }
   .thanks { color: var(--accent); font-weight: 800; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>性格みくじ</h1>
+  <h1>守り神診断</h1>
   {% if mock %}<div class="mock">お試しモード：AIを使わずダミーのカードを出しています</div>{% endif %}
 
   <!-- 1. はじめ -->
   <section id="s-start" class="wrap">
-    <p class="lead">8つの質問に答えると、<br>あなたの性格にぴったりのおみくじが出ます。<br>あなたを守る「守り神」は、AIがその場で描く世界に1体だけ。</p>
+    <p class="lead">8つの質問に答えると、あなたの性格タイプと、<br>あなたを守る「守り神」が決まります。<br>守り神はAIがその場で描く、世界に1体だけ。</p>
     <button class="big" id="startBtn">診断をはじめる</button>
   </section>
 
@@ -136,7 +118,7 @@
 
   <!-- 3. 好きなもの・絵柄 -->
   <section id="s-fav" class="wrap hidden">
-    <label class="h" for="favorite">さいごに、あなたの好きなものは？<br><small style="font-weight:500;color:var(--muted)">守り神の姿に入ります</small></label>
+    <label class="h" for="favorite">さいごに、あなたの好きなものは？<br><small>守り神の姿に入ります</small></label>
     <input id="favorite" type="text" maxlength="20" placeholder="例：ラーメン" autocomplete="off">
     <div class="examples">
       <button type="button">ラーメン</button><button type="button">ねこ</button><button type="button">サッカー</button>
@@ -147,35 +129,27 @@
       <button type="button" data-v="cute" class="on">かわいい<small>まるっこい・やさしい色</small></button>
       <button type="button" data-v="cool">かっこいい<small>するどい・迫力がある</small></button>
     </div>
-    <button class="big" id="makeBtn">おみくじを引く！</button>
+    <button class="big" id="makeBtn">カードを作る！</button>
     <div id="loading" class="hidden"><div class="spinner"></div></div>
     <div id="status"></div>
   </section>
 
-  <!-- 4. 結果 -->
+  <!-- 4. 結果（お店の画面） -->
   <section id="s-result" class="wrap hidden">
     <div class="stage" id="stage"></div>
 
     <div class="actions">
       <button type="button" id="saveBtn">画像を保存</button>
-      <button type="button" class="sub" id="nextBtn">つぎの人が診断する</button>
-    </div>
-
-    <div class="panel" id="typePanel"></div>
-
-    <div class="panel">
-      <h2>だれかと相性を見る</h2>
-      <p>一緒に来た人もカードを作ったら、その人のおみくじの番号（右上の 第○番）を入れてね。</p>
-      <div class="row"><input id="otherNo" type="number" min="1" placeholder="No."><button type="button" id="matchBtn">相性を見る</button></div>
-      <div class="matchres" id="matchRes"></div>
+      <a class="btn sub" id="detailLink" target="_blank">詳しい結果を見る</a>
+      <button type="button" class="sub" id="nextBtn">つぎの人</button>
     </div>
 
     <div class="panel center" id="survey">
-      <p><b>このおみくじ、いくらなら買う？</b></p>
+      <p><b>このカード、いくらなら買う？</b></p>
       <div class="chips" id="prices"></div>
-      <p><b>もう1回引きたい？</b></p>
+      <p><b>もう1枚（ちがう好きなものや絵柄で）作りたい？</b></p>
       <div class="chips" id="againChips">
-        <button type="button" data-v="1">引きたい！</button><button type="button" data-v="0">1回でいい</button>
+        <button type="button" data-v="1">作りたい！</button><button type="button" data-v="0">1枚でいい</button>
       </div>
       <button type="button" id="sendBtn" disabled>答える</button>
       <div class="thanks hidden" id="thanks">ありがとう！</div>
@@ -186,7 +160,7 @@
 <script>
 const QUESTIONS = {{ questions | tojson }};
 const PRICES = [0, 100, 200, 300, 400, 500, 700, 1000];
-const LOADING_MSGS = ['性格を読みといています…', 'おみくじを引いています…', '守り神が描かれています…', '運勢を書いています…', 'もうすぐです…'];
+const LOADING_MSGS = ['性格を読みといています…', '守り神をよび出しています…', 'AIが絵を描いています…', '運勢を占っています…', 'もうすぐです…'];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -228,14 +202,12 @@ $('makeBtn').onclick = async () => {
   $('status').className = '';
   let i = 0; $('status').textContent = LOADING_MSGS[0];
   const timer = setInterval(() => { i = (i + 1) % LOADING_MSGS.length; $('status').textContent = LOADING_MSGS[i]; }, 2500);
-  const t0 = Date.now();
   try {
     const res = await fetch('/api/card', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ answers, favorite, style }) });
     const data = await res.json();
     if (!data.ok) { $('status').className = 'error'; $('status').textContent = data.reason; return; }
     current = data;
-    current.seconds = Math.round((Date.now() - t0) / 1000);
     renderResult(data);
     show('s-result');
   } catch (err) {
@@ -246,35 +218,23 @@ $('makeBtn').onclick = async () => {
 };
 
 function renderResult(c) {
-    $('stage').innerHTML = `
+  $('stage').innerHTML = `
     <div class="card ${c.fortune === '大吉' ? 'daikichi' : ''}" id="card"><div class="inner">
-      <div class="head"><span>性格みくじ</span><span>第${String(c.serial).padStart(4, '0')}番</span></div>
-      <div class="fortune">${esc(c.fortune)}</div>
-      <div class="tline">あなたは <b>${esc(c.type_name)}</b></div>
+      <div class="top"><span>No.${String(c.serial).padStart(4, '0')}</span><span class="luck">今日の運勢 ${esc(c.fortune)}</span></div>
+      <div class="you">あなたは</div>
+      <div class="tname">${esc(c.type_name)}</div>
       <div class="art"><img src="${c.image}" alt=""></div>
       <div class="mname">守り神 <b>${esc(c.monster)}</b></div>
       <div class="catch">${esc(c.catch)}</div>
-      <dl class="rows">
-        <dt>待ち人</dt><dd>${c.partners.map(esc).join('・')}の人</dd>
-        <dt>恋愛</dt><dd>${esc(c.love)}</dd>
-        <dt>友情</dt><dd>${esc(c.friend)}</dd>
-        <dt>学業</dt><dd>${esc(c.study)}</dd>
-        <dt>金運</dt><dd>${esc(c.money)}</dd>
-        <dt>吉品</dt><dd>${esc(c.lucky)}</dd>
-      </dl>
-      <div class="foot"><span>強み：${esc(c.strong)}</span><span>2026.11.21</span></div>
+      <div class="bottom">
+        <div class="info">
+          <b>相性◎</b> ${c.partners.map(esc).join('・')}<br>
+          2026.11.21 守り神診断
+        </div>
+        <div class="qr"><img src="${c.qr}" alt="">詳しい占い・相性</div>
+      </div>
     </div></div>`;
-  $('typePanel').innerHTML = `
-    <h2>あなたは「${esc(c.type_name)}」タイプ</h2>
-    <div class="axes">${c.axes.map((a) => `<span>${esc(a)}</span>`).join('')}</div>
-    <p>${esc(c.type_desc)}</p>
-    <dl>
-      <dt>強み</dt><dd>${esc(c.strong)}</dd>
-      <dt>弱点</dt><dd>${esc(c.weak)}</dd>
-      <dt>相性◎</dt><dd>${c.partners.map(esc).join('、')}</dd>
-      <dt>刺激しあう</dt><dd>${esc(c.rival)}（ちがうからこそ、一緒にいると新しい発見がある）</dd>
-    </dl>`;
-  $('matchRes').innerHTML = ''; $('otherNo').value = '';
+  $('detailLink').href = c.url;
   survey = { price: null, again: null };
   document.querySelectorAll('.chips button').forEach((b) => b.classList.remove('on'));
   $('sendBtn').disabled = true; $('sendBtn').classList.remove('hidden'); $('thanks').classList.add('hidden');
@@ -284,27 +244,13 @@ $('saveBtn').onclick = async () => {
   const canvas = await html2canvas($('card'), { backgroundColor: null, scale: 3 });
   const a = document.createElement('a');
   a.href = canvas.toDataURL('image/png');
-  a.download = `mikuji-${String(current.serial).padStart(4, '0')}.png`;
+  a.download = `card-${String(current.serial).padStart(4, '0')}.png`;
   a.click();
 };
 
 $('nextBtn').onclick = () => {
   answers = []; $('favorite').value = ''; $('status').textContent = '';
   show('s-start');
-};
-
-$('matchBtn').onclick = async () => {
-  const b = $('otherNo').value;
-  if (!b) return;
-  const res = await fetch('/api/match', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ a: current.serial, b: Number(b) }) });
-  const m = await res.json();
-  if (!m.ok) { $('matchRes').innerHTML = `<p style="color:#ff8fa3">${esc(m.reason)}</p>`; return; }
-  $('matchRes').innerHTML = `
-    <div>${esc(m.a)} × ${esc(m.b)}</div>
-    <div class="score">${m.score}%</div>
-    <div><b>${esc(m.title)}</b></div>
-    <ul>${m.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>`;
 };
 
 $('prices').innerHTML = PRICES.map((p) => `<button type="button" data-v="${p}">${p === 0 ? '買わない' : p + '円'}</button>`).join('');

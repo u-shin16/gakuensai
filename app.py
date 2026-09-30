@@ -5,7 +5,9 @@
   2. 好きなものを1つと、絵柄（かわいい／かっこいい）を選ぶ
   3. Geminiが、タイプと好きなものを混ぜた守り神モンスターの名前・あるある・恋愛や金運などの言葉を作り、絵を描く
   4. 運勢（大吉〜末吉）はサーバー側で抽選し、AIはその運勢に合わせておみくじの言葉を書く
-  5. 2人のカード番号から相性を出せる
+  5. カードのQRコードから、その人だけの結果ページ（/r/<ランダムな文字列>）で詳しい占いと相性を見られる
+     URLは連番にしない（番号を変えるだけで他人の結果が見えないようにするため）
+  6. 2人のカード番号から相性を出せる
 
 GEMINI_API_KEY が無いときは「お試しモード」で、ダミーの中身と仮の絵を返す。
 
@@ -16,15 +18,20 @@ GEMINI_API_KEY が無いときは「お試しモード」で、ダミーの中�
 from __future__ import annotations
 
 import base64
+import io
 import json
 import os
 import random
+import re
+import secrets
 import threading
 from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+import qrcode
+import qrcode.image.svg
+from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
 from types_data import AXIS_WORDS, QUESTIONS, TYPES, best_partners, decide_type, match, rival
 
@@ -39,6 +46,10 @@ MOCK = not API_KEY or os.environ.get("MOCK") == "1"
 
 DATA_DIR = Path(__file__).parent / "data"
 LOG_PATH = DATA_DIR / "log.jsonl"
+RESULT_DIR = DATA_DIR / "results"   # 結果ページ用。1人1ファイル（JSON＋絵）
+# QRコードに入れるURLの頭。未設定なら開いているアドレスを使う（スマホで試すときはLANのアドレスで開く）
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{16}$")
 _lock = threading.Lock()
 
 # 運勢の抽選。凶は入れない（子ども連れが多いため）。合計100。
@@ -200,6 +211,51 @@ def ai_image(prompt: str, style: str) -> str:
     raise RuntimeError("絵が返ってきませんでした")
 
 
+def save_result(result: dict, image_data_uri: str) -> str:
+    """結果と絵を保存して、推測されないトークンを返す。"""
+    token = secrets.token_urlsafe(12)  # 16文字
+    RESULT_DIR.mkdir(parents=True, exist_ok=True)
+    header, b64 = image_data_uri.split(",", 1)
+    ext = "svg" if "svg" in header else "png"
+    (RESULT_DIR / f"{token}.{ext}").write_bytes(base64.b64decode(b64))
+    result = {**result, "image_file": f"{token}.{ext}", "created_at": datetime.now().isoformat(timespec="seconds")}
+    (RESULT_DIR / f"{token}.json").write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    return token
+
+
+def load_result(token: str) -> dict:
+    if not TOKEN_RE.match(token):
+        abort(404)
+    path = RESULT_DIR / f"{token}.json"
+    if not path.exists():
+        abort(404)
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def qr_svg(url: str) -> str:
+    img = qrcode.make(url, image_factory=qrcode.image.svg.SvgPathImage, box_size=10, border=1)
+    buf = io.BytesIO()
+    img.save(buf)
+    return "data:image/svg+xml;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+def result_payload(r: dict, token: str) -> dict:
+    """保存した結果に、タイプの説明など固定の中身を足して返す。"""
+    t = TYPES[r["type_code"]]
+    return {
+        **r,
+        "token": token,
+        "type_name": t["name"],
+        "type_desc": t["desc"],
+        "axes": [AXIS_WORDS[c] for c in r["type_code"]],
+        "strong": t["strong"],
+        "weak": t["weak"],
+        "partners": best_partners(r["type_code"]),
+        "rival": rival(r["type_code"]),
+        "image": f"/img/{r['image_file']}",
+    }
+
+
 @app.route("/")
 def index():
     questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
@@ -248,29 +304,28 @@ def make_card():
 
     with _lock:
         serial = sum(1 for r in read_log() if r["event"] == "card") + 1
-    write_log({"event": "card", "serial": serial, "type": code, "favorite": favorite,
+    result = {
+        "serial": serial, "fortune": fortune, "type_code": code, "favorite": favorite, "style": style,
+        **{k: card[k] for k in ("monster", "catch", "love", "friend", "study", "money", "lucky")},
+    }
+    token = save_result(result, image)
+    write_log({"event": "card", "serial": serial, "token": token, "type": code, "favorite": favorite,
                "style": style, "fortune": fortune, "mock": MOCK})
-    return jsonify({
-        "ok": True,
-        "serial": serial,
-        "fortune": fortune,
-        "type_code": code,
-        "type_name": t["name"],
-        "type_desc": t["desc"],
-        "axes": [AXIS_WORDS[c] for c in code],
-        "strong": t["strong"],
-        "weak": t["weak"],
-        "partners": best_partners(code),
-        "rival": rival(code),
-        "monster": card["monster"],
-        "catch": card["catch"],
-        "love": card["love"],
-        "friend": card["friend"],
-        "study": card["study"],
-        "money": card["money"],
-        "lucky": card["lucky"],
-        "image": image,
-    })
+    url = f"{PUBLIC_BASE_URL or request.host_url.rstrip('/')}/r/{token}"
+    return jsonify({"ok": True, **result_payload(load_result(token), token), "url": url, "qr": qr_svg(url)})
+
+
+@app.get("/r/<token>")
+def result_page(token: str):
+    """カードのQRコードから開く、その人だけの結果ページ。"""
+    return render_template("result.html", r=result_payload(load_result(token), token))
+
+
+@app.get("/img/<name>")
+def result_image(name: str):
+    if not re.match(r"^[A-Za-z0-9_-]{16}\.(png|svg)$", name):
+        abort(404)
+    return send_from_directory(RESULT_DIR, name, max_age=86400)
 
 
 @app.post("/api/match")
