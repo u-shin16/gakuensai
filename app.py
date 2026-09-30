@@ -101,7 +101,6 @@ CARD_SCHEMA = {
         "allowed": {"type": "boolean"},
         "reason": {"type": "string"},
         "monster": {"type": "string"},
-        "catch": {"type": "string"},
         "message": {"type": "string"},
         "love": {"type": "string"},
         "friend": {"type": "string"},
@@ -109,7 +108,7 @@ CARD_SCHEMA = {
         "money": {"type": "string"},
         "image_prompt": {"type": "string"},
     },
-    "required": ["allowed", "reason", "monster", "catch", "message", "love", "friend", "study", "money", "image_prompt"],
+    "required": ["allowed", "reason", "monster", "message", "love", "friend", "study", "money", "image_prompt"],
 }
 
 CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診断の結果と好きなものから、
@@ -135,12 +134,6 @@ CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診
 allowed=true のとき：
 - monster：性格と好きなものを混ぜた、この人の守り神モンスターの名前。カタカナ中心で8文字以内。
   次の名前はもう使われているので、同じ名前・よく似た名前にしない：{used_names}
-- catch：この人の性格の「あるある」を1文（35文字以内）。結果ページの「どんな人？」に載る。
-  - 好きなものは入れない。性格だけで書く
-  - 学校・家・友だちとの時間など、誰でも思い浮かぶ日常の具体的な場面を1つ入れる（例の形：「〇〇のとき、つい〇〇しがち」）
-  - 「少し」の軸がある人は、そのギャップを入れる（例の形：「〇〇なのに、〇〇なときもある」）
-  - 文末は「〜しがち。」「〜ことがある。」「〜ときもある。」のどれかにそろえる（です・ますや「〜よね」は使わない）
-  - 小学生でも意味がすぐ分かる、ふつうの日本語にする。たとえ話や詩的な言い回しは使わない。悪口にしない
 - message：守り神からこの人への「ひとこと」。カードに大きく載る。次の決まりを必ず守る。
   - 2文で書く。1文目でこの人のいいところを1つほめ、2文目では、そのいいところが好きなもの「{favorite}」の場面でどう活きるかを言う。
     1文目と2文目は必ず意味がつながること。2文目だけ別の話（「〜を見に行こう」「一緒に〜しよう」など）にしない
@@ -188,7 +181,6 @@ def mock_card(code: str, favorite: str) -> dict:
     return {
         "allowed": True, "reason": "",
         "monster": f"{favorite[:4]}モン",
-        "catch": "（ダミー）キーを入れると、AIがあなたのあるあるを書いてくれる。",
         "message": "（ダミー）ぼくがずっと、きみを見守っているよ。",
         "love": love, "friend": friend, "study": study, "money": money,
         "image_prompt": t["motif"],
@@ -229,11 +221,7 @@ def ai_card(code: str, favorite: str, style: str, profile: list[str], used_names
             thinking_config=types.ThinkingConfig(thinking_budget=0),
         ),
     )
-    card = json.loads(resp.text)
-    # 「どんな人？」の文末をそろえる（AIがときどき「〜あります。」と書くため）
-    if card.get("catch", "").endswith("あります。"):
-        card["catch"] = card["catch"][:-5] + "ある。"
-    return card
+    return json.loads(resp.text)
 
 
 MESSAGE_PROMPT = """あなたは、ある人を守る守り神です。その人にカードで渡す「ひとこと」を書きます。
@@ -354,6 +342,7 @@ def result_payload(r: dict, token: str) -> dict:
         "type_kana": t["kana"],
         "color": t["color"],
         "type_desc": t["desc"],
+        "aruaru": t["aruaru"],
         "axes": [AXIS_WORDS[c] for c in r["type_code"]],
         "strong": t["strong"],
         "weak": t["weak"],
@@ -432,7 +421,7 @@ def make_card():
         serial = sum(1 for r in read_log() if r["event"] == "card") + 1
     result = {
         "serial": serial, "type_code": code, "favorite": favorite, "style": style,
-        **{k: card[k] for k in ("monster", "catch", "message", "love", "friend", "study", "money")},
+        **{k: card[k] for k in ("monster", "message", "love", "friend", "study", "money")},
     }
     token = save_result(result, image)
     write_log({"event": "card", "serial": serial, "token": token, "type": code, "favorite": favorite,

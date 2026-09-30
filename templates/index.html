@@ -246,7 +246,7 @@ function renderResult(c) {
       <div class="art" ${c.art_bg ? `style="background:${c.art_bg}"` : ''}><img src="${c.image}" alt=""></div>
       <div class="mname">守り神 <b>${esc(c.monster)}</b></div>
       <div class="bottom">
-        <div class="catch">「${esc(c.message || c.catch)}」</div>
+        <div class="catch">「${esc(c.message)}」</div>
         <div class="qr"><img src="${c.qr}" alt="">詳しい結果<br>相性はこちら</div>
       </div>
     </div></div>`;
