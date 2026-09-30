@@ -73,20 +73,21 @@
   }
   @keyframes reveal { from { transform: rotateY(180deg) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
   .inner { background: var(--pat), var(--tint); border-radius: 9px; height: 100%; display: flex; flex-direction: column; padding: 10px 11px 9px; gap: 4px; }
-  .top { display: flex; align-items: center; font-size: .6rem; font-weight: 800; color: var(--tc); }
-  .you { font-size: .62rem; color: #7a7290; font-weight: 800; margin-top: 2px; }
-  .kana { font-size: .56rem; font-weight: 800; color: var(--tc); opacity: .8; letter-spacing: .08em; margin-top: 2px; margin-bottom: -4px; }
+  .top { display: flex; align-items: center; justify-content: space-between; font-size: .56rem; font-weight: 800; color: var(--tc); }
+  .top .date { color: #7a7290; }
+  .head { display: flex; align-items: flex-end; gap: 6px; }
+  .head .you { font-size: .6rem; color: #7a7290; font-weight: 800; padding-bottom: 3px; }
+  .head .tn { display: flex; flex-direction: column; }
+  .kana { font-size: .52rem; font-weight: 800; color: var(--tc); opacity: .8; letter-spacing: .08em; margin-bottom: -3px; }
   .tname { font-size: 1.3rem; font-weight: 800; color: var(--tc); line-height: 1.15; }
   /* 絵の枠は必ず正方形。文が長くても押しつぶされて絵の上下が切れないよう、縮ませない（2026-09-30） */
   .art { border-radius: 10px; overflow: hidden; aspect-ratio: 1; background: var(--soft); border: 2px solid var(--tc);
-    width: 76%; align-self: center; flex-shrink: 0; margin-top: 2px; }
+    width: 100%; align-self: center; flex-shrink: 0; margin-top: 2px; }
   .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .mname { font-size: .6rem; color: #7a7290; font-weight: 800; }
   .mname b { color: var(--tc); font-size: .78rem; }
-  .catch { font-size: .64rem; line-height: 1.45; }
+  .catch { flex: 1; font-size: .62rem; line-height: 1.5; }
   .bottom { margin-top: auto; display: flex; gap: 8px; align-items: flex-end; }
-  .bottom .info { flex: 1; font-size: .58rem; line-height: 1.5; color: #555; }
-  .bottom .info b { color: var(--tc); }
   .qr { width: 58px; text-align: center; font-size: .42rem; color: #7a7290; font-weight: 800; line-height: 1.3; }
   .qr img { width: 58px; height: 58px; display: block; background: #fff; padding: 3px; border-radius: 4px; }
 
@@ -237,18 +238,16 @@ function pattern(hex) {
 function renderResult(c) {
   $('stage').innerHTML = `
     <div class="card" id="card" style="--tc:${c.color};--tint:${tint(c.color, .88)};--soft:${tint(c.color, .6)};--pat:${pattern(c.color).replace(/"/g, '&quot;')}"><div class="inner">
-      <div class="top"><span>No.${String(c.serial).padStart(4, '0')}</span></div>
-      <div class="you">あなたは</div>
-      <div class="kana">${esc(c.type_kana)}</div>
-      <div class="tname">${esc(c.type_name)}</div>
+      <div class="top"><span>No.${String(c.serial).padStart(4, '0')}</span><span class="date">2026.11.21 守り神診断</span></div>
+      <div class="head">
+        <span class="you">あなたは</span>
+        <span class="tn"><span class="kana">${esc(c.type_kana)}</span><span class="tname">${esc(c.type_name)}</span></span>
+      </div>
       <div class="art" ${c.art_bg ? `style="background:${c.art_bg}"` : ''}><img src="${c.image}" alt=""></div>
       <div class="mname">守り神 <b>${esc(c.monster)}</b></div>
-      <div class="catch">「${esc(c.message || c.catch)}」</div>
       <div class="bottom">
-        <div class="info">
-          2026.11.21 守り神診断
-        </div>
-        <div class="qr"><img src="${c.qr}" alt="">詳しい結果・相性はこちら</div>
+        <div class="catch">「${esc(c.message || c.catch)}」</div>
+        <div class="qr"><img src="${c.qr}" alt="">詳しい結果<br>相性はこちら</div>
       </div>
     </div></div>`;
   $('detailLink').href = c.url;

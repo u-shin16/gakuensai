@@ -33,7 +33,7 @@ import qrcode.image.svg
 from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
 from trim import edge_color, trim_margins
-from types_data import ADVICE, AXIS_WORDS, QUESTIONS, TYPES, best_partners, decide_type, match, rival
+from types_data import ADVICE, AXIS_WORDS, QUESTIONS, TYPES, axis_profile, best_partners, decide_type, match, rival
 
 load_dotenv()
 
@@ -105,10 +105,9 @@ CARD_SCHEMA = {
         "friend": {"type": "string"},
         "study": {"type": "string"},
         "money": {"type": "string"},
-        "lucky": {"type": "string"},
         "image_prompt": {"type": "string"},
     },
-    "required": ["allowed", "reason", "monster", "catch", "message", "love", "friend", "study", "money", "lucky", "image_prompt"],
+    "required": ["allowed", "reason", "monster", "catch", "message", "love", "friend", "study", "money", "image_prompt"],
 }
 
 CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診断の結果と好きなものから、
@@ -118,6 +117,8 @@ CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診
 
 性格タイプ：{type_name}（{type_desc}）
 強み：{strong}／弱点：{weak}
+この人だけの傾き：{profile}
+（同じタイプの人はたくさんいる。「少し」の軸は反対の面も持っている人なので、そのギャップを文に生かして、この人だけの結果にする）
 属性：{element}
 好きなもの：「{favorite}」
 絵柄：{style}
@@ -130,7 +131,8 @@ CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診
 それ以外は allowed=true で reason は空文字。
 
 allowed=true のとき：
-- monster：性格と好きなものを混ぜた、この人の守り神モンスターの名前。カタカナ中心で8文字以内（例：「メンドラゴ」）
+- monster：性格と好きなものを混ぜた、この人の守り神モンスターの名前。カタカナ中心で8文字以内。
+  次の名前はもう使われているので、同じ名前・よく似た名前にしない：{used_names}
 - catch：この人の「あるある」を1文で（40文字以内）。好きなものを自然に混ぜ、大人が読んでも「わかる、当たってる」と思える内容にする。悪口にしない
 - message：守り神からこの人への「ひとこと」。カードに大きく載る。次の決まりを必ず守る。
   - 形は「（この人のいいところを1つ、具体的にほめる）＋（好きなもの「{favorite}」にからめた、次にやってみたいこと）」の2文
@@ -140,13 +142,13 @@ allowed=true のとき：
   - たとえ話・詩的な言い回しは使わない（「心の〇〇」「〇〇の世界」「〇〇を奏でる」「輝き」など）
   - 好きなものは、実際にするこうどうや物として出す（例：ラーメンなら「ラーメンを食べに行く」、ねこなら「ねこと遊ぶ」）
   - 一人称は「ぼく」。相手は「きみ」。命令や説教にしない。「見守っている」「そばにいる」「大好き」は使わない
-- love（恋愛）・friend（友情）・study（勉強・仕事）・money（お金）：下の元の文をもとにする。
-  - 好きなものは入れない。元の文の意味を保ったまま、言い方だけ少し変える（全員が同じ文にならないように）
-  - 意味は変えない。それぞれ25文字を超えない
-  - 項目の話題から外れない。勉強・仕事の文は、必ず勉強か仕事の場面のまま（遊びや趣味の話にしない）。恋愛・友情・お金も同じ
-  元の文：
-  恋愛「{love}」／友情「{friend}」／勉強・仕事「{study}」／お金「{money}」
-- lucky：ラッキーアイテムを1つ（12文字以内）。好きなものをそのまま書かず、少しひねったもの（例：ラーメン→「なるとのキーホルダー」）
+- love（恋愛）・friend（友情）・study（勉強・仕事）・money（お金）：占いの結果の文。実際の占い・性格診断の書き方にならう。
+  - 形は「傾向の1文」＋「アドバイスの1文」の2文。**傾向の文は18文字以内、アドバイスの文は18文字以内**。前置きや理由の説明は書かず、長くなったら削る
+  - 傾向の文：この人らしい具体的な場面を書く。ほめるだけにせず、「〇〇なのに△△」というギャップや、つまずきやすいところも入れる
+  - アドバイスの文：「〜すると、〜がうまくいく」「〜なのが玉にキズ。〜してみて」のように、次にどうすればいいかを書く
+  - 好きなものは入れない。項目の話題から外れない（勉強・仕事の文は勉強か仕事の場面のまま）
+  - 下はこのタイプの傾向の例。そのまま写さず、この人の傾きに合わせて書く
+    恋愛「{love}」／友情「{friend}」／勉強・仕事「{study}」／お金「{money}」
 - image_prompt：絵を描くための英語の説明。モチーフ「{motif}」に、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルモンスター1体。既存キャラに似せない。文字は入れない
   絵柄が「かっこいい」なら、強くて凛々しい姿（ちびキャラ・赤ちゃんっぽい姿にしない）として書く。「かわいい」なら、まるっこくて愛らしい姿として書く
 """
@@ -178,7 +180,6 @@ def mock_card(code: str, favorite: str) -> dict:
         "catch": "（ダミー）キーを入れると、AIがあなたのあるあるを書いてくれる。",
         "message": "（ダミー）ぼくがずっと、きみを見守っているよ。",
         "love": love, "friend": friend, "study": study, "money": money,
-        "lucky": "（ダミー）おまもり",
         "image_prompt": t["motif"],
     }
 
@@ -192,7 +193,7 @@ def mock_image(c: str) -> str:
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
 
-def ai_card(code: str, favorite: str, style: str) -> dict:
+def ai_card(code: str, favorite: str, style: str, profile: list[str], used_names: list[str]) -> dict:
     t = TYPES[code]
     love, friend, study, money = ADVICE[code]
     from google import genai
@@ -203,6 +204,7 @@ def ai_card(code: str, favorite: str, style: str) -> dict:
         type_name=t["name"], type_desc=t["desc"], strong=t["strong"], weak=t["weak"],
         element=t["element"], favorite=favorite, motif=t["motif"],
         love=love, friend=friend, study=study, money=money,
+        profile="、".join(profile), used_names="、".join(used_names) or "（まだなし）",
         style="かわいい" if style == "cute" else "かっこいい",
     )
     resp = client.models.generate_content(
@@ -257,6 +259,20 @@ def save_result(result: dict, image_data_uri: str) -> str:
     result = {**result, "image_file": f"{token}.{ext}", "art_bg": art_bg, "created_at": datetime.now().isoformat(timespec="seconds")}
     (RESULT_DIR / f"{token}.json").write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
     return token
+
+
+def used_monster_names() -> list[str]:
+    """これまでに作った守り神の名前（古い順）。"""
+    if not RESULT_DIR.exists():
+        return []
+    rows = []
+    for path in RESULT_DIR.glob("*.json"):
+        try:
+            r = json.loads(path.read_text(encoding="utf-8"))
+            rows.append((r.get("created_at", ""), r.get("monster", "")))
+        except ValueError:
+            continue
+    return [name for _, name in sorted(rows) if name]
 
 
 def load_result(token: str) -> dict:
@@ -323,8 +339,16 @@ def make_card():
     mock = is_mock()
     code = decide_type(answers)
     t = TYPES[code]
+    profile = axis_profile(answers)
+    used = used_monster_names()
     try:
-        card = mock_card(code, favorite) if mock else ai_card(code, favorite, style)
+        if mock:
+            card = mock_card(code, favorite)
+        else:
+            card = ai_card(code, favorite, style, profile, used[-150:])
+            # 守り神の名前がほかの人とかぶったら、1回だけ作り直す（人とかぶらないことを一番大事にする）
+            if card.get("allowed") and card.get("monster") in used:
+                card = ai_card(code, favorite, style, profile, used[-150:] + [card["monster"]])
     except Exception as e:
         app.logger.exception("カードの中身の生成に失敗")
         return jsonify({"ok": False, "reason": f"カードを作れませんでした（{type(e).__name__}）。もう一度試してね"}), 502
@@ -344,7 +368,7 @@ def make_card():
         serial = sum(1 for r in read_log() if r["event"] == "card") + 1
     result = {
         "serial": serial, "type_code": code, "favorite": favorite, "style": style,
-        **{k: card[k] for k in ("monster", "catch", "message", "love", "friend", "study", "money", "lucky")},
+        **{k: card[k] for k in ("monster", "catch", "message", "love", "friend", "study", "money")},
     }
     token = save_result(result, image)
     write_log({"event": "card", "serial": serial, "token": token, "type": code, "favorite": favorite,

@@ -81,6 +81,22 @@ def decide_type(answers: list[str]) -> str:
     return "".join(a if score[a] > score[b] else b for a, b in ("EI", "SN", "TF", "JP"))
 
 
+def axis_profile(answers: list[str]) -> list[str]:
+    """同じタイプでも一人ひとり違う「傾きの強さ」。2問とも同じ側なら「はっきり」、分かれたら「少し」。
+    少しの軸は、反対側の面も持っている（＝ギャップ）として文章に使う。"""
+    score = {c: 0 for c in "EISNTFJP"}
+    for q, pick in zip(QUESTIONS, answers):
+        score[pick] += q["weight"]
+    out = []
+    for a, b in ("EI", "SN", "TF", "JP"):
+        win, lose = (a, b) if score[a] > score[b] else (b, a)
+        if score[lose] == 0:
+            out.append(f"{AXIS_WORDS[win]}（はっきり）")
+        else:
+            out.append(f"{AXIS_WORDS[win]}（少し。{AXIS_WORDS[lose]}な面もある）")
+    return out
+
+
 
 def match(a: str, b: str) -> dict:
     """2タイプの相性。理由が説明できるように、足した点ごとに一言つける。"""
