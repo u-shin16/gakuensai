@@ -2,7 +2,7 @@
 
 4つの軸（それぞれ2問）で16タイプに分ける。
 「MBTI」「16Personalities」の名前・質問文・タイプ名は使わない（商標）。すべてオリジナル。
-タイプ名は子どもにも大人にもすぐ分かる言葉にする（2026-09-30）。
+タイプ名は子どもにも大人にもすぐ分かる、ひらがな6文字前後で完結する言葉にする（2026-09-30）。
 
 軸：
   E/I  にぎやか ↔ マイペース
@@ -37,37 +37,37 @@ AXIS_WORDS = {"E": "にぎやか", "I": "マイペース", "S": "じっさい", 
 # color：タイプのテーマ色（カードの枠と絵の背景に使う）
 # motif：絵を描くAIに渡す、そのタイプらしさ（英語）
 TYPES = {
-    "ESTJ": {"color": "#D9483B", "name": "頼れるリーダー", "element": "ほのお", "motif": "commanding armored dragon knight",
+    "ESTJ": {"color": "#D9483B", "name": "しっかりもの", "element": "ほのお", "motif": "commanding armored dragon knight",
              "desc": "決めたことをきっちりやり切る、頼れるまとめ役。", "strong": "段取りがうまい", "weak": "予定がくずれるとイライラしがち"},
-    "ESTP": {"color": "#F29E1F", "name": "すぐ動く行動派", "element": "でんき", "motif": "agile lightning fox",
+    "ESTP": {"color": "#F29E1F", "name": "まずやるひと", "element": "でんき", "motif": "agile lightning fox",
              "desc": "考えるより先に体が動く行動派。", "strong": "ピンチに強い", "weak": "あきっぽい"},
-    "ESFJ": {"color": "#E8B923", "name": "お世話上手", "element": "ひかり", "motif": "warm glowing bird guardian",
+    "ESFJ": {"color": "#E8B923", "name": "せわやきさん", "element": "ひかり", "motif": "warm glowing bird guardian",
              "desc": "まわりが笑顔だと自分もうれしくなる。", "strong": "気くばり", "weak": "頼まれると断れない"},
-    "ESFP": {"color": "#EE7FA8", "name": "盛り上げ名人", "element": "かぜ", "motif": "festive dancing wind sprite",
+    "ESFP": {"color": "#EE7FA8", "name": "もりあげやく", "element": "かぜ", "motif": "festive dancing wind sprite",
              "desc": "その場を一瞬で楽しくしてしまう。", "strong": "盛り上げ上手", "weak": "お金と時間を使いすぎる"},
-    "ENTJ": {"color": "#6C4AB6", "name": "目標まっしぐら", "element": "やみ", "motif": "majestic shadow lion",
+    "ENTJ": {"color": "#6C4AB6", "name": "まけずぎらい", "element": "やみ", "motif": "majestic shadow lion",
              "desc": "大きな目標に向かって一直線に進む。", "strong": "決めるのが速い", "weak": "人にもきびしくなりがち"},
-    "ENTP": {"color": "#1FA99E", "name": "アイデアマン", "element": "でんき", "motif": "mischievous inventor creature with gadgets",
+    "ENTP": {"color": "#1FA99E", "name": "ひらめきまん", "element": "でんき", "motif": "mischievous inventor creature with gadgets",
              "desc": "新しいアイデアが次々とわいてくる。", "strong": "発想力", "weak": "最後まで仕上げるのが苦手"},
-    "ENFJ": {"color": "#FF7A59", "name": "熱い応援団長", "element": "ほのお", "motif": "radiant phoenix",
+    "ENFJ": {"color": "#FF7A59", "name": "おうえんだん", "element": "ほのお", "motif": "radiant phoenix",
              "desc": "人のいいところを見つけて伸ばすのが得意。", "strong": "人をやる気にさせる", "weak": "ひとりで抱えこみすぎる"},
-    "ENFP": {"color": "#F5A623", "name": "好奇心おばけ", "element": "ひかり", "motif": "curious sparkling long-eared creature",
+    "ENFP": {"color": "#F5A623", "name": "しりたがりや", "element": "ひかり", "motif": "curious sparkling long-eared creature",
              "desc": "好奇心のかたまり。気になったらもう動いている。", "strong": "だれとでも仲良くなれる", "weak": "興味が次々変わる"},
-    "ISTJ": {"color": "#4F8A4B", "name": "まじめな努力家", "element": "くさ", "motif": "sturdy ancient tree turtle",
+    "ISTJ": {"color": "#4F8A4B", "name": "こつこつさん", "element": "くさ", "motif": "sturdy ancient tree turtle",
              "desc": "決めたことをまじめに積み上げる。", "strong": "信頼される", "weak": "急な変更が苦手"},
-    "ISFJ": {"color": "#6DB38F", "name": "やさしい支え役", "element": "くさ", "motif": "gentle forest deer guardian",
+    "ISFJ": {"color": "#6DB38F", "name": "みまもりやく", "element": "くさ", "motif": "gentle forest deer guardian",
              "desc": "気づかれないところで人を支えている。", "strong": "思いやり", "weak": "自分のことを後回しにする"},
-    "ISTP": {"color": "#3F86C2", "name": "器用な職人", "element": "こおり", "motif": "sleek ice wolf with crystal blades",
+    "ISTP": {"color": "#3F86C2", "name": "ものづくりや", "element": "こおり", "motif": "sleek ice wolf with crystal blades",
              "desc": "口数は少ないけど、手を動かせばだれより器用。", "strong": "いつも冷静", "weak": "気持ちを言葉にするのが苦手"},
-    "ISFP": {"color": "#B07CC6", "name": "のんびり芸術家", "element": "かぜ", "motif": "graceful feathered wind cat",
+    "ISFP": {"color": "#B07CC6", "name": "のんびりさん", "element": "かぜ", "motif": "graceful feathered wind cat",
              "desc": "自分の「好き」をなにより大切にする。", "strong": "センスがいい", "weak": "もめごとが苦手でだまりがち"},
-    "INTJ": {"color": "#3D3B8E", "name": "計画の天才", "element": "やみ", "motif": "mysterious owl strategist with glowing runes",
+    "INTJ": {"color": "#3D3B8E", "name": "さきよみさん", "element": "やみ", "motif": "mysterious owl strategist with glowing runes",
              "desc": "先の先まで読んでから動く。", "strong": "計画力", "weak": "説明をはぶきがち"},
-    "INTP": {"color": "#5FA8D8", "name": "なぜなぜ博士", "element": "こおり", "motif": "curious crystal axolotl scholar",
+    "INTP": {"color": "#5FA8D8", "name": "なぜなぜはかせ", "element": "こおり", "motif": "curious crystal axolotl scholar",
              "desc": "気になったことはとことん考えぬく。", "strong": "分析力", "weak": "考えすぎて動けない"},
-    "INFJ": {"color": "#2F6690", "name": "よき相談相手", "element": "みず", "motif": "serene water serpent oracle",
+    "INFJ": {"color": "#2F6690", "name": "ききじょうず", "element": "みず", "motif": "serene water serpent oracle",
              "desc": "人の気持ちを深く読みとる。", "strong": "見ぬく力", "weak": "ひとりで疲れやすい"},
-    "INFP": {"color": "#9A86DB", "name": "夢見る空想家", "element": "みず", "motif": "dreamy jellyfish fairy",
+    "INFP": {"color": "#9A86DB", "name": "ゆめみるひと", "element": "みず", "motif": "dreamy jellyfish fairy",
              "desc": "心の中に大きな世界をもっている。", "strong": "想像力", "weak": "傷つきやすい"},
 }
 
