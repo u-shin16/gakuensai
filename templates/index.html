@@ -87,13 +87,6 @@
   .qr img { width: 58px; height: 58px; display: block; }
 
   .actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
-  .panel { margin-top: 20px; background: var(--panel); border-radius: 16px; padding: 16px 18px; width: 100%; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 14px; }
-  .chips button { background: var(--panel2); color: var(--text); padding: 8px 12px; font-size: .85rem; }
-  .chips button.on { background: var(--accent); color: #3a2400; }
-  .center { text-align: center; }
-  .center p { margin: 0 0 10px; }
-  .thanks { color: var(--accent); font-weight: 800; }
 </style>
 </head>
 <body>
@@ -144,27 +137,16 @@
       <button type="button" class="sub" id="nextBtn">つぎの人</button>
     </div>
 
-    <div class="panel center" id="survey">
-      <p><b>このカード、いくらなら買う？</b></p>
-      <div class="chips" id="prices"></div>
-      <p><b>もう1枚（ちがう好きなものや絵柄で）作りたい？</b></p>
-      <div class="chips" id="againChips">
-        <button type="button" data-v="1">作りたい！</button><button type="button" data-v="0">1枚でいい</button>
-      </div>
-      <button type="button" id="sendBtn" disabled>答える</button>
-      <div class="thanks hidden" id="thanks">ありがとう！</div>
-    </div>
   </section>
 </div>
 
 <script>
 const QUESTIONS = {{ questions | tojson }};
-const PRICES = [0, 100, 200, 300, 400, 500, 700, 1000];
 const LOADING_MSGS = ['性格を読みといています…', '守り神をよび出しています…', 'AIが絵を描いています…', '運勢を占っています…', 'もうすぐです…'];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let answers = [], style = 'cute', current = null, survey = { price: null, again: null };
+let answers = [], style = 'cute', current = null;
 
 function show(id) {
   ['s-start', 's-quiz', 's-fav', 's-result'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
@@ -235,9 +217,6 @@ function renderResult(c) {
       </div>
     </div></div>`;
   $('detailLink').href = c.url;
-  survey = { price: null, again: null };
-  document.querySelectorAll('.chips button').forEach((b) => b.classList.remove('on'));
-  $('sendBtn').disabled = true; $('sendBtn').classList.remove('hidden'); $('thanks').classList.add('hidden');
 }
 
 $('saveBtn').onclick = async () => {
@@ -253,21 +232,6 @@ $('nextBtn').onclick = () => {
   show('s-start');
 };
 
-$('prices').innerHTML = PRICES.map((p) => `<button type="button" data-v="${p}">${p === 0 ? '買わない' : p + '円'}</button>`).join('');
-function chip(groupId, key) {
-  $(groupId).querySelectorAll('button').forEach((b) => b.onclick = () => {
-    $(groupId).querySelectorAll('button').forEach((x) => x.classList.remove('on'));
-    b.classList.add('on');
-    survey[key] = Number(b.dataset.v);
-    $('sendBtn').disabled = survey.price === null || survey.again === null;
-  });
-}
-chip('prices', 'price'); chip('againChips', 'again');
-$('sendBtn').onclick = async () => {
-  await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ serial: current.serial, price: survey.price, again: survey.again === 1 }) });
-  $('sendBtn').classList.add('hidden'); $('thanks').classList.remove('hidden');
-};
 </script>
 </body>
 </html>

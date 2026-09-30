@@ -11,8 +11,8 @@
 
 GEMINI_API_KEY が無いときは「お試しモード」で、ダミーの中身と仮の絵を返す。
 
-試してもらった人の反応（いくらなら買うか）は data/log.jsonl に残す。
-タイプ・好きなもの・運勢・答えた値段・日時だけで、名前などの個人情報は取らない。
+作ったカードと相性を見た記録は data/log.jsonl に残す。
+タイプ・好きなもの・運勢・日時だけで、名前などの個人情報は取らない。
 """
 
 from __future__ import annotations
@@ -344,32 +344,14 @@ def match_cards():
     return jsonify({"ok": True, "a": TYPES[a["type"]]["name"], "b": TYPES[b["type"]]["name"], **m})
 
 
-@app.post("/api/feedback")
-def feedback():
-    body = request.get_json(silent=True) or {}
-    price = body.get("price")
-    if price not in (0, 100, 200, 300, 400, 500, 700, 1000):
-        return jsonify({"ok": False}), 400
-    write_log({"event": "feedback", "serial": body.get("serial"), "price": price,
-               "again": bool(body.get("again"))})
-    return jsonify({"ok": True})
-
-
 @app.get("/api/stats")
 def stats():
-    """試してもらった結果のまとめ。企画書に使う。お試しモードで作ったカードは数えない。"""
+    """試してもらった結果のまとめ。お試しモードで作ったカードは数えない。"""
     rows = read_log()
-    real = {r["serial"] for r in rows if r["event"] == "card" and not r.get("mock")}
-    fb = [r for r in rows if r["event"] == "feedback" and r.get("serial") in real]
-    prices = [r["price"] for r in fb]
     return jsonify({
-        "cards": len(real),
+        "cards": sum(1 for r in rows if r["event"] == "card" and not r.get("mock")),
         "refused": sum(1 for r in rows if r["event"] == "refused"),
         "matches": sum(1 for r in rows if r["event"] == "match"),
-        "answers": len(fb),
-        "want_again": sum(1 for r in fb if r.get("again")),
-        "avg_price": round(sum(prices) / len(prices)) if prices else None,
-        "would_pay_300_or_more": sum(1 for p in prices if p >= 300),
     })
 
 
