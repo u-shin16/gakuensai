@@ -32,7 +32,7 @@ import qrcode
 import qrcode.image.svg
 from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
-from types_data import AXIS_WORDS, QUESTIONS, TYPES, best_partners, decide_type, match, rival
+from types_data import ADVICE, AXIS_WORDS, QUESTIONS, TYPES, best_partners, decide_type, match, rival
 
 load_dotenv()
 
@@ -123,14 +123,11 @@ CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診
 allowed=true のとき：
 - monster：性格と好きなものを混ぜた、この人の守り神モンスターの名前。カタカナ中心で8文字以内（例：「メンドラゴ」）
 - catch：この人の「あるある」を1文で（40文字以内）。好きなものを自然に混ぜ、大人が読んでも「わかる、当たってる」と思える内容にする。悪口にしない
-- love（恋愛）・friend（友情）・study（勉強・仕事）・money（お金）：占いのような、それぞれ20文字前後（最大25文字）の短いひとこと。1文だけ。
-  - その人の性格（強み・弱点）が出る「具体的な場面」を短く入れる
-  - 4つのうち少なくとも2つには、好きなもの「{favorite}」を自然に入れる
-  - 4つはそれぞれ別の場面・別の話題にする。強み・弱点の言葉をそのまま書き写さず、場面で表す。同じ言い回しを2回使わない
-  - 25文字を超えない。説明を足さず、ひと目で読める短さにする
-  - 4つの文の終わり方をすべて変える。「〜と吉」「〜しよう」を2回以上使わない。問いかけ・言い切り・ツッコミなどを混ぜる
-  - 誰にでも当てはまる言葉（「前向きに」「自分らしく」「良縁」など）は使わない。前向きだけど、ちょっと笑える内容にする
-  - 大人も子どもも読める言葉で
+- love（恋愛）・friend（友情）・study（勉強・仕事）・money（お金）：下の元の文をもとにする。
+  - 4つのうち1〜2つだけ、好きなもの「{favorite}」を自然に入れて言い換える。残りは元の文をほぼそのまま使う
+  - 意味は変えない。それぞれ25文字を超えない
+  元の文：
+  恋愛「{love}」／友情「{friend}」／勉強・仕事「{study}」／お金「{money}」
 - lucky：ラッキーアイテムを1つ（12文字以内）。好きなものをそのまま書かず、少しひねったもの（例：ラーメン→「なるとのキーホルダー」）
 - image_prompt：絵を描くための英語の説明。モチーフ「{motif}」に、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルモンスター1体。既存キャラに似せない。文字は入れない
 """
@@ -153,15 +150,14 @@ def blocked(text: str) -> bool:
     return any(w.lower() in text.lower() for w in BLOCKED_WORDS)
 
 
-def mock_card(t: dict, favorite: str) -> dict:
+def mock_card(code: str, favorite: str) -> dict:
+    t = TYPES[code]
+    love, friend, study, money = ADVICE[code]
     return {
         "allowed": True, "reason": "",
         "monster": f"{favorite[:4]}モン",
         "catch": "お試しモード：キーを入れると、AIがあなたのあるあるを書いてくれる。",
-        "love": "（ダミー）好きな人の前では、いつもより声が大きくなりがち",
-        "friend": "（ダミー）集合時間の10分前に着いて、みんなを待つのが得意",
-        "study": "（ダミー）やる気が出るまでの準備に30分かかるタイプ？",
-        "money": "（ダミー）おこづかいの使い道は、もう決まっている",
+        "love": love, "friend": friend, "study": study, "money": money,
         "lucky": "（ダミー）おまもり",
         "image_prompt": t["motif"],
     }
@@ -176,7 +172,9 @@ def mock_image(c: str) -> str:
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
 
-def ai_card(t: dict, favorite: str, style: str) -> dict:
+def ai_card(code: str, favorite: str, style: str) -> dict:
+    t = TYPES[code]
+    love, friend, study, money = ADVICE[code]
     from google import genai
     from google.genai import types
 
@@ -184,6 +182,7 @@ def ai_card(t: dict, favorite: str, style: str) -> dict:
     prompt = CARD_PROMPT.format(
         type_name=t["name"], type_desc=t["desc"], strong=t["strong"], weak=t["weak"],
         element=t["element"], favorite=favorite, motif=t["motif"],
+        love=love, friend=friend, study=study, money=money,
         style="かわいい" if style == "cute" else "かっこいい",
     )
     resp = client.models.generate_content(
@@ -298,7 +297,7 @@ def make_card():
     code = decide_type(answers)
     t = TYPES[code]
     try:
-        card = mock_card(t, favorite) if mock else ai_card(t, favorite, style)
+        card = mock_card(code, favorite) if mock else ai_card(code, favorite, style)
     except Exception as e:
         app.logger.exception("カードの中身の生成に失敗")
         return jsonify({"ok": False, "reason": f"カードを作れませんでした（{type(e).__name__}）。もう一度試してね"}), 502
