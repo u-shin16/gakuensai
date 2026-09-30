@@ -3,8 +3,8 @@
 流れ：
   1. 2択の質問8問に答える → オリジナルの16タイプのどれかに決まる
   2. 好きなものを1つと、絵柄（かわいい／かっこいい）を選ぶ
-  3. Geminiが、タイプと好きなものを混ぜたモンスターの名前・わざ・説明を作り、絵を描く
-  4. レア度はサーバー側で抽選する（AIには決めさせない）
+  3. Geminiが、タイプと好きなものを混ぜた分身モンスターの名前と「あるある」の1文を作り、絵を描く
+  4. カードの仕上げ（枠のキラキラ）はサーバー側で抽選する（AIには決めさせない）
   5. 2人のカード番号から相性を出せる
 
 GEMINI_API_KEY が無いときは「お試しモード」で、ダミーの中身と仮の絵を返す。
@@ -26,7 +26,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 
-from types_data import AXIS_WORDS, QUESTIONS, TYPES, base_stats, best_partners, decide_type, match
+from types_data import AXIS_WORDS, QUESTIONS, TYPES, best_partners, decide_type, match, rival
 
 load_dotenv()
 
@@ -42,8 +42,8 @@ LOG_PATH = DATA_DIR / "log.jsonl"
 _lock = threading.Lock()
 
 # レア度はここで抽選する。合計100。
+# カードの仕上げ（枠の色）の抽選。当たると枠がキラキラになる。合計100。
 RARITIES = [("N", 60), ("R", 25), ("SR", 12), ("UR", 3)]
-RARITY_BONUS = {"N": 0, "R": 15, "SR": 30, "UR": 60}
 
 # 実在キャラ・有名作品は作らない（著作権）。AIの判定より先に、ここで確実に弾く。
 BLOCKED_WORDS = [
@@ -69,12 +69,10 @@ CARD_SCHEMA = {
         "allowed": {"type": "boolean"},
         "reason": {"type": "string"},
         "monster": {"type": "string"},
-        "move": {"type": "string"},
-        "move_text": {"type": "string"},
-        "flavor": {"type": "string"},
+        "catch": {"type": "string"},
         "image_prompt": {"type": "string"},
     },
-    "required": ["allowed", "reason", "monster", "move", "move_text", "flavor", "image_prompt"],
+    "required": ["allowed", "reason", "monster", "catch", "image_prompt"],
 }
 
 CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診断の結果と好きなものから、
@@ -94,10 +92,8 @@ CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診
 それ以外は allowed=true で reason は空文字。
 
 allowed=true のとき：
-- monster：性格と好きなものを混ぜたモンスターの名前。二つ名つきで12文字前後（例：「ラーメン愛の隊長 メンドラゴ」）
-- move：わざの名前（10文字以内）。好きなものにちなむ
-- move_text：わざの説明（30文字以内）。性格が出ていて、くすっと笑える
-- flavor：図鑑の説明（50文字以内）。大人が読んでも「わかる」と思える、性格のあるあるを入れる
+- monster：性格と好きなものを混ぜた、あなたの分身モンスターの名前。カタカナ中心で8文字以内（例：「メンドラゴ」）
+- catch：この人の「あるある」を1文で（45文字以内）。好きなものを自然に混ぜ、大人が読んでも「わかる、当たってる」と思える内容にする。悪口にしない
 - image_prompt：絵を描くための英語の説明。モチーフ「{motif}」に、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルモンスター1体。既存キャラに似せない。文字は入れない
 """
 
@@ -127,10 +123,8 @@ def blocked(text: str) -> bool:
 def mock_card(t: dict, favorite: str) -> dict:
     return {
         "allowed": True, "reason": "",
-        "monster": f"{favorite[:5]}の{t['name']}",
-        "move": f"{favorite[:5]}アタック",
-        "move_text": "お試しモードなので、まだ本気を出していない",
-        "flavor": "キーを入れると、AIがあなたの性格のあるあるを書いてくれる。",
+        "monster": f"{favorite[:4]}モン",
+        "catch": "お試しモード：キーを入れると、AIがあなたのあるあるを書いてくれる。",
         "image_prompt": t["motif"],
     }
 
@@ -237,9 +231,6 @@ def make_card():
         return jsonify({"ok": False, "reason": f"絵を描けませんでした（{type(e).__name__}）。もう一度試してね"}), 502
 
     rarity = draw_rarity()
-    hp, atk = base_stats(code)
-    hp += random.randint(-10, 10) + RARITY_BONUS[rarity]
-    atk += random.randint(-10, 10) + RARITY_BONUS[rarity]
 
     with _lock:
         serial = sum(1 for r in read_log() if r["event"] == "card") + 1
@@ -256,13 +247,9 @@ def make_card():
         "strong": t["strong"],
         "weak": t["weak"],
         "partners": best_partners(code),
-        "element": t["element"],
+        "rival": rival(code),
         "monster": card["monster"],
-        "hp": hp,
-        "attack": atk,
-        "move": card["move"],
-        "move_text": card["move_text"],
-        "flavor": card["flavor"],
+        "catch": card["catch"],
         "image": image,
     })
 

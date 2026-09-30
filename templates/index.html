@@ -71,25 +71,25 @@
   .card.UR { background: linear-gradient(120deg, #ff6ec7, #ffd86e, #6effa8, #6ec9ff, #c86eff, #ff6ec7);
              background-size: 300% 300%; animation: reveal .9s cubic-bezier(.2,.8,.2,1), holo 4s linear infinite; }
   @keyframes holo { to { background-position: 300% 0; } }
-  .inner { background: #fffdf5; border-radius: 10px; height: 100%; display: flex; flex-direction: column; padding: 8px; gap: 5px; }
-  .top { display: flex; align-items: center; gap: 6px; }
-  .rarity { font-weight: 800; font-size: .72rem; padding: 2px 8px; border-radius: 99px; color: #fff; background: #555; }
-  .UR .rarity { background: linear-gradient(90deg, #ff4fa3, #7a5cff); }
-  .SR .rarity { background: #c98a00; }
-  .R .rarity { background: #2f6fd6; }
-  .ctype { font-size: .68rem; font-weight: 800; color: #6a5acd; }
-  .element { margin-left: auto; font-size: .7rem; font-weight: 800; color: #555; }
-  .name { font-weight: 800; font-size: 1rem; line-height: 1.2; }
-  .art { border-radius: 8px; overflow: hidden; aspect-ratio: 1; background: #eee; border: 3px solid rgba(0,0,0,.15); }
+  .card.N { background: linear-gradient(160deg, #e6defa, #b3a4e0); }
+  .inner { background: #fffdf8; border-radius: 10px; height: 100%; display: flex; flex-direction: column; padding: 9px 10px; gap: 4px; }
+  .top { display: flex; align-items: center; font-size: .6rem; font-weight: 800; color: #999; }
+  .finish { margin-left: auto; font-size: .6rem; font-weight: 800; padding: 1px 7px; border-radius: 99px; color: #fff; }
+  .R .finish { background: #2f6fd6; } .SR .finish { background: #c98a00; }
+  .UR .finish { background: linear-gradient(90deg, #ff4fa3, #7a5cff); }
+  .you { font-size: .62rem; color: #888; font-weight: 800; margin-top: 2px; }
+  .tname { font-size: 1.15rem; font-weight: 800; color: #3b2a78; line-height: 1.15; }
+  .caxes { display: flex; gap: 3px; flex-wrap: wrap; }
+  .caxes span { font-size: .55rem; font-weight: 800; background: #efeafc; color: #5b4aa8; border-radius: 99px; padding: 1px 6px; }
+  .art { border-radius: 8px; overflow: hidden; aspect-ratio: 1; background: #eee; width: 78%; margin: 2px auto 0; }
   .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .stats { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 6px; align-items: center; font-size: .7rem; font-weight: 800; }
-  .bar { height: 7px; border-radius: 99px; background: #e8e3d3; overflow: hidden; }
-  .bar i { display: block; height: 100%; background: linear-gradient(90deg, #ffb347, #ff5e62); }
-  .bar.hp i { background: linear-gradient(90deg, #7be495, #2bb673); }
-  .move { background: #f3eedc; border-radius: 6px; padding: 4px 7px; font-size: .7rem; }
-  .move b { display: block; font-size: .8rem; }
-  .flavor { font-size: .64rem; color: #666; line-height: 1.4; flex: 1; }
-  .foot { display: flex; justify-content: space-between; font-size: .6rem; color: #888; font-weight: 800; }
+  .mname { text-align: center; font-size: .62rem; color: #888; font-weight: 800; }
+  .mname b { color: #3b2a78; font-size: .72rem; }
+  .catch { font-size: .68rem; line-height: 1.45; color: #333; background: #f6f2ff; border-radius: 6px; padding: 4px 7px; }
+  .rows { font-size: .62rem; line-height: 1.5; display: grid; grid-template-columns: auto 1fr; gap: 0 6px; flex: 1; align-content: start; }
+  .rows dt { font-weight: 800; color: #b07a00; white-space: nowrap; }
+  .rows dd { margin: 0; color: #333; }
+  .foot { display: flex; justify-content: space-between; font-size: .55rem; color: #aaa; font-weight: 800; }
 
   /* 診断結果 */
   .panel { margin-top: 20px; background: var(--panel); border-radius: 16px; padding: 16px 18px; width: 100%; }
@@ -187,7 +187,7 @@
 <script>
 const QUESTIONS = {{ questions | tojson }};
 const PRICES = [0, 100, 200, 300, 400, 500, 700, 1000];
-const LOADING_MSGS = ['性格を読みといています…', 'モンスターが生まれそう…', 'AIが絵を描いています…', '色をぬっています…', 'レア度を決めています…'];
+const LOADING_MSGS = ['性格を読みといています…', 'モンスターが生まれそう…', 'AIが絵を描いています…', '色をぬっています…', '仕上げています…'];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -247,19 +247,23 @@ $('makeBtn').onclick = async () => {
 };
 
 function renderResult(c) {
-  const pct = (v) => Math.min(100, Math.round(v / 220 * 100));
+    const FINISH = { N: '', R: 'キラ', SR: 'ゴールド', UR: 'レインボー' };
   $('stage').innerHTML = `
     <div class="card ${c.rarity}" id="card"><div class="inner">
-      <div class="top"><span class="rarity">${c.rarity}</span><span class="ctype">${esc(c.type_name)}</span><span class="element">${esc(c.element)}</span></div>
-      <div class="name">${esc(c.monster)}</div>
+      <div class="top"><span>No.${String(c.serial).padStart(4, '0')}</span>${FINISH[c.rarity] ? `<span class="finish">${FINISH[c.rarity]}</span>` : ''}</div>
+      <div class="you">あなたは</div>
+      <div class="tname">${esc(c.type_name)}</div>
+      <div class="caxes">${c.axes.map((a) => `<span>${esc(a)}</span>`).join('')}</div>
       <div class="art"><img src="${c.image}" alt=""></div>
-      <div class="stats">
-        <span>HP</span><div class="bar hp"><i style="width:${pct(c.hp)}%"></i></div><span>${c.hp}</span>
-        <span>こうげき</span><div class="bar"><i style="width:${pct(c.attack)}%"></i></div><span>${c.attack}</span>
-      </div>
-      <div class="move"><b>わざ：${esc(c.move)}</b>${esc(c.move_text)}</div>
-      <div class="flavor">${esc(c.flavor)}</div>
-      <div class="foot"><span>No.${String(c.serial).padStart(4, '0')}</span><span>2026.11.21</span></div>
+      <div class="mname">分身モンスター <b>${esc(c.monster)}</b></div>
+      <div class="catch">${esc(c.catch)}</div>
+      <dl class="rows">
+        <dt>強み</dt><dd>${esc(c.strong)}</dd>
+        <dt>弱点</dt><dd>${esc(c.weak)}</dd>
+        <dt>相性◎</dt><dd>${c.partners.map(esc).join('・')}</dd>
+        <dt>刺激しあう</dt><dd>${esc(c.rival)}</dd>
+      </dl>
+      <div class="foot"><span>モンスター診断カード</span><span>2026.11.21</span></div>
     </div></div>`;
   $('typePanel').innerHTML = `
     <h2>あなたは「${esc(c.type_name)}」タイプ</h2>
@@ -269,6 +273,7 @@ function renderResult(c) {
       <dt>強み</dt><dd>${esc(c.strong)}</dd>
       <dt>弱点</dt><dd>${esc(c.weak)}</dd>
       <dt>相性◎</dt><dd>${c.partners.map(esc).join('、')}</dd>
+      <dt>刺激しあう</dt><dd>${esc(c.rival)}（ちがうからこそ、一緒にいると新しい発見がある）</dd>
     </dl>`;
   $('matchRes').innerHTML = ''; $('otherNo').value = '';
   survey = { price: null, again: null };

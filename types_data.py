@@ -78,17 +78,6 @@ def decide_type(answers: list[str]) -> str:
     return "".join(a if score[a] > score[b] else b for a, b in ("EI", "SN", "TF", "JP"))
 
 
-def base_stats(code: str) -> tuple[int, int]:
-    """にぎやか・りくつ・きまま はこうげき寄り、マイペース・きもち・けいかく はHP寄り。"""
-    hp, atk = 80, 60
-    hp += 20 if code[0] == "I" else 0
-    atk += 20 if code[0] == "E" else 0
-    atk += 10 if code[2] == "T" else 0
-    hp += 10 if code[2] == "F" else 0
-    hp += 10 if code[3] == "J" else 0
-    atk += 10 if code[3] == "P" else 0
-    return hp, atk
-
 
 def match(a: str, b: str) -> dict:
     """2タイプの相性。理由が説明できるように、足した点ごとに一言つける。"""
@@ -121,3 +110,8 @@ def match(a: str, b: str) -> dict:
 def best_partners(code: str, n: int = 2) -> list[str]:
     ranked = sorted((c for c in TYPES if c != code), key=lambda c: -match(code, c)["score"])
     return [TYPES[c]["name"] for c in ranked[:n]]
+
+
+def rival(code: str) -> str:
+    """いちばん点が低い相手。悪く書かず「刺激しあう相手」として出す。"""
+    return TYPES[min((c for c in TYPES if c != code), key=lambda c: match(code, c)["score"])]["name"]
