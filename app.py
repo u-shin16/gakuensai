@@ -74,16 +74,17 @@ BLOCKED_WORDS = [
     "ゴジラ", "ウルトラマン", "仮面ライダー", "プリキュア",
 ]
 
-# AIっぽい絵（つやつや・光・リアルな陰影・細かい背景）にならないよう、平面的な絵柄に固定する。
+# 絵柄は「絵本風」に固定（2026-09-30にゆーしんが3案から選んだ）。
+# つやつやしたAIっぽい絵にも、平たすぎるちゃちな絵にもならないようにする。
 STYLES = {
-    "cute": ("Flat vector mascot character illustration, cute round simple shapes, thick uniform dark outlines, "
-             "flat colors only, limited palette of 4 colors, like a hand-drawn Japanese yuru-chara sticker"),
-    "cool": ("Bold flat graphic character illustration, sharp simple shapes, thick uniform black ink outlines, "
-             "flat colors only, limited palette of 3 colors plus black, like a screen-printed poster or hand-inked badge"),
+    "cute": ("Warm Japanese picture-book illustration, gouache and colored pencil texture, hand-painted brush strokes, "
+             "visible paper grain, soft natural shading, gentle rounded cute character design"),
+    "cool": ("Warm Japanese picture-book illustration, gouache and colored pencil texture, hand-painted brush strokes, "
+             "visible paper grain, soft natural shading, brave and heroic character design with a confident pose"),
 }
-IMAGE_COMMON = ("No gradients, no shading, no glow, no sparkles, no 3D, no realistic lighting, no painterly detail. "
-                "Single character, full body, centered, facing the viewer, plain solid flat background in color {color}, "
-                "no scenery, no text, no letters, no logos, no frame, not resembling any existing franchise character. ")
+IMAGE_COMMON = ("Single character, full body, centered, facing the viewer, simple soft background in muted tones of {hue}. "
+                "Absolutely no text, no letters, no numbers, no signature, no stamp, no logo, no frame. "
+                "Not glossy, not 3D, not resembling any existing franchise character. ")
 
 CARD_SCHEMA = {
     "type": "object",
@@ -200,14 +201,14 @@ def ai_card(code: str, favorite: str, style: str) -> dict:
     return json.loads(resp.text)
 
 
-def ai_image(prompt: str, style: str, color: str) -> str:
+def ai_image(prompt: str, style: str, hue: str) -> str:
     from google import genai
     from google.genai import types
 
     client = genai.Client(api_key=API_KEY)
     resp = client.models.generate_content(
         model=IMAGE_MODEL,
-        contents=f"{STYLES[style]}. {IMAGE_COMMON.format(color=color)}Subject: {prompt}",
+        contents=f"{STYLES[style]}. {IMAGE_COMMON.format(hue=hue)}Subject: {prompt}",
         config=types.GenerateContentConfig(
             response_modalities=["IMAGE"],
             image_config=types.ImageConfig(aspect_ratio="1:1"),
@@ -310,7 +311,7 @@ def make_card():
         return jsonify({"ok": False, "reason": card.get("reason") or "その好きなものはカードにできないんだ。ほかのものにしてね"})
 
     try:
-        image = mock_image(t["color"]) if mock else ai_image(card["image_prompt"], style, t["color"])
+        image = mock_image(t["color"]) if mock else ai_image(card["image_prompt"], style, t["hue"])
     except Exception as e:
         app.logger.exception("絵の生成に失敗")
         return jsonify({"ok": False, "reason": f"絵を描けませんでした（{type(e).__name__}）。もう一度試してね"}), 502
