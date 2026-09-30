@@ -32,6 +32,7 @@ import qrcode
 import qrcode.image.svg
 from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
+from trim import edge_color, trim_margins
 from types_data import ADVICE, AXIS_WORDS, QUESTIONS, TYPES, best_partners, decide_type, match, rival
 
 load_dotenv()
@@ -85,6 +86,7 @@ STYLES = {
 IMAGE_COMMON = ("Single character, full body, centered, facing the viewer. "
                 "Behind the character, a gentle picture-book background scene with a few small props and scenery related to the subject, "
                 "in soft tones of {hue}; not busy, the character stays the clear focus. "
+                "Full-bleed: the painting fills the whole square edge to edge, no white border, no margin, no paper edge. "
                 "Absolutely no text, no letters, no numbers, no signature, no stamp, no logo, no frame. "
                 "Not glossy, not 3D, not resembling any existing franchise character. ")
 
@@ -236,8 +238,12 @@ def save_result(result: dict, image_data_uri: str) -> str:
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
     header, b64 = image_data_uri.split(",", 1)
     ext = "svg" if "svg" in header else "png"
-    (RESULT_DIR / f"{token}.{ext}").write_bytes(base64.b64decode(b64))
-    result = {**result, "image_file": f"{token}.{ext}", "created_at": datetime.now().isoformat(timespec="seconds")}
+    raw = base64.b64decode(b64)
+    if ext == "png":
+        raw = trim_margins(raw)  # AIが描いた白い紙のふちを切り取る
+    (RESULT_DIR / f"{token}.{ext}").write_bytes(raw)
+    art_bg = edge_color(raw) if ext == "png" else ""
+    result = {**result, "image_file": f"{token}.{ext}", "art_bg": art_bg, "created_at": datetime.now().isoformat(timespec="seconds")}
     (RESULT_DIR / f"{token}.json").write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
     return token
 

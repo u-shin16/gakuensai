@@ -239,7 +239,7 @@ function renderResult(c) {
       <div class="you">あなたは</div>
       <div class="kana">${esc(c.type_kana)}</div>
       <div class="tname">${esc(c.type_name)}</div>
-      <div class="art"><img src="${c.image}" alt=""></div>
+      <div class="art" ${c.art_bg ? `style="background:${c.art_bg}"` : ''}><img src="${c.image}" alt=""></div>
       <div class="mname">守り神 <b>${esc(c.monster)}</b></div>
       <div class="catch">「${esc(c.message || c.catch)}」</div>
       <div class="bottom">
