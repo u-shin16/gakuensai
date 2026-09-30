@@ -52,6 +52,8 @@
   .styles button.on { border-color: var(--accent); }
   .styles small { display: block; font-weight: 500; color: var(--muted); font-size: .72rem; margin-top: 4px; }
 
+  /* 作っている間は、ほかのボタンや入力を押せないようにする */
+  #s-fav.busy input, #s-fav.busy .examples, #s-fav.busy .styles { pointer-events: none; opacity: .4; }
   #status { min-height: 1.5em; color: var(--muted); text-align: center; margin-top: 8px; line-height: 1.6; }
   #status.error { color: #ff8fa3; }
   .spinner { width: 56px; height: 56px; margin: 16px auto; border-radius: 50%;
@@ -180,6 +182,8 @@ $('makeBtn').onclick = async () => {
   const favorite = $('favorite').value.trim();
   if (!favorite) { $('status').className = 'error'; $('status').textContent = '好きなものを入れてね'; return; }
   $('makeBtn').disabled = true;
+  $('favorite').disabled = true;
+  $('s-fav').classList.add('busy');
   $('loading').classList.remove('hidden');
   $('status').className = '';
   let i = 0; $('status').textContent = LOADING_MSGS[0];
@@ -196,6 +200,7 @@ $('makeBtn').onclick = async () => {
     $('status').className = 'error'; $('status').textContent = '通信に失敗しました。もう一度試してね';
   } finally {
     clearInterval(timer); $('loading').classList.add('hidden'); $('makeBtn').disabled = false;
+    $('favorite').disabled = false; $('s-fav').classList.remove('busy');
   }
 };
 
