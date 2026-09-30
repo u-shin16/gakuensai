@@ -157,7 +157,8 @@ allowed=true のとき：
   - 好きなものは入れない。項目の話題から外れない（勉強・仕事は勉強か仕事の場面のまま）
   - 下はこのタイプの傾向の例。そのまま写さない
     恋愛「{love}」／友情「{friend}」／勉強・仕事「{study}」／お金「{money}」
-- image_prompt：絵を描くための英語の説明。もとになる生き物は「{creature}」。その姿に、性格の雰囲気「{motif}」と、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルの守り神1体。
+- image_prompt：絵を描くための英語の説明。守り神のもとになるものは「{creature}」（生き物とは限らない。物・植物・自然・精霊などのこともある）。その姿に、性格の雰囲気「{motif}」と、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルの守り神1体。
+  もとになるものは、持ち物ではなく体そのものの形にする（例：ちょうちんなら、体がちょうちんでできている）。ふつうの人間の姿にはしない。
   ドラゴン・トカゲ・ヘビの姿にはしない（好きなものがそれ自体の場合だけ例外）。既存キャラに似せない。文字は入れない
   絵柄が「かっこいい」なら、強くて凛々しい姿（ちびキャラ・赤ちゃんっぽい姿にしない）として書く。「かわいい」なら、まるっこくて愛らしい姿として書く
 """
@@ -227,7 +228,11 @@ def ai_card(code: str, favorite: str, style: str, profile: list[str], used_names
             thinking_config=types.ThinkingConfig(thinking_budget=0),
         ),
     )
-    return json.loads(resp.text)
+    card = json.loads(resp.text)
+    # 「どんな人？」の文末をそろえる（AIがときどき「〜あります。」と書くため）
+    if card.get("catch", "").endswith("あります。"):
+        card["catch"] = card["catch"][:-5] + "ある。"
+    return card
 
 
 def ai_image(prompt: str, style: str, hue: str) -> str:

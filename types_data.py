@@ -175,12 +175,20 @@ ADVICE = {
 }
 
 
-# 守り神のもとになる生き物。毎回ここからランダムに1つ選ぶ（2026-09-30）。
+# 守り神のもとになるもの。毎回ここからランダムに1つ選ぶ（2026-09-30）。
 # 「かっこいい」でドラゴン・トカゲばかりになり、人とかぶったため、ドラゴン・トカゲ・ヘビは入れない。
+# 動物に限らず、物・植物・自然・精霊なども入れる（ゆーしん「動物をもとにしなくてもいい」）。
 CREATURES = [
+    # 動物
     "fox", "wolf", "bear", "owl", "eagle", "crane", "deer", "rabbit", "cat", "dog", "tiger", "lion",
-    "horse", "whale", "dolphin", "octopus", "turtle", "frog", "stag beetle", "butterfly", "bee", "hedgehog",
-    "tanuki (raccoon dog)", "otter", "penguin", "seal", "elephant", "giraffe", "rhinoceros", "bat", "crow",
-    "peacock", "hamster", "sheep", "mountain goat", "wild boar", "monkey", "panda", "koala", "squirrel",
-    "crab", "shark", "praying mantis", "hawk", "red panda", "armadillo", "manta ray", "flying squirrel",
+    "whale", "octopus", "turtle", "frog", "stag beetle", "butterfly", "hedgehog", "tanuki (raccoon dog)",
+    "otter", "penguin", "elephant", "bat", "crow", "hamster", "sheep", "red panda", "shark", "manta ray",
+    # 物
+    "a paper lantern spirit", "a teapot golem", "an old wind-up clock", "a living umbrella", "a knight's helmet spirit",
+    "a music box", "a kite", "a stone lantern", "a daruma doll", "a living backpack", "a lighthouse", "a hot air balloon",
+    "a clockwork robot", "a pencil knight", "a treasure chest", "a living kettle",
+    # 植物・自然
+    "a mushroom spirit", "a cactus", "a sunflower", "a cherry blossom tree spirit", "a pine cone", "a cloud spirit",
+    "a raindrop spirit", "a snowman", "a small volcano", "a star spirit", "a crescent moon spirit", "a rock golem",
+    "an acorn", "a seashell", "a crystal", "a candle flame spirit",
 ]
