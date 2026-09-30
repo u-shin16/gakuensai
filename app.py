@@ -3,14 +3,14 @@
 流れ：
   1. 2択の質問8問に答える → オリジナルの16タイプのどれかに決まる
   2. 好きなものを1つと、絵柄（かわいい／かっこいい）を選ぶ
-  3. Geminiが、タイプと好きなものを混ぜた分身モンスターの名前と「あるある」の1文を作り、絵を描く
-  4. カードの仕上げ（枠のキラキラ）はサーバー側で抽選する（AIには決めさせない）
+  3. Geminiが、タイプと好きなものを混ぜた守り神モンスターの名前・あるある・恋愛や金運などの言葉を作り、絵を描く
+  4. 運勢（大吉〜末吉）はサーバー側で抽選し、AIはその運勢に合わせておみくじの言葉を書く
   5. 2人のカード番号から相性を出せる
 
 GEMINI_API_KEY が無いときは「お試しモード」で、ダミーの中身と仮の絵を返す。
 
 試してもらった人の反応（いくらなら買うか）は data/log.jsonl に残す。
-タイプ・好きなもの・レア度・答えた値段・日時だけで、名前などの個人情報は取らない。
+タイプ・好きなもの・運勢・答えた値段・日時だけで、名前などの個人情報は取らない。
 """
 
 from __future__ import annotations
@@ -41,9 +41,9 @@ DATA_DIR = Path(__file__).parent / "data"
 LOG_PATH = DATA_DIR / "log.jsonl"
 _lock = threading.Lock()
 
-# レア度はここで抽選する。合計100。
-# カードの仕上げ（枠の色）の抽選。当たると枠がキラキラになる。合計100。
-RARITIES = [("N", 60), ("R", 25), ("SR", 12), ("UR", 3)]
+# 運勢の抽選。凶は入れない（子ども連れが多いため）。合計100。
+# 大吉は枠が金色になる。「もう1回」の理由になるので、出すぎないようにしている。
+FORTUNES = [("大吉", 10), ("中吉", 20), ("小吉", 25), ("吉", 30), ("末吉", 15)]
 
 # 実在キャラ・有名作品は作らない（著作権）。AIの判定より先に、ここで確実に弾く。
 BLOCKED_WORDS = [
@@ -70,13 +70,21 @@ CARD_SCHEMA = {
         "reason": {"type": "string"},
         "monster": {"type": "string"},
         "catch": {"type": "string"},
+        "love": {"type": "string"},
+        "friend": {"type": "string"},
+        "study": {"type": "string"},
+        "money": {"type": "string"},
+        "lucky": {"type": "string"},
         "image_prompt": {"type": "string"},
     },
-    "required": ["allowed", "reason", "monster", "catch", "image_prompt"],
+    "required": ["allowed", "reason", "monster", "catch", "love", "friend", "study", "money", "lucky", "image_prompt"],
 }
 
 CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診断の結果と好きなものから、
-その人の分身になるオリジナルモンスターのカードを作る係です。お客さんは小学生から大人まで。
+その人だけのおみくじを書く係です。おみくじには、その人を守るオリジナルモンスター（守り神）が描かれます。
+お客さんは小学生から大人まで。
+
+運勢：{fortune}
 
 性格タイプ：{type_name}（{type_desc}）
 強み：{strong}／弱点：{weak}
@@ -92,14 +100,17 @@ CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診
 それ以外は allowed=true で reason は空文字。
 
 allowed=true のとき：
-- monster：性格と好きなものを混ぜた、あなたの分身モンスターの名前。カタカナ中心で8文字以内（例：「メンドラゴ」）
-- catch：この人の「あるある」を1文で（45文字以内）。好きなものを自然に混ぜ、大人が読んでも「わかる、当たってる」と思える内容にする。悪口にしない
+- monster：性格と好きなものを混ぜた、この人の守り神モンスターの名前。カタカナ中心で8文字以内（例：「メンドラゴ」）
+- catch：この人の「あるある」を1文で（40文字以内）。好きなものを自然に混ぜ、大人が読んでも「わかる、当たってる」と思える内容にする。悪口にしない
+- love（恋愛）・friend（友情）・study（勉強・仕事）・money（金運）：それぞれ20文字以内のおみくじの言葉。
+  運勢の良さに合わせ、性格にちなんだ具体的なアドバイスにする。末吉でも前向きに。大人も子どもも読める言葉で
+- lucky：ラッキーアイテムを1つ（10文字以内）。好きなものに少し関係するもの
 - image_prompt：絵を描くための英語の説明。モチーフ「{motif}」に、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルモンスター1体。既存キャラに似せない。文字は入れない
 """
 
 
-def draw_rarity() -> str:
-    names, weights = zip(*RARITIES)
+def draw_fortune() -> str:
+    names, weights = zip(*FORTUNES)
     return random.choices(names, weights=weights, k=1)[0]
 
 
@@ -125,6 +136,9 @@ def mock_card(t: dict, favorite: str) -> dict:
         "allowed": True, "reason": "",
         "monster": f"{favorite[:4]}モン",
         "catch": "お試しモード：キーを入れると、AIがあなたのあるあるを書いてくれる。",
+        "love": "思い切って話しかけると吉", "friend": "約束は早めに決めると吉",
+        "study": "朝のうちに片づけると吉", "money": "寄り道をがまんすると吉",
+        "lucky": favorite[:10],
         "image_prompt": t["motif"],
     }
 
@@ -141,14 +155,14 @@ def mock_image(element: str) -> str:
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
 
-def ai_card(t: dict, favorite: str, style: str) -> dict:
+def ai_card(t: dict, favorite: str, style: str, fortune: str) -> dict:
     from google import genai
     from google.genai import types
 
     client = genai.Client(api_key=API_KEY)
     prompt = CARD_PROMPT.format(
         type_name=t["name"], type_desc=t["desc"], strong=t["strong"], weak=t["weak"],
-        element=t["element"], favorite=favorite, motif=t["motif"],
+        element=t["element"], favorite=favorite, motif=t["motif"], fortune=fortune,
         style="かわいい" if style == "cute" else "かっこいい",
     )
     resp = client.models.generate_content(
@@ -214,8 +228,9 @@ def make_card():
 
     code = decide_type(answers)
     t = TYPES[code]
+    fortune = draw_fortune()
     try:
-        card = mock_card(t, favorite) if MOCK else ai_card(t, favorite, style)
+        card = mock_card(t, favorite) if MOCK else ai_card(t, favorite, style, fortune)
     except Exception as e:
         app.logger.exception("カードの中身の生成に失敗")
         return jsonify({"ok": False, "reason": f"カードを作れませんでした（{type(e).__name__}）。もう一度試してね"}), 502
@@ -230,16 +245,15 @@ def make_card():
         app.logger.exception("絵の生成に失敗")
         return jsonify({"ok": False, "reason": f"絵を描けませんでした（{type(e).__name__}）。もう一度試してね"}), 502
 
-    rarity = draw_rarity()
 
     with _lock:
         serial = sum(1 for r in read_log() if r["event"] == "card") + 1
     write_log({"event": "card", "serial": serial, "type": code, "favorite": favorite,
-               "style": style, "rarity": rarity, "mock": MOCK})
+               "style": style, "fortune": fortune, "mock": MOCK})
     return jsonify({
         "ok": True,
         "serial": serial,
-        "rarity": rarity,
+        "fortune": fortune,
         "type_code": code,
         "type_name": t["name"],
         "type_desc": t["desc"],
@@ -250,6 +264,11 @@ def make_card():
         "rival": rival(code),
         "monster": card["monster"],
         "catch": card["catch"],
+        "love": card["love"],
+        "friend": card["friend"],
+        "study": card["study"],
+        "money": card["money"],
+        "lucky": card["lucky"],
         "image": image,
     })
 

@@ -53,7 +53,7 @@ TYPES = {
              "desc": "好奇心のかたまり。気になったらもう動いている。", "strong": "だれとでも仲良くなれる", "weak": "興味が次々変わる"},
     "ISTJ": {"name": "こつこつ職人", "element": "くさ", "motif": "sturdy ancient tree turtle",
              "desc": "決めたことをまじめに積み上げる。", "strong": "信頼される", "weak": "急な変更が苦手"},
-    "ISFJ": {"name": "やさしい守り神", "element": "くさ", "motif": "gentle forest deer guardian",
+    "ISFJ": {"name": "やさしい支え役", "element": "くさ", "motif": "gentle forest deer guardian",
              "desc": "気づかれないところで人を支えている。", "strong": "思いやり", "weak": "自分のことを後回しにする"},
     "ISTP": {"name": "クールな技術者", "element": "こおり", "motif": "sleek ice wolf with crystal blades",
              "desc": "口数は少ないけど、手を動かせばだれより器用。", "strong": "いつも冷静", "weak": "気持ちを言葉にするのが苦手"},
