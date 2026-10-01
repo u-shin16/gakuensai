@@ -25,9 +25,11 @@ cp .env.example .env
 | 名前 | 中身 |
 |---|---|
 | `SECRET_KEY` | ログイン状態を守るための長いランダムな文字列 |
-| `GOOGLE_CLIENT_ID` | 管理者のGoogleログイン用（Google Cloudで作るOAuthクライアントID） |
 | `ADMIN_EMAILS` | 管理者画面に入れるGoogleアカウント（カンマ区切り）。登録したアカウントだけが入れる |
 | `PUBLIC_BASE_URL` | 本番のアドレス（例 `https://gakuensai.webtool-labs.com`）。カードのQRに入る |
+| `FIREBASE_API_KEY` / `FIREBASE_AUTH_DOMAIN` / `FIREBASE_PROJECT_ID` | FirebaseのウェブアプリのSDK設定（公開してよい値） |
+| `FIREBASE_KEY_PATH` | Firestore を読み書きするためのサービスアカウントの鍵（JSON）の場所。リポジトリには入れない |
+| `FIRESTORE_PREFIX` | 手元で試すときは `dev_`。本番は空 |
 
 ```
 ./venv/bin/python app.py
@@ -37,6 +39,14 @@ http://localhost:8120 を開く。
 
 **AIの料金は、`.env` に入れたキーの持ち主に請求される。** カード1枚あたり約10円（絵の描き直しを含む目安）。
 キーは人に渡さない。`.env` はGitHubに上げない設定になっている。
+
+## 絵を描く部分の差し替え
+
+絵を描く部分は `drawing.py` の `draw(info)` だけに分けてある。アプリはここを1回呼ぶだけ。
+
+- 自分の描き方に替えるとき：別のファイル（例 `friend_draw.py`）に `draw(info) -> bytes` を作り、`.env` に `DRAW_FUNC=friend_draw:draw` と書いて起動し直す
+- `info` に入っているもの（絵の説明・守り神の名前・タイプ・タイプの色・好きなもの・絵柄）と、返すもの（正方形のPNG）は `drawing.py` の先頭に書いてある
+- 見本：`draw_example.py`（AIを使わず、タイプの色の丸を描くだけ。料金がかからないので動作確認にも使える）
 
 ## ページ
 
@@ -53,8 +63,5 @@ http://localhost:8120 を開く。
 
 ## 記録
 
-`data/` に保存し、GitHubには上げない。
-
-- `data/results/`：カードごとの結果と絵（名前は取らない。好きなものは保存する）
-- `data/log.jsonl`：作ったカード・相性・広場の記録
-- `data/plaza.json`：広場のあいことばと、広場にいる守り神
+- 守り神の絵：サーバーの `data/results/`（GitHubには上げない）
+- それ以外（カードの結果・広場・あいことば・通し番号・記録）：Firebase の Firestore（`store.py`）。名前は取らない。好きなものは保存する

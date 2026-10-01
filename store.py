@@ -14,6 +14,10 @@
 
 from __future__ import annotations
 
+from dotenv import load_dotenv
+
+load_dotenv()  # 単体で読み込まれても .env が効くように
+
 import os
 import secrets
 from datetime import datetime

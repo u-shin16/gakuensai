@@ -29,15 +29,17 @@ from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+load_dotenv()  # store・drawing が読み込まれる前に .env を読む（後だと FIRESTORE_PREFIX などが効かない）
+
 import qrcode
 import qrcode.image.svg
 from flask import Flask, abort, jsonify, redirect, render_template, request, send_from_directory, session
 
-from trim import edge_color, frame_box, has_bright_edges, trim_margins, zoom_to_clean
+from trim import edge_color, zoom_to_clean
+import drawing
 import store
 from types_data import ADVICE, AXIS_WORDS, CREATURES, QUESTIONS, TYPES, axis_profile, best_partners, decide_type, match, rival
-
-load_dotenv()
 
 app = Flask(__name__)
 # 管理者のログイン状態をクッキーに入れるための鍵。本番では .env の SECRET_KEY を使う
@@ -57,6 +59,16 @@ API_KEY = os.environ.get("GEMINI_API_KEY", "")
 TEXT_MODEL = os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
 IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
+
+def load_drawer():
+    """絵を描く関数。.env の DRAW_FUNC=モジュール名:関数名 で差し替えられる（既定は drawing.draw）。"""
+    import importlib
+    mod, _, fn = os.environ.get("DRAW_FUNC", "drawing:draw").partition(":")
+    return getattr(importlib.import_module(mod), fn or "draw")
+
+
+DRAW = load_drawer()
+
 DATA_DIR = Path(__file__).parent / "data"
 RESULT_DIR = DATA_DIR / "results"   # 守り神の絵の置き場所（結果などのデータは Firestore。store.py）
 # QRコードに入れるURLの頭。未設定なら開いているアドレスを使う（スマホで試すときはLANのアドレスで開く）
@@ -72,27 +84,6 @@ BLOCKED_WORDS = [
     "鬼滅", "炭治郎", "ナルト", "呪術", "コナン", "しんちゃん", "ドラクエ", "ガンダム",
     "ゴジラ", "ウルトラマン", "仮面ライダー", "プリキュア",
 ]
-
-# 絵柄は「絵本風」に固定（2026-09-30にゆーしんが3案から選んだ）。
-# つやつやしたAIっぽい絵にも、平たすぎるちゃちな絵にもならないようにする。
-STYLES = {
-    "cute": ("Warm Japanese picture-book illustration, gouache and colored pencil texture, hand-painted brush strokes, "
-             "soft natural shading. CUTE: chibi proportions with a big round head, big round sparkling eyes, "
-             "soft rounded shapes, gentle smiling expression"),
-    "cool": ("Warm Japanese picture-book illustration, gouache and colored pencil texture, hand-painted brush strokes, "
-             "soft natural shading. COOL: a noble, strong guardian beast with tall heroic proportions "
-             "(not chibi), sharp confident eyes, a dignified serious expression, dynamic powerful pose, bold silhouette, "
-             "deeper and richer colors, dramatic composition. It must not look cute or babyish, no big round eyes"),
-}
-IMAGE_COMMON = ("Single character, full body, centered, facing the viewer. "
-                "Behind the character, a gentle picture-book background scene with a few small props and scenery related to the subject, "
-                "in clearly colored medium tones of {hue} (never a white or pale background); not busy, the character stays the clear focus. "
-                "The guardian must not look like a human person: it is a creature or a living object. "
-                "Full-bleed composition like a full-page spread in a picture book: the background scene is painted all the way to every edge "
-                "and continues beyond the frame, no white border, no margin, no paper edge, no inner panel or rounded frame, "
-                "no vignette, no fading to white at the edges, not a picture drawn on a sheet of paper. "
-                "Absolutely no text, no letters, no numbers, no signature, no stamp, no logo, no brand marks (no sports brand stripes or swooshes), no real team uniforms, no frame. "
-                "Not glossy, not 3D, not resembling any existing franchise character. ")
 
 CARD_SCHEMA = {
     "type": "object",
@@ -280,134 +271,11 @@ def ai_message(code: str, favorite: str, profile: list[str]) -> str:
     return proofread(draft, favorite)
 
 
-EXTEND_PROMPT = ("Edit this illustration: the background must fill the whole square to every edge. "
-                 "Repaint every white, cream, or very pale area near the edges and corners (borders, paper margins, inner frames, "
-                 "white vignettes, fading to white) with clearly colored background scenery in medium tones of {hue}, "
-                 "in the same painting style. Keep the character exactly the same, same size and position. No text.")
-
-
-def extend_background(data: bytes, mime: str, hue: str) -> bytes:
-    """ふちや白い四隅が出た絵を、AIに背景を端まで描き足してもらう（2026-09-30）。"""
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=API_KEY)
-    resp = client.models.generate_content(
-        model=IMAGE_MODEL,
-        contents=[types.Part.from_bytes(data=data, mime_type=mime), EXTEND_PROMPT.format(hue=hue)],
-        config=types.GenerateContentConfig(response_modalities=["IMAGE"], image_config=types.ImageConfig(aspect_ratio="1:1")),
-    )
-    for part in resp.candidates[0].content.parts:
-        if part.inline_data and part.inline_data.data:
-            d = part.inline_data.data
-            return base64.b64decode(d) if isinstance(d, str) else d
-    return data
-
-
-MARGIN_CHECK_PROMPT = (
-    "Look only at the outer edges and corners of this square illustration. "
-    "Answer margin=true if ANY of these is visible: a white, cream or pale border or margin; an inner panel or frame "
-    "(rounded or square) with a different color outside it; edges or corners that fade to white or to a pale wash (vignette); "
-    "a paper edge; or the painted scene not reaching all four edges. "
-    "Answer margin=false only if the painted scene clearly continues right up to all four edges with no frame."
-)
-MARGIN_SCHEMA = {"type": "object", "properties": {"margin": {"type": "boolean"}, "where": {"type": "string"}},
-                 "required": ["margin", "where"]}
-
-
-def ai_has_margin(data: bytes) -> bool:
-    """絵に余白・枠・白いぼかしがあるかをAIに見て答えさせる（2026-10-01）。
-    プログラムの判定では、角の丸い内側の枠や、うっすら明るいふちを見つけられなかったため。"""
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=API_KEY)
-    resp = client.models.generate_content(
-        model=TEXT_MODEL,
-        contents=[types.Part.from_bytes(data=data, mime_type="image/png"), MARGIN_CHECK_PROMPT],
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json", response_schema=MARGIN_SCHEMA, temperature=0,
-            thinking_config=types.ThinkingConfig(thinking_budget=0),
-        ),
-    )
-    r = json.loads(resp.text)
-    if r.get("margin"):
-        app.logger.info("余白あり：%s", r.get("where"))
-    return bool(r.get("margin"))
-
-
-RETRY_NOTE = (" IMPORTANT: the previous attempt had a border or pale edges. The background scenery must be painted in "
-              "clearly colored medium tones all the way to all four edges and corners: no white, no pale vignette, "
-              "no inner panel or frame.")
-MAX_IMAGE_TRIES = 3
-
-
-def image_without_margin(prompt: str, style: str, hue: str) -> str:
-    """余白のない絵ができるまで描き直す（最大3回）。ゆーしん「余白は絶対にやめて」（2026-10-01）。
-    毎回、プログラムの判定とAIの目視の両方で確かめる。3回とも余白があれば、保存時の zoom_to_clean で切って仕上げる。"""
-    uri = ""
-    for i in range(MAX_IMAGE_TRIES):
-        uri = ai_image(prompt + (RETRY_NOTE if i else ""), style, hue)
-        data = base64.b64decode(uri.split(",", 1)[1])
-        try:
-            margin = has_bright_edges(data) or frame_box(data) is not None or ai_has_margin(data)
-        except Exception:
-            app.logger.exception("余白の確認に失敗（この絵を使う）")
-            return uri
-        if not margin:
-            if i:
-                app.logger.info("描き直して%d回目で余白のない絵になった", i + 1)
-            return uri
-    app.logger.info("%d回描いても余白が残った（保存時に切って仕上げる）", MAX_IMAGE_TRIES)
-    return uri
-
-
-def fill_to_edges(image_uri: str, hue: str) -> str:
-    """余白を絶対に出さない（ゆーしんの指示）。
-    ① 紙のふちや白い四隅があれば、AIに背景を端まで描き足してもらう（ふちの線がある絵はこれでほぼ消える）
-    ② それでも残ったふちは、保存するときに zoom_to_clean が中心に向かって少し拡大して切る"""
-    header, b64 = image_uri.split(",", 1)
-    data = base64.b64decode(b64)
-    if not (has_bright_edges(data) or trim_margins(data) != data):
-        return image_uri
-    try:
-        data = extend_background(data, header.split(":")[1].split(";")[0], hue)
-        app.logger.info("余白があったので、背景を描き足した（残り：白い四隅=%s）", has_bright_edges(data))
-    except Exception:
-        app.logger.exception("背景の描き足しに失敗（元の絵のまま、保存時の処理で埋める）")
-        return image_uri
-    return "data:image/png;base64," + base64.b64encode(data).decode()
-
-
-def ai_image(prompt: str, style: str, hue: str) -> str:
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=API_KEY)
-    resp = client.models.generate_content(
-        model=IMAGE_MODEL,
-        # 絵柄の指定は最初と最後の両方に置く（途中の説明に引っぱられて「かわいい」寄りになるのを防ぐ）
-        contents=f"{STYLES[style]}. {IMAGE_COMMON.format(hue=hue)}Subject: {prompt}. Style reminder: {STYLES[style]}",
-        config=types.GenerateContentConfig(
-            response_modalities=["IMAGE"],
-            image_config=types.ImageConfig(aspect_ratio="1:1"),
-        ),
-    )
-    for part in resp.candidates[0].content.parts:
-        if part.inline_data and part.inline_data.data:
-            data = part.inline_data.data
-            if isinstance(data, str):
-                data = base64.b64decode(data)
-            mime = part.inline_data.mime_type or "image/png"
-            return f"data:{mime};base64," + base64.b64encode(data).decode()
-    raise RuntimeError("絵が返ってきませんでした")
-
-
-def save_result(result: dict, image_data_uri: str) -> str:
+def save_result(result: dict, png: bytes) -> str:
     """絵をサーバーに、結果を Firestore に保存して、推測されないトークンを返す。"""
     token = secrets.token_urlsafe(12)  # 16文字
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
-    raw = base64.b64decode(image_data_uri.split(",", 1)[1])
+    raw = png
     # 描き直しても残った紙のふち・白い四隅は、中心に向かって少し拡大して切る（塗らない。塗ると跡が見えたため）
     raw = zoom_to_clean(raw)
     (RESULT_DIR / f"{token}.png").write_bytes(raw)
@@ -474,7 +342,7 @@ def make_card():
         return jsonify({"ok": False, "reason": "お店のあいことばがちがうよ。お店の人に聞いてね", "shop": True}), 403
     answers = body.get("answers") or []
     favorite = str(body.get("favorite", "")).strip()
-    style = body.get("style") if body.get("style") in STYLES else "cute"
+    style = body.get("style") if body.get("style") in drawing.STYLES else "cute"
 
     if len(answers) != len(QUESTIONS) or any(
         pick not in (q["a"][1], q["b"][1]) for q, pick in zip(QUESTIONS, answers)
@@ -514,7 +382,9 @@ def make_card():
             return jsonify({"ok": False, "reason": card.get("reason") or "その好きなものはカードにできないんだ。ほかのものにしてね"})
 
         try:
-            image = image_without_margin(card["image_prompt"], style, t["hue"])
+            image = DRAW({"image_prompt": card["image_prompt"], "monster": card.get("monster", ""), "type_code": code,
+                          "type_name": t["name"], "motif": t["motif"], "hue": t["hue"], "color": t["color"],
+                          "favorite": favorite, "style": style})
         except Exception as e:
             app.logger.exception("絵の生成に失敗")
             return jsonify({"ok": False, "reason": ai_error_reason(e, "絵を描けませんでした")}), 502
