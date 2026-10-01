@@ -441,6 +441,15 @@ def result_payload(r: dict, token: str) -> dict:
     }
 
 
+def ai_error_reason(e: Exception, what: str) -> str:
+    """AIのエラーを、お店で読んで分かる言葉にする。
+    月の利用上限（429 RESOURCE_EXHAUSTED）は、もう一度押しても直らないのでスタッフに知らせる（2026-10-01に発生）。"""
+    text = str(e)
+    if "RESOURCE_EXHAUSTED" in text or "spending cap" in text:
+        return f"{what}。AIの今月の利用上限に達しています（スタッフの人へ：ai.studio/spend で上限を確認してください）"
+    return f"{what}（{type(e).__name__}）。もう一度試してね"
+
+
 @app.route("/")
 def index():
     questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
@@ -487,7 +496,7 @@ def make_card():
                     card = ai_card(code, favorite, style, profile, used[-150:] + [card["monster"]])
         except Exception as e:
             app.logger.exception("カードの中身の生成に失敗")
-            return jsonify({"ok": False, "reason": f"カードを作れませんでした（{type(e).__name__}）。もう一度試してね"}), 502
+            return jsonify({"ok": False, "reason": ai_error_reason(e, "カードを作れませんでした")}), 502
 
         if not card.get("allowed"):
             write_log({"event": "refused", "favorite": favorite, "by": "ai"})
@@ -497,7 +506,7 @@ def make_card():
             image = mock_image(t["color"]) if mock else fill_to_edges(ai_image(card["image_prompt"], style, t["hue"]), t["hue"])
         except Exception as e:
             app.logger.exception("絵の生成に失敗")
-            return jsonify({"ok": False, "reason": f"絵を描けませんでした（{type(e).__name__}）。もう一度試してね"}), 502
+            return jsonify({"ok": False, "reason": ai_error_reason(e, "絵を描けませんでした")}), 502
 
         if f_msg is not None:
             try:
