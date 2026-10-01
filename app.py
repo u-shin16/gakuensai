@@ -475,7 +475,8 @@ def ai_error_reason(e: Exception, what: str) -> str:
 @app.route("/")
 def index():
     questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
-    return render_template("index.html", questions=questions)
+    is_staff = request.remote_addr in ("127.0.0.1", "::1")
+    return render_template("index.html", questions=questions, is_staff=is_staff)
 
 
 @app.post("/api/card")
@@ -582,9 +583,54 @@ def plaza_page():
     return render_template("plaza.html", code=code)
 
 
+def staff_only() -> None:
+    """スタッフ用の画面・操作は、アプリを動かしているこのパソコンからだけ使える。
+    お客さんのタブレットやスマホ（同じWi-Fi）から開かれないようにするため（2026-10-01）。"""
+    if request.remote_addr not in ("127.0.0.1", "::1"):
+        abort(403)
+
+
+@app.get("/plaza/admin")
+def plaza_admin():
+    """広場の管理画面（スタッフ用）。あいことば・広場にいる守り神の一覧・広場から出す。"""
+    staff_only()
+    with _lock:
+        code = plaza_code(load_plaza())
+    return render_template("plaza_admin.html", code=code)
+
+
+@app.post("/api/plaza/kick")
+def plaza_kick():
+    """管理画面から、守り神を広場から出す。all=true なら全員。"""
+    staff_only()
+    body = request.get_json(silent=True) or {}
+    with _lock:
+        p = load_plaza()
+        before = len(p["members"])
+        if body.get("all"):
+            p["members"] = []
+        else:
+            p["members"] = [m for m in p["members"] if m["token"] != body.get("token")]
+        save_plaza(p)
+    return jsonify({"ok": True, "removed": before - len(p["members"])})
+
+
+@app.post("/api/plaza/leave")
+def plaza_leave():
+    """結果ページから、自分の守り神を広場から出す。トークンは推測できないので、本人だけが出せる。"""
+    token = str((request.get_json(silent=True) or {}).get("token", ""))
+    load_result(token)  # 無いトークンは404
+    with _lock:
+        p = load_plaza()
+        p["members"] = [m for m in p["members"] if m["token"] != token]
+        save_plaza(p)
+    return jsonify({"ok": True})
+
+
 @app.post("/api/plaza/newcode")
 def plaza_newcode():
-    """あいことばを変える（広場の画面のボタンから。スタッフ用）。"""
+    """あいことばを変える（管理画面から。スタッフ用）。"""
+    staff_only()
     with _lock:
         p = load_plaza()
         p["code"] = ""
@@ -631,6 +677,7 @@ def plaza_members():
 def characters():
     """これまでに作った守り神の一覧（スタッフ・ゆーしんの確認用）。
     ダミー機能は2026-10-01に消した。それまでにダミーで作った仮の絵（svg）は出さない。"""
+    staff_only()  # 好きなものが出るので、このパソコンからだけ開ける
     show_dummy = False
     rows = []
     if RESULT_DIR.exists():

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>広場の管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #1b1433; --panel: #2a2150; --panel2: #3b2f6e; --text: #fff; --muted: #b9b0d9; --accent: #ffcc33; --danger: #ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 50% 0, #3b2a78, var(--bg) 70%); color: var(--text);
+    font-family: "M PLUS Rounded 1c", sans-serif; padding: 24px 16px 60px; }
+  main { max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { margin: 0; font-size: 1.5rem; }
+  .note { color: var(--muted); font-size: .85rem; margin: 0; }
+  .panel { background: var(--panel); border-radius: 16px; padding: 18px 20px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .code { font-size: 2.6rem; font-weight: 800; letter-spacing: .2em; color: var(--accent); }
+  button, a.btn { font: inherit; font-weight: 800; border: 0; border-radius: 12px; padding: 10px 16px; cursor: pointer;
+    background: var(--panel2); color: var(--text); text-decoration: none; }
+  button.danger { background: var(--danger); color: #2a0b0b; }
+  .count { font-size: 1.1rem; font-weight: 800; }
+  .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .item { display: flex; gap: 12px; align-items: center; background: var(--panel2); border-radius: 12px; padding: 10px; border-left: 6px solid var(--c); }
+  .item img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex: none; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .nm { font-weight: 800; }
+  .item .sub { font-size: .75rem; color: var(--muted); }
+  .item button { padding: 6px 10px; font-size: .8rem; background: var(--panel); }
+  .empty { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>広場の管理</h1>
+  <p class="note">スタッフ用の画面です。アプリを動かしているこのパソコンからだけ開けます。</p>
+
+  <div class="panel">
+    <div class="row">
+      <div>あいことば</div>
+      <div class="code" id="code">{{ code }}</div>
+      <button id="newCode">あいことばを変える</button>
+      <a class="btn" href="/plaza" target="_blank">広場を開く</a>
+    </div>
+    <p class="note">あいことばを変えても、いま広場にいる守り神はそのまま残ります。</p>
+  </div>
+
+  <div class="panel">
+    <div class="row" style="justify-content: space-between; margin-bottom: 12px">
+      <div class="count" id="count">広場にいる守り神：0体</div>
+      <button class="danger" id="kickAll">全員を広場から出す（空にする）</button>
+    </div>
+    <div class="list" id="list"></div>
+    <p class="empty" id="empty">広場には、まだ守り神がいません。</p>
+  </div>
+</main>
+
+<script>
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then((r) => r.json());
+
+async function load() {
+  const r = await (await fetch('/api/plaza', { cache: 'no-store' })).json();
+  document.getElementById('count').textContent = `広場にいる守り神：${r.members.length}体`;
+  if (r.code) document.getElementById('code').textContent = r.code;
+  document.getElementById('empty').style.display = r.members.length ? 'none' : '';
+  // 新しく入った順に上から
+  document.getElementById('list').innerHTML = [...r.members].reverse().map((m) => `
+    <div class="item" style="--c:${m.color}">
+      <img src="${m.image}" alt="">
+      <div class="info">
+        <div class="nm">${esc(m.monster)}</div>
+        <div class="sub">No.${String(m.serial).padStart(4, '0')}・${esc(m.type_name)}・${esc((m.joined_at || '').slice(11, 16))}に入った</div>
+      </div>
+      <button data-id="${m.id}">広場から出す</button>
+    </div>`).join('');
+  document.querySelectorAll('#list button').forEach((b) => b.onclick = async () => {
+    if (!confirm('この守り神を広場から出しますか？')) return;
+    await post('/api/plaza/kick', { token: b.dataset.id }); load();
+  });
+}
+
+document.getElementById('newCode').onclick = async () => {
+  if (!confirm('あいことばを新しくしますか？')) return;
+  const r = await post('/api/plaza/newcode');
+  document.getElementById('code').textContent = r.code;
+};
+document.getElementById('kickAll').onclick = async () => {
+  if (!confirm('広場にいる守り神を全員出して、広場を空にしますか？（カードや結果ページは消えません）')) return;
+  await post('/api/plaza/kick', { all: true }); load();
+};
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

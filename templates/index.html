@@ -94,10 +94,11 @@
 <body>
 <div class="wrap">
   <h1>守り神診断</h1>
-  <div class="modebar">
+  {% if is_staff %}<div class="modebar">
     <a class="listlink" href="/characters" target="_blank">これまでの守り神</a>
     <a class="listlink" href="/plaza" target="_blank">守り神の広場</a>
-  </div>
+    <a class="listlink" href="/plaza/admin" target="_blank">広場の管理</a>
+  </div>{% endif %}
 
   <!-- 1. はじめ -->
   <section id="s-start" class="wrap">

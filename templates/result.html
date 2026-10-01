@@ -38,6 +38,7 @@
   .matchres .score { font-size: 2.6rem; font-weight: 800; color: var(--accent); }
   .matchres ul { text-align: left; margin: 8px 0 0; padding-left: 1.2em; line-height: 1.7; font-size: .9rem; }
   .inplaza { text-align: center; background: var(--panel2); border-radius: 12px; padding: 16px; line-height: 1.8; }
+  .inplaza .leave { margin-top: 12px; background: var(--panel); color: var(--text); font-size: .85rem; padding: 8px 16px; }
   .inplaza b { color: var(--accent); font-size: 1.1rem; }
   [hidden] { display: none !important; }
   .err { color: #ff8fa3; }
@@ -88,6 +89,7 @@
     </div>
     <div id="inPlaza" class="inplaza" {% if not in_plaza %}hidden{% endif %}>
       <b>あなたの守り神は、広場にいるよ！</b><br>お店の画面の「守り神の広場」で確認してね
+      <div><button id="leaveBtn" class="leave">広場から出る</button></div>
     </div>
   </div>
 
@@ -122,6 +124,17 @@ document.getElementById('joinBtn').onclick = async () => {
     document.getElementById('inPlaza').hidden = false;
   } else {
     out.innerHTML = `<p class="err">${esc(j.reason)}</p>`;
+  }
+};
+document.getElementById('leaveBtn').onclick = async () => {
+  if (!confirm('守り神を広場から出しますか？（あいことばを入れれば、また広場に出せます）')) return;
+  const res = await fetch('/api/plaza/leave', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: {{ r.token | tojson }} }) });
+  if ((await res.json()).ok) {
+    document.getElementById('inPlaza').hidden = true;
+    document.getElementById('joinForm').hidden = false;
+    document.getElementById('joinRes').innerHTML = '<p>広場から出たよ</p>';
+    document.getElementById('code').value = '';
   }
 };
 document.getElementById('matchBtn').onclick = async () => {

@@ -70,7 +70,6 @@
     <small>カードのQR → 結果ページで「あいことば」を入れると、ここに出てくるよ</small>
     あいことば <b id="code">{{ code }}</b>
   </div>
-  <button class="staff" id="newCode" title="スタッフ用">あいことばを変える</button>
 </header>
 <div id="empty">まだ守り神がいません。カードのQRから広場に出してみてね！</div>
 <div id="newOverlay"></div>
@@ -185,11 +184,6 @@ async function poll() {
 poll();
 setInterval(poll, 3000);
 
-document.getElementById('newCode').onclick = async () => {
-  if (!confirm('あいことばを新しくしますか？（いま広場にいる守り神はそのまま残ります）')) return;
-  const r = await (await fetch('/api/plaza/newcode', { method: 'POST' })).json();
-  document.getElementById('code').textContent = r.code;
-};
 
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 </script>
