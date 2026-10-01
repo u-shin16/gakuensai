@@ -44,6 +44,14 @@ API_KEY = os.environ.get("GEMINI_API_KEY", "")
 TEXT_MODEL = os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
 IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
+DATA_DIR = Path(__file__).parent / "data"
+LOG_PATH = DATA_DIR / "log.jsonl"
+RESULT_DIR = DATA_DIR / "results"   # 結果ページ用。1人1ファイル（JSON＋絵）
+# QRコードに入れるURLの頭。未設定なら開いているアドレスを使う（スマホで試すときはLANのアドレスで開く）
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{16}$")
+_lock = threading.Lock()
+
 # 実在キャラ・有名作品は作らない（著作権）。AIの判定より先に、ここで確実に弾く。
 BLOCKED_WORDS = [
     "ピカチュウ", "ポケモン", "ポケットモンスター", "マリオ", "ルイージ", "カービィ", "ゼルダ",
@@ -538,6 +546,33 @@ def make_card():
                "style": style})
     url = f"{PUBLIC_BASE_URL or request.host_url.rstrip('/')}/r/{token}"
     return jsonify({"ok": True, **result_payload(load_result(token), token), "url": url, "qr": qr_svg(url)})
+
+
+# ===== 守り神の広場（2026-10-01） =====
+# 店の画面（まずはこのパソコン）に広場を映し、結果ページで「あいことば」を入れた人の守り神が現れて歩き回る。
+# あいことばは広場の画面に大きく出す（店の前にいる人だけが入れられるようにするため）。
+PLAZA_PATH = DATA_DIR / "plaza.json"
+# 入った守り神は全員ずっと広場に残る（ゆーしん「1つの大きい広場に全員がたまる」2026-10-01）。
+# 数が増えたら、広場の画面のほうで守り神を小さくして全員を収める。
+
+
+def load_plaza() -> dict:
+    try:
+        return json.loads(PLAZA_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return {"code": "", "members": []}
+
+
+def save_plaza(p: dict) -> None:
+    DATA_DIR.mkdir(exist_ok=True)
+    PLAZA_PATH.write_text(json.dumps(p, ensure_ascii=False), encoding="utf-8")
+
+
+def plaza_code(p: dict) -> str:
+    if not p.get("code"):
+        p["code"] = f"{secrets.randbelow(10000):04d}"
+        save_plaza(p)
+    return p["code"]
 
 
 @app.get("/plaza")
