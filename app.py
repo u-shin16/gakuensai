@@ -604,7 +604,8 @@ def set_mode():
 # 店の画面（まずはこのパソコン）に広場を映し、結果ページで「あいことば」を入れた人の守り神が現れて歩き回る。
 # あいことばは広場の画面に大きく出す（店の前にいる人だけが入れられるようにするため）。
 PLAZA_PATH = DATA_DIR / "plaza.json"
-PLAZA_SHOW = 30   # 同時に歩く守り神の数（新しい順）
+# 入った守り神は全員ずっと広場に残る（ゆーしん「1つの大きい広場に全員がたまる」2026-10-01）。
+# 数が増えたら、広場の画面のほうで守り神を小さくして全員を収める。
 
 
 def load_plaza() -> dict:
@@ -663,10 +664,10 @@ def plaza_join():
 
 @app.get("/api/plaza")
 def plaza_members():
-    """広場にいる守り神（新しく入った順に最大30体）。映すのは絵・名前・番号・タイプだけ。"""
+    """広場にいる守り神（入った全員）。映すのは絵・名前・番号・タイプだけ。"""
     p = load_plaza()
     out = []
-    for m in p["members"][-PLAZA_SHOW:]:
+    for m in p["members"]:
         path = RESULT_DIR / f"{m['token']}.json"
         if not path.exists():
             continue
