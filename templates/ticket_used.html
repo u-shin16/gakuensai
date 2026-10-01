@@ -20,9 +20,9 @@
 <body>
 <div class="box">
   <span class="no">チケット No.{{ t.number }}</span>
-  <p>このチケットの診断はもう終わっています。</p>
+  <p>このチケットの質問はもう終わっています。</p>
   {% if pickup %}<div class="pickup">カードの受け取り時間<b>{{ pickup }}</b></div>{% endif %}
-  {% if t.token %}<a href="/r/{{ t.token }}">自分の結果を見る</a>{% endif %}
+  <p>カードはお店で受け取ってね。<br>カードのQRを読むと、くわしい結果が見られるよ。</p>
 </div>
 </body>
 </html>

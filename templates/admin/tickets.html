@@ -43,12 +43,12 @@
 
   <div class="wrap">
   <table>
-    <tr><th>番号</th><th>状態</th><th>受け取り</th><th>結果</th><th>ページ</th></tr>
+    <tr><th>番号</th><th>状態</th><th>受け取り</th><th>カード</th><th>ページ</th></tr>
     {% for t in tickets %}
     <tr>
       <td><b>No.{{ t.number }}</b></td>
       {% if t.status == 'used' %}
-      <td class="used">使用済み</td><td><b>{{ t.pickup }}</b></td><td><a href="/r/{{ t.token }}" target="_blank">見る</a></td>
+      <td class="used">使用済み</td><td><b>{{ t.pickup }}</b></td><td><a href="/admin/card/{{ t.token }}" target="_blank">カードを印刷</a></td>
       {% else %}
       <td class="unused">未使用</td><td>-</td><td>-</td>
       {% endif %}

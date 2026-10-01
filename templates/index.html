@@ -142,14 +142,20 @@
   </section>
 
   <!-- 4. 結果（お店の画面） -->
+  <!-- チケットで答え終わった人：カードは見せず、受け取りの時間だけ -->
+  <section id="s-done" class="wrap hidden">
+    <p class="ticketno" id="doneNo"></p>
+    <div class="pickup" id="doneTime"></div>
+    <p class="lead">カードを印刷して待っています。<br>受け取ったカードのQRを読むと、くわしい結果が見られるよ。</p>
+  </section>
+
   <section id="s-result" class="wrap hidden">
-    <div class="pickup hidden" id="pickup"></div>
     <div class="stage" id="stage"></div>
 
     <div class="actions">
       <button type="button" id="saveBtn">画像を保存</button>
       <a class="btn sub" id="detailLink" target="_blank">詳しい結果を見る</a>
-      {% if not ticket %}<button type="button" class="sub" id="nextBtn">つぎの人</button>{% endif %}
+      {% if not ticket and not preset %}<button type="button" class="sub" id="nextBtn">つぎの人</button>{% endif %}
     </div>
 
   </section>
@@ -164,7 +170,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;'
 let answers = [], style = 'cute', current = null;
 
 function show(id) {
-  ['s-start', 's-quiz', 's-fav', 's-result'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
+  ['s-start', 's-quiz', 's-fav', 's-result', 's-done'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
   $('backBtn').classList.toggle('hidden', id !== 's-quiz' && id !== 's-fav');
   window.scrollTo({ top: 0 });
 }
@@ -225,12 +231,14 @@ $('makeBtn').onclick = async () => {
     const data = await res.json();
     if (data.used) { location.reload(); return; }  // ほかの画面で先に使われた
     if (!data.ok) { $('status').className = 'error'; $('status').textContent = data.reason; return; }
+    if (TICKET) {
+      $('doneNo').textContent = `チケット No.${data.number}`;
+      $('doneTime').innerHTML = `この時間にお店へ取りに来てね<b>${esc(data.pickup)}</b>チケットを見せてね`;
+      show('s-done');
+      return;
+    }
     current = data;
     renderResult(data);
-    if (data.pickup) {
-      $('pickup').innerHTML = `カードを印刷します。この時間にお店へ取りに来てね<b>${esc(data.pickup)}</b>チケット No.${esc(TICKET.split('-')[0])} を見せてね`;
-      $('pickup').classList.remove('hidden');
-    }
     show('s-result');
   } catch (err) {
     $('status').className = 'error'; $('status').textContent = '通信に失敗しました。もう一度試してね';
@@ -283,6 +291,10 @@ $('saveBtn').onclick = async () => {
   a.download = `card-${String(current.serial).padStart(4, '0')}.png`;
   a.click();
 };
+
+// 管理者画面からカードを開いたとき（スタッフが印刷する）
+const PRESET = {{ (preset or None) | tojson }};
+if (PRESET) { current = PRESET; renderResult(PRESET); show('s-result'); }
 
 if ($('nextBtn')) $('nextBtn').onclick = () => {
   answers = []; $('favorite').value = ''; $('status').textContent = '';

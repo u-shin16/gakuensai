@@ -449,6 +449,8 @@ def make_card():
             claimed = store.get_ticket(ticket["number"])
         pickup = slot_label(claimed.get("slot", ""))
         write_log({"event": "ticket", "number": ticket["number"], "token": token, "slot": claimed.get("slot")})
+        # チケットのお客さんには、カードの中身を渡さない（受け取ったカードのQRを読むまで見せない。2026-10-01 ゆーしん）
+        return jsonify({"ok": True, "pickup": pickup, "number": ticket["number"]})
     return jsonify({"ok": True, **result_payload(load_result(token), token), "url": url, "qr": qr_svg(url),
                     "pickup": pickup})
 
@@ -518,6 +520,16 @@ def admin_tickets_print():
     for t in tickets:
         t["qr"] = qr_svg(ticket_url(t))
     return render_template("admin/tickets_print.html", tickets=tickets)
+
+
+@app.get("/admin/card/<token>")
+def admin_card(token: str):
+    """スタッフがカードを印刷する画面。お客さんの画面と同じカードを出して、画像で保存できる。"""
+    staff_only()
+    url = f"{PUBLIC_BASE_URL or request.host_url.rstrip('/')}/r/{token}"
+    card = {**result_payload(load_result(token), token), "url": url, "qr": qr_svg(url)}
+    questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
+    return render_template("index.html", questions=questions, preset=card, mock=False)
 
 
 @app.post("/api/tickets/create")
