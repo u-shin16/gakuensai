@@ -31,7 +31,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import qrcode
 import qrcode.image.svg
-from flask import Flask, abort, jsonify, render_template, request, send_from_directory
+from flask import Flask, abort, jsonify, redirect, render_template, request, send_from_directory
 
 from trim import edge_color, frame_box, has_bright_edges, trim_margins, zoom_to_clean
 from types_data import ADVICE, AXIS_WORDS, CREATURES, QUESTIONS, TYPES, axis_profile, best_partners, decide_type, match, rival
@@ -475,8 +475,7 @@ def ai_error_reason(e: Exception, what: str) -> str:
 @app.route("/")
 def index():
     questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
-    is_staff = request.remote_addr in ("127.0.0.1", "::1")
-    return render_template("index.html", questions=questions, is_staff=is_staff)
+    return render_template("index.html", questions=questions)
 
 
 @app.post("/api/card")
@@ -583,6 +582,23 @@ def plaza_page():
     return render_template("plaza.html", code=code)
 
 
+@app.get("/admin")
+def admin_home():
+    """管理者画面の入口。お客さんの画面とは分ける（2026-10-01）。
+    いまは「アプリを動かしているパソコンからだけ開ける」で守る。Googleログインは、管理者の決め方が決まってから付ける。"""
+    staff_only()
+    p = load_plaza()
+    cards = sum(1 for _ in RESULT_DIR.glob("*.png")) if RESULT_DIR.exists() else 0  # ダミーの仮の絵（svg）は数えない
+    return render_template("admin/home.html", code=p.get("code", ""), plaza=len(p.get("members", [])), cards=cards)
+
+
+@app.get("/plaza/admin")
+@app.get("/characters")
+def old_admin_urls():
+    """前のアドレスから、管理者画面の新しいアドレスへ案内する。"""
+    return redirect("/admin/plaza" if request.path.startswith("/plaza") else "/admin/characters")
+
+
 def staff_only() -> None:
     """スタッフ用の画面・操作は、アプリを動かしているこのパソコンからだけ使える。
     お客さんのタブレットやスマホ（同じWi-Fi）から開かれないようにするため（2026-10-01）。"""
@@ -590,13 +606,13 @@ def staff_only() -> None:
         abort(403)
 
 
-@app.get("/plaza/admin")
+@app.get("/admin/plaza")
 def plaza_admin():
     """広場の管理画面（スタッフ用）。あいことば・広場にいる守り神の一覧・広場から出す。"""
     staff_only()
     with _lock:
         code = plaza_code(load_plaza())
-    return render_template("plaza_admin.html", code=code)
+    return render_template("admin/plaza.html", code=code)
 
 
 @app.post("/api/plaza/kick")
@@ -673,7 +689,7 @@ def plaza_members():
     return jsonify({"members": out, "total": len(p["members"]), "code": p.get("code", "")})
 
 
-@app.get("/characters")
+@app.get("/admin/characters")
 def characters():
     """これまでに作った守り神の一覧（スタッフ・ゆーしんの確認用）。
     ダミー機能は2026-10-01に消した。それまでにダミーで作った仮の絵（svg）は出さない。"""
@@ -704,7 +720,7 @@ def characters():
                 "dummy": is_dummy,
             })
     rows.sort(key=lambda x: x["serial"], reverse=True)
-    return render_template("characters.html", rows=rows, show_dummy=show_dummy)
+    return render_template("admin/characters.html", rows=rows, show_dummy=show_dummy)
 
 
 @app.get("/r/<token>")
