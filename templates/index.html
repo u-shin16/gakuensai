@@ -170,11 +170,6 @@ function renderQuestion() {
   $('prevBtn').classList.toggle('hidden', i === 0);
 }
 
-  const r = await res.json();
-  if (!r.ok) { alert(r.reason || '切り替えられませんでした'); return; }
-  document.querySelectorAll('.modebar button').forEach((x) => x.classList.toggle('on', x === b));
-});
-
 $('startBtn').onclick = () => { answers = []; show('s-quiz'); renderQuestion(); };
 $('optA').onclick = () => { answers.push(QUESTIONS[answers.length].a[1]); renderQuestion(); };
 $('optB').onclick = () => { answers.push(QUESTIONS[answers.length].b[1]); renderQuestion(); };
