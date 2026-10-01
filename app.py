@@ -715,7 +715,8 @@ def characters():
 @app.get("/r/<token>")
 def result_page(token: str):
     """カードのQRコードから開く、その人だけの結果ページ。"""
-    return render_template("result.html", r=result_payload(load_result(token), token))
+    in_plaza = any(m["token"] == token for m in load_plaza().get("members", []))
+    return render_template("result.html", r=result_payload(load_result(token), token), in_plaza=in_plaza)
 
 
 @app.get("/img/<name>")

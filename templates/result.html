@@ -37,6 +37,9 @@
   .matchres { margin-top: 14px; text-align: center; }
   .matchres .score { font-size: 2.6rem; font-weight: 800; color: var(--accent); }
   .matchres ul { text-align: left; margin: 8px 0 0; padding-left: 1.2em; line-height: 1.7; font-size: .9rem; }
+  .inplaza { text-align: center; background: var(--panel2); border-radius: 12px; padding: 16px; line-height: 1.8; }
+  .inplaza b { color: var(--accent); font-size: 1.1rem; }
+  [hidden] { display: none !important; }
   .err { color: #ff8fa3; }
   footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: .8rem; line-height: 1.8; }
   footer a { color: var(--accent); }
@@ -78,9 +81,14 @@
 
   <div class="panel">
     <h2>守り神を広場に出す</h2>
-    <p>お店の画面の「守り神の広場」に、あなたの守り神を出せます。広場の画面に出ている4けたの「あいことば」を入れてね。</p>
-    <div class="row"><input id="code" type="text" inputmode="numeric" maxlength="4" placeholder="あいことば"><button id="joinBtn">広場に出す</button></div>
-    <div class="matchres" id="joinRes"></div>
+    <div id="joinForm" {% if in_plaza %}hidden{% endif %}>
+      <p>お店の画面の「守り神の広場」に、あなたの守り神を出せます。広場の画面に出ている4けたの「あいことば」を入れてね。</p>
+      <div class="row"><input id="code" type="text" inputmode="numeric" maxlength="4" placeholder="あいことば"><button id="joinBtn">広場に出す</button></div>
+      <div class="matchres" id="joinRes"></div>
+    </div>
+    <div id="inPlaza" class="inplaza" {% if not in_plaza %}hidden{% endif %}>
+      <b>あなたの守り神は、広場にいるよ！</b><br>お店の画面の「守り神の広場」で確認してね
+    </div>
   </div>
 
   <div class="panel">
@@ -108,7 +116,13 @@ document.getElementById('joinBtn').onclick = async () => {
   const res = await fetch('/api/plaza/join', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: {{ r.token | tojson }}, code }) });
   const j = await res.json();
-  out.innerHTML = j.ok ? `<p><b>${j.already ? 'もう広場にいるよ！' : '広場に出たよ！お店の画面を見てね'}</b></p>` : `<p class="err">${esc(j.reason)}</p>`;
+  if (j.ok) {
+    // 広場に出たら、入力欄を消して「広場を確認してね」の表示に切り替える
+    document.getElementById('joinForm').hidden = true;
+    document.getElementById('inPlaza').hidden = false;
+  } else {
+    out.innerHTML = `<p class="err">${esc(j.reason)}</p>`;
+  }
 };
 document.getElementById('matchBtn').onclick = async () => {
   const b = document.getElementById('other').value;
