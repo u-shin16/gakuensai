@@ -77,6 +77,13 @@
   </div>
 
   <div class="panel">
+    <h2>守り神を広場に出す</h2>
+    <p>お店の画面の「守り神の広場」に、あなたの守り神を出せます。広場の画面に出ている4けたの「あいことば」を入れてね。</p>
+    <div class="row"><input id="code" type="text" inputmode="numeric" maxlength="4" placeholder="あいことば"><button id="joinBtn">広場に出す</button></div>
+    <div class="matchres" id="joinRes"></div>
+  </div>
+
+  <div class="panel">
     <h2>相性</h2>
     <dl>
       <dt>相性◎</dt><dd>{{ r.partners | join('、') }}</dd>
@@ -94,6 +101,15 @@
 </main>
 <script>
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+document.getElementById('joinBtn').onclick = async () => {
+  const code = document.getElementById('code').value.trim();
+  const out = document.getElementById('joinRes');
+  if (!code) return;
+  const res = await fetch('/api/plaza/join', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: {{ r.token | tojson }}, code }) });
+  const j = await res.json();
+  out.innerHTML = j.ok ? `<p><b>${j.already ? 'もう広場にいるよ！' : '広場に出たよ！お店の画面を見てね'}</b></p>` : `<p class="err">${esc(j.reason)}</p>`;
+};
 document.getElementById('matchBtn').onclick = async () => {
   const b = document.getElementById('other').value;
   const out = document.getElementById('res');

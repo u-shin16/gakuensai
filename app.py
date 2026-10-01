@@ -600,6 +600,84 @@ def set_mode():
     return jsonify({"ok": True, "mode": mode})
 
 
+# ===== 守り神の広場（2026-10-01） =====
+# 店の画面（まずはこのパソコン）に広場を映し、結果ページで「あいことば」を入れた人の守り神が現れて歩き回る。
+# あいことばは広場の画面に大きく出す（店の前にいる人だけが入れられるようにするため）。
+PLAZA_PATH = DATA_DIR / "plaza.json"
+PLAZA_SHOW = 30   # 同時に歩く守り神の数（新しい順）
+
+
+def load_plaza() -> dict:
+    try:
+        return json.loads(PLAZA_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return {"code": "", "members": []}
+
+
+def save_plaza(p: dict) -> None:
+    DATA_DIR.mkdir(exist_ok=True)
+    PLAZA_PATH.write_text(json.dumps(p, ensure_ascii=False), encoding="utf-8")
+
+
+def plaza_code(p: dict) -> str:
+    if not p.get("code"):
+        p["code"] = f"{secrets.randbelow(10000):04d}"
+        save_plaza(p)
+    return p["code"]
+
+
+@app.get("/plaza")
+def plaza_page():
+    with _lock:
+        code = plaza_code(load_plaza())
+    return render_template("plaza.html", code=code)
+
+
+@app.post("/api/plaza/newcode")
+def plaza_newcode():
+    """あいことばを変える（広場の画面のボタンから。スタッフ用）。"""
+    with _lock:
+        p = load_plaza()
+        p["code"] = ""
+        code = plaza_code(p)
+    return jsonify({"ok": True, "code": code})
+
+
+@app.post("/api/plaza/join")
+def plaza_join():
+    body = request.get_json(silent=True) or {}
+    token = str(body.get("token", ""))
+    code = str(body.get("code", "")).strip()
+    r = load_result(token)  # 無いトークンは404
+    with _lock:
+        p = load_plaza()
+        if code != plaza_code(p):
+            return jsonify({"ok": False, "reason": "あいことばがちがうよ。広場の画面に出ている4けたの数字を入れてね"}), 400
+        if any(m["token"] == token for m in p["members"]):
+            return jsonify({"ok": True, "already": True})
+        p["members"].append({"token": token, "joined_at": datetime.now().isoformat(timespec="seconds")})
+        save_plaza(p)
+    write_log({"event": "plaza", "serial": r.get("serial")})
+    return jsonify({"ok": True})
+
+
+@app.get("/api/plaza")
+def plaza_members():
+    """広場にいる守り神（新しく入った順に最大30体）。映すのは絵・名前・番号・タイプだけ。"""
+    p = load_plaza()
+    out = []
+    for m in p["members"][-PLAZA_SHOW:]:
+        path = RESULT_DIR / f"{m['token']}.json"
+        if not path.exists():
+            continue
+        r = json.loads(path.read_text(encoding="utf-8"))
+        t = TYPES.get(r.get("type_code"), {})
+        out.append({"id": m["token"], "serial": r.get("serial"), "monster": r.get("monster", ""),
+                    "type_name": t.get("name", ""), "color": t.get("color", "#888888"),
+                    "image": f"/img/{r['image_file']}", "joined_at": m["joined_at"]})
+    return jsonify({"members": out, "total": len(p["members"]), "code": p.get("code", "")})
+
+
 @app.get("/characters")
 def characters():
     """これまでに作った守り神の一覧（スタッフ・ゆーしんの確認用）。
