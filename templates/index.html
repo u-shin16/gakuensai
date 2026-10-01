@@ -96,7 +96,10 @@
   <!-- 1. はじめ -->
   <section id="s-start" class="wrap">
     <p class="lead">10個の質問に答えると、あなたの性格タイプと、<br>あなたを守る「守り神」が決まります。<br>守り神はAIがその場で描く、世界に1体だけ。</p>
+    <label class="h" for="shopCode">お店のあいことば<br><small>お店の人に聞いてね</small></label>
+    <input id="shopCode" type="text" inputmode="numeric" maxlength="4" placeholder="4けたの数字" autocomplete="off" style="text-align:center;letter-spacing:.3em;max-width:240px;margin-bottom:16px">
     <button class="big" id="startBtn">診断をはじめる</button>
+    <div id="shopStatus" style="min-height:1.5em;margin-top:10px;color:#ff8fa3;text-align:center"></div>
   </section>
 
   <!-- 2. 質問 -->
@@ -164,7 +167,19 @@ function renderQuestion() {
   $('prevBtn').classList.toggle('hidden', i === 0);
 }
 
-$('startBtn').onclick = () => { answers = []; show('s-quiz'); renderQuestion(); };
+// お店のあいことば：合っていれば診断を始める。店のタブレットでは、一度入れたら覚えておく
+let shop = '';
+try { shop = localStorage.getItem('shopCode') || ''; } catch (e) {}
+$('shopCode').value = shop;
+$('startBtn').onclick = async () => {
+  const code = $('shopCode').value.trim();
+  if (!code) { $('shopStatus').textContent = 'お店のあいことばを入れてね'; return; }
+  const r = await (await fetch('/api/shop/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) })).json();
+  if (!r.ok) { $('shopStatus').textContent = 'あいことばがちがうよ。お店の人に聞いてね'; return; }
+  shop = code; $('shopStatus').textContent = '';
+  try { localStorage.setItem('shopCode', code); } catch (e) {}
+  answers = []; show('s-quiz'); renderQuestion();
+};
 $('optA').onclick = () => { answers.push(QUESTIONS[answers.length].a[1]); renderQuestion(); };
 $('optB').onclick = () => { answers.push(QUESTIONS[answers.length].b[1]); renderQuestion(); };
 $('prevBtn').onclick = () => { answers.pop(); renderQuestion(); };
@@ -187,7 +202,7 @@ $('makeBtn').onclick = async () => {
   const timer = setInterval(() => { i = (i + 1) % LOADING_MSGS.length; $('status').textContent = LOADING_MSGS[i]; }, 2500);
   try {
     const res = await fetch('/api/card', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers, favorite, style }) });
+      body: JSON.stringify({ answers, favorite, style, shop }) });
     const data = await res.json();
     if (!data.ok) { $('status').className = 'error'; $('status').textContent = data.reason; return; }
     current = data;

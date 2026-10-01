@@ -31,7 +31,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import qrcode
 import qrcode.image.svg
-from flask import Flask, abort, jsonify, redirect, render_template, request, send_from_directory
+from flask import Flask, abort, jsonify, redirect, render_template, request, send_from_directory, session
 
 from trim import edge_color, frame_box, has_bright_edges, trim_margins, zoom_to_clean
 from types_data import ADVICE, AXIS_WORDS, CREATURES, QUESTIONS, TYPES, axis_profile, best_partners, decide_type, match, rival
@@ -39,6 +39,15 @@ from types_data import ADVICE, AXIS_WORDS, CREATURES, QUESTIONS, TYPES, axis_pro
 load_dotenv()
 
 app = Flask(__name__)
+# 管理者のログイン状態をクッキーに入れるための鍵。本番では .env の SECRET_KEY を使う
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
+                  SESSION_COOKIE_SECURE=os.environ.get("PUBLIC_BASE_URL", "").startswith("https"))
+
+# 管理者画面にログインできるGoogleアカウント（.env の ADMIN_EMAILS にカンマ区切り）。
+# 登録したアカウントだけが入れる（ゆーしんの決まり、2026-10-01）。登録の方法はミーティングで決める
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
 
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 TEXT_MODEL = os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
@@ -481,6 +490,8 @@ def index():
 @app.post("/api/card")
 def make_card():
     body = request.get_json(silent=True) or {}
+    if str(body.get("shop", "")).strip() != shop_code():
+        return jsonify({"ok": False, "reason": "お店のあいことばがちがうよ。お店の人に聞いてね", "shop": True}), 403
     answers = body.get("answers") or []
     favorite = str(body.get("favorite", "")).strip()
     style = body.get("style") if body.get("style") in STYLES else "cute"
@@ -582,6 +593,46 @@ def plaza_page():
     return render_template("plaza.html", code=code)
 
 
+# ===== お店のあいことば（2026-10-01） =====
+# 本番に置くと、URLを知っている人ならだれでもカードを作れてしまい、AI代がゆーしんに請求される。
+# チケットの仕組みができるまでは、お店で教える4けたの「お店のあいことば」がないとカードを作れないようにする。
+SETTINGS_PATH = DATA_DIR / "settings.json"
+
+
+def load_settings() -> dict:
+    try:
+        return json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def shop_code() -> str:
+    st = load_settings()
+    if not st.get("shop_code"):
+        st["shop_code"] = f"{secrets.randbelow(10000):04d}"
+        DATA_DIR.mkdir(exist_ok=True)
+        SETTINGS_PATH.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
+    return st["shop_code"]
+
+
+@app.post("/api/shop/check")
+def shop_check():
+    """診断を始める前に、お店のあいことばが合っているかを確かめる。"""
+    ok = str((request.get_json(silent=True) or {}).get("code", "")).strip() == shop_code()
+    return jsonify({"ok": ok})
+
+
+@app.post("/api/shop/newcode")
+def shop_newcode():
+    staff_only()
+    with _lock:
+        st = load_settings()
+        st["shop_code"] = ""
+        SETTINGS_PATH.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
+        code = shop_code()
+    return jsonify({"ok": True, "code": code})
+
+
 @app.get("/admin")
 def admin_home():
     """管理者画面の入口。お客さんの画面とは分ける（2026-10-01）。
@@ -589,7 +640,8 @@ def admin_home():
     staff_only()
     p = load_plaza()
     cards = sum(1 for _ in RESULT_DIR.glob("*.png")) if RESULT_DIR.exists() else 0  # ダミーの仮の絵（svg）は数えない
-    return render_template("admin/home.html", code=p.get("code", ""), plaza=len(p.get("members", [])), cards=cards)
+    return render_template("admin/home.html", code=p.get("code", ""), plaza=len(p.get("members", [])), cards=cards,
+                           shop=shop_code(), email=session.get("admin_email", ""))
 
 
 @app.get("/plaza/admin")
@@ -599,11 +651,54 @@ def old_admin_urls():
     return redirect("/admin/plaza" if request.path.startswith("/plaza") else "/admin/characters")
 
 
+def is_admin() -> bool:
+    """管理者として入れるか。
+    ① 登録したGoogleアカウントでログインしている
+    ② または、このパソコンで直接動かしている（手元での開発用。Nginxを通ると X-Forwarded-For が付くので本番では効かない）"""
+    if session.get("admin_email") in ADMIN_EMAILS:
+        return True
+    return request.remote_addr in ("127.0.0.1", "::1") and not request.headers.get("X-Forwarded-For")
+
+
 def staff_only() -> None:
-    """スタッフ用の画面・操作は、アプリを動かしているこのパソコンからだけ使える。
-    お客さんのタブレットやスマホ（同じWi-Fi）から開かれないようにするため（2026-10-01）。"""
-    if request.remote_addr not in ("127.0.0.1", "::1"):
-        abort(403)
+    """管理者画面・管理用の操作の入口。入れないときは、画面ならログインへ、操作なら403。"""
+    if is_admin():
+        return
+    if request.method == "GET" and not request.path.startswith("/api/"):
+        abort(redirect("/admin/login"))
+    abort(403)
+
+
+@app.get("/admin/login")
+def admin_login():
+    return render_template("admin/login.html", client_id=GOOGLE_CLIENT_ID, error=request.args.get("error", ""))
+
+
+@app.post("/admin/login")
+def admin_login_post():
+    """Googleのログインボタンから受け取ったIDトークンを確かめ、登録したアカウントなら管理者として入れる。"""
+    from google.auth.transport import requests as google_requests
+    from google.oauth2 import id_token
+
+    if not GOOGLE_CLIENT_ID:
+        return redirect("/admin/login?error=setup")
+    try:
+        info = id_token.verify_oauth2_token(request.form.get("credential", ""), google_requests.Request(), GOOGLE_CLIENT_ID)
+    except ValueError:
+        return redirect("/admin/login?error=invalid")
+    email = (info.get("email") or "").lower()
+    if not info.get("email_verified") or email not in ADMIN_EMAILS:
+        write_log({"event": "admin_denied"})
+        return redirect("/admin/login?error=denied")
+    session.clear()
+    session["admin_email"] = email
+    return redirect("/admin")
+
+
+@app.get("/admin/logout")
+def admin_logout():
+    session.pop("admin_email", None)
+    return redirect("/admin/login")
 
 
 @app.get("/admin/plaza")
@@ -756,6 +851,7 @@ def match_cards():
 @app.get("/api/stats")
 def stats():
     """試してもらった結果のまとめ。お試しモードで作ったカードは数えない。"""
+    staff_only()
     rows = read_log()
     return jsonify({
         "cards": sum(1 for r in rows if r["event"] == "card" and not r.get("mock")),  # 2026-10-01まではダミーで作った分に mock が付いている

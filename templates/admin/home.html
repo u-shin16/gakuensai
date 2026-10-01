@@ -29,12 +29,17 @@
 <body>
 <main>
   <h1>管理者画面</h1>
-  <p class="note">スタッフ用です。いまはアプリを動かしているこのパソコンからだけ開けます（Googleでのログインは、管理者の決め方が決まってから付けます）。</p>
+  <p class="note">スタッフ用です。登録されたGoogleアカウントだけが入れます。{% if email %}ログイン中：{{ email }}　<a href="/admin/logout" style="color:var(--muted)">ログアウト</a>{% endif %}</p>
 
   <div class="stats">
     <div class="stat"><div class="n">{{ cards }}</div><div class="l">これまでに作ったカード</div></div>
     <div class="stat"><div class="n">{{ plaza }}</div><div class="l">広場にいる守り神</div></div>
     <div class="stat"><div class="n">{{ code or '----' }}</div><div class="l">広場のあいことば</div></div>
+  </div>
+
+  <div class="stat" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div><div class="n" id="shop">{{ shop }}</div><div class="l">お店のあいことば（これがないとカードを作れない。お客さんに教える）</div></div>
+    <button id="newShop" style="margin-left:auto;font:inherit;font-weight:800;border:0;border-radius:12px;padding:10px 16px;background:#2b4152;color:#f2f6f8;cursor:pointer">変える</button>
   </div>
 
   <div class="menu">
@@ -46,5 +51,12 @@
     <a class="soon"><b>受け取りの一覧</b><span>ミーティングで決まってから作る</span></a>
   </div>
 </main>
+<script>
+document.getElementById('newShop').onclick = async () => {
+  if (!confirm('お店のあいことばを新しくしますか？（店のタブレットにも新しいあいことばを入れ直してください）')) return;
+  const r = await (await fetch('/api/shop/newcode', { method: 'POST' })).json();
+  if (r.ok) document.getElementById('shop').textContent = r.code;
+};
+</script>
 </body>
 </html>
