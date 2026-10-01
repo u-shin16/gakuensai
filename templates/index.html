@@ -21,6 +21,7 @@
   .modebar { display: flex; gap: 4px; background: var(--panel); border-radius: 99px; padding: 3px; margin-bottom: 14px; }
   .modebar button { background: none; color: var(--muted); font-size: .72rem; padding: 5px 12px; border-radius: 99px; }
   .modebar button.on[data-m=dummy] { background: #ff5577; color: #fff; }
+  .modebar .listlink { color: var(--muted); font-size: .72rem; padding: 5px 12px; text-decoration: none; }
   .modebar button.on[data-m=real] { background: #2bb673; color: #fff; }
   .mock { background: #ff5577; color: #fff; font-size: .75rem; padding: 4px 10px; border-radius: 99px; margin-bottom: 14px; }
   button, a.btn {
@@ -100,6 +101,7 @@
   <div class="modebar">
     <button type="button" data-m="dummy" class="{{ 'on' if mock else '' }}">ダミー（0円）</button>
     <button type="button" data-m="real" class="{{ '' if mock else 'on' }}" {{ '' if has_key else 'disabled' }}>実戦（Gemini・1枚約6円）</button>
+    <a class="listlink" href="/characters" target="_blank">これまでの守り神</a>
   </div>
 
   <!-- 1. はじめ -->

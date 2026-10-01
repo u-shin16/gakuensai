@@ -542,6 +542,39 @@ def set_mode():
     return jsonify({"ok": True, "mode": mode})
 
 
+@app.get("/characters")
+def characters():
+    """これまでに作った守り神の一覧（スタッフ・ゆーしんの確認用）。
+    ダミーで作ったもの（仮の絵）は、?dummy=1 のときだけ出す。"""
+    show_dummy = request.args.get("dummy") == "1"
+    rows = []
+    if RESULT_DIR.exists():
+        for path in RESULT_DIR.glob("*.json"):
+            try:
+                r = json.loads(path.read_text(encoding="utf-8"))
+            except ValueError:
+                continue
+            is_dummy = r.get("image_file", "").endswith(".svg")
+            if is_dummy and not show_dummy:
+                continue
+            t = TYPES.get(r.get("type_code"), {})
+            rows.append({
+                "token": path.stem,
+                "serial": r.get("serial", 0),
+                "monster": r.get("monster", ""),
+                "type_name": t.get("name", ""),
+                "color": t.get("color", "#888888"),
+                "style": "かっこいい" if r.get("style") == "cool" else "かわいい",
+                "favorite": r.get("favorite", ""),
+                "message": r.get("message", ""),
+                "created_at": r.get("created_at", "")[:16].replace("T", " "),
+                "image": f"/img/{r['image_file']}",
+                "dummy": is_dummy,
+            })
+    rows.sort(key=lambda x: x["serial"], reverse=True)
+    return render_template("characters.html", rows=rows, show_dummy=show_dummy)
+
+
 @app.get("/r/<token>")
 def result_page(token: str):
     """カードのQRコードから開く、その人だけの結果ページ。"""
