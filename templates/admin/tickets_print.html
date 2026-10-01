@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>チケット印刷</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
+<style>
+  /* A4に2列×5段＝10枚。点線で切る */
+  @page { size: A4; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "M PLUS Rounded 1c", sans-serif; color: #2a2340; background: #fff; }
+  .hint { padding: 12px 16px; background: #fff6d6; font-size: 14px; }
+  .sheet { width: 190mm; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 55mm; margin: 0 auto; page-break-after: always; }
+  .sheet:last-child { page-break-after: auto; }
+  .t { border: 1px dashed #aaa; display: flex; align-items: center; gap: 4mm; padding: 4mm 5mm; }
+  .t img { width: 40mm; height: 40mm; }
+  .t h2 { margin: 0 0 1mm; font-size: 15pt; }
+  .t .no { font-size: 20pt; font-weight: 800; color: #5b4aa8; }
+  .t p { margin: 1mm 0 0; font-size: 8.5pt; line-height: 1.5; }
+  @media print { .hint { display: none; } }
+</style>
+</head>
+<body>
+<div class="hint">まだ使っていないチケット {{ tickets|length }} 枚です。この画面で印刷（⌘P / Ctrl+P）すると、A4 1枚に10枚ずつ並びます。点線で切って使ってください。</div>
+{% for page in tickets|batch(10) %}
+<div class="sheet">
+  {% for t in page %}
+  <div class="t">
+    <img src="{{ t.qr }}" alt="">
+    <div>
+      <h2>守り神診断</h2>
+      <div class="no">No.{{ t.number }}</div>
+      <p>スマホのカメラでQRを読んで、質問に答えてね。<br>このチケットは1回だけ使えます。<br>カードを受け取るときに見せてね。</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+</body>
+</html>

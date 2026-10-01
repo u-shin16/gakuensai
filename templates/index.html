@@ -89,6 +89,9 @@
   .qr img { width: 58px; height: 58px; display: block; background: #fff; padding: 3px; border-radius: 4px; }
 
   .actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
+  .ticketno { margin: 0 0 18px; padding: 6px 18px; border-radius: 99px; background: var(--panel); color: var(--accent); font-weight: 800; letter-spacing: .05em; }
+  .pickup { width: 100%; background: var(--accent); color: #3a2400; border-radius: 16px; padding: 14px 16px; margin-bottom: 18px; text-align: center; font-weight: 800; line-height: 1.6; }
+  .pickup b { display: block; font-size: 2rem; }
 </style>
 </head>
 <body>
@@ -98,8 +101,12 @@
   <!-- 1. はじめ -->
   <section id="s-start" class="wrap">
     <p class="lead">10個の質問に答えると、あなたの性格タイプと、<br>あなたを守る「守り神」が決まります。<br>守り神はAIがその場で描く、世界に1体だけ。</p>
+    {% if ticket %}
+    <p class="ticketno">チケット No.{{ number }}</p>
+    {% else %}
     <label class="h" for="shopCode">お店のあいことば<br><small>お店の人に聞いてね</small></label>
     <input id="shopCode" type="text" inputmode="numeric" maxlength="4" placeholder="4けたの数字" autocomplete="off" value="" style="text-align:center;letter-spacing:.3em;max-width:240px;margin-bottom:16px">
+    {% endif %}
     <button class="big" id="startBtn">診断をはじめる</button>
     <div id="shopStatus" style="min-height:1.5em;margin-top:10px;color:#ff8fa3;text-align:center"></div>
   </section>
@@ -134,12 +141,13 @@
 
   <!-- 4. 結果（お店の画面） -->
   <section id="s-result" class="wrap hidden">
+    <div class="pickup hidden" id="pickup"></div>
     <div class="stage" id="stage"></div>
 
     <div class="actions">
       <button type="button" id="saveBtn">画像を保存</button>
       <a class="btn sub" id="detailLink" target="_blank">詳しい結果を見る</a>
-      <button type="button" class="sub" id="nextBtn">つぎの人</button>
+      {% if not ticket %}<button type="button" class="sub" id="nextBtn">つぎの人</button>{% endif %}
     </div>
 
   </section>
@@ -172,9 +180,11 @@ function renderQuestion() {
 
 // お店のあいことば：合っていれば診断を始める。
 // 画面を開き直したら毎回入れ直す（覚えておくと、次の人やほかの人に数字が見えてしまうため。2026-10-01 ゆーしん）
+const TICKET = {{ (ticket or '') | tojson }};  // チケットのQRから開いたときだけ入る（このときはお店のあいことばはいらない）
 let shop = '';
 try { localStorage.removeItem('shopCode'); } catch (e) {}  // 前の版で覚えていた数字を消す
 $('startBtn').onclick = async () => {
+  if (TICKET) { answers = []; show('s-quiz'); renderQuestion(); return; }
   const code = $('shopCode').value.trim();
   if (!code) { $('shopStatus').textContent = 'お店のあいことばを入れてね'; return; }
   const r = await (await fetch('/api/shop/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) })).json();
@@ -209,11 +219,16 @@ $('makeBtn').onclick = async () => {
   const timer = setInterval(() => { i = (i + 1) % LOADING_MSGS.length; $('status').textContent = LOADING_MSGS[i]; }, 2500);
   try {
     const res = await fetch('/api/card', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers, favorite, style, shop }) });
+      body: JSON.stringify({ answers, favorite, style, shop, ticket: TICKET }) });
     const data = await res.json();
+    if (data.used) { location.reload(); return; }  // ほかの画面で先に使われた
     if (!data.ok) { $('status').className = 'error'; $('status').textContent = data.reason; return; }
     current = data;
     renderResult(data);
+    if (data.pickup) {
+      $('pickup').innerHTML = `カードを印刷します。この時間にお店へ取りに来てね<b>${esc(data.pickup)}</b>チケット No.${esc(TICKET.split('-')[0])} を見せてね`;
+      $('pickup').classList.remove('hidden');
+    }
     show('s-result');
   } catch (err) {
     $('status').className = 'error'; $('status').textContent = '通信に失敗しました。もう一度試してね';
@@ -267,7 +282,7 @@ $('saveBtn').onclick = async () => {
   a.click();
 };
 
-$('nextBtn').onclick = () => {
+if ($('nextBtn')) $('nextBtn').onclick = () => {
   answers = []; $('favorite').value = ''; $('status').textContent = '';
   show('s-start');
 };

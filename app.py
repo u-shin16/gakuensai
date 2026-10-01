@@ -338,7 +338,14 @@ def index():
 @app.post("/api/card")
 def make_card():
     body = request.get_json(silent=True) or {}
-    if str(body.get("shop", "")).strip() != shop_code():
+    ticket = None
+    if body.get("ticket"):
+        ticket = parse_ticket(str(body["ticket"]))
+        if not ticket:
+            return jsonify({"ok": False, "reason": "このチケットは使えません。お店の人に見せてね"}), 403
+        if ticket["status"] != "unused":
+            return jsonify({"ok": False, "reason": "このチケットはもう使われています", "used": True}), 409
+    elif str(body.get("shop", "")).strip() != shop_code():
         return jsonify({"ok": False, "reason": "お店のあいことばがちがうよ。お店の人に聞いてね", "shop": True}), 403
     answers = body.get("answers") or []
     favorite = str(body.get("favorite", "")).strip()
@@ -405,7 +412,91 @@ def make_card():
     write_log({"event": "card", "serial": serial, "token": token, "type": code, "favorite": favorite,
                "style": style})
     url = f"{PUBLIC_BASE_URL or request.host_url.rstrip('/')}/r/{token}"
-    return jsonify({"ok": True, **result_payload(load_result(token), token), "url": url, "qr": qr_svg(url)})
+    pickup = ""
+    if ticket:
+        claimed = store.claim_ticket(ticket["number"], ticket["secret"], token, serial)
+        if claimed is None:  # 同じチケットで2つの画面から同時に作ったとき。先に終わったほうを正とする
+            claimed = store.get_ticket(ticket["number"])
+        pickup = slot_label(claimed.get("slot", ""))
+        write_log({"event": "ticket", "number": ticket["number"], "token": token, "slot": claimed.get("slot")})
+    return jsonify({"ok": True, **result_payload(load_result(token), token), "url": url, "qr": qr_svg(url),
+                    "pickup": pickup})
+
+
+# ===== チケット（2026-10-01） =====
+# 代金をもらったらチケットを渡す。チケットのQRを読むと、そのチケット専用のページ（/12-K7QP）が開いて診断できる。
+# 番号の後ろの4文字はQRにだけ入っているので、番号を変えて他人のチケットを開くことはできない。1枚1回だけ。
+# 答え終わると「○時○分に取りに来てね」が出る（受け取りの枠は store.slot_settings。2026-10-02のミーティングで決める）。
+
+TICKET_RE = re.compile(r"^(\d{1,5})-([A-Z0-9]{4})$")
+
+
+def parse_ticket(text: str) -> dict | None:
+    """「12-K7QP」が本物のチケットなら中身を返す。番号だけ・合言葉ちがいは None。"""
+    m = TICKET_RE.match(text.strip().upper())
+    if not m:
+        return None
+    t = store.get_ticket(int(m.group(1)))
+    if not t or not secrets.compare_digest(t["secret"], m.group(2)):
+        return None
+    return t
+
+
+def slot_label(slot: str) -> str:
+    """"2026-11-21 13:40" → "13時40分"。"""
+    if not slot:
+        return ""
+    hh, mm = slot[-5:].split(":")
+    return f"{int(hh)}時{mm}分"
+
+
+def ticket_url(t: dict) -> str:
+    return f"{PUBLIC_BASE_URL or request.host_url.rstrip('/')}/{t['number']}-{t['secret']}"
+
+
+@app.get("/<int:num>-<code>")
+def ticket_page(num: int, code: str):
+    t = parse_ticket(f"{num}-{code}")
+    if not t:
+        return render_template("ticket_bad.html"), 404
+    if t["status"] != "unused":
+        return render_template("ticket_used.html", t=t, pickup=slot_label(t.get("slot", "")))
+    questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
+    return render_template("index.html", questions=questions, ticket=f"{t['number']}-{t['secret']}", number=t["number"])
+
+
+@app.get("/<int:num>")
+def ticket_number_only(num: int):
+    return render_template("ticket_bad.html"), 404
+
+
+@app.get("/admin/tickets")
+def admin_tickets():
+    staff_only()
+    tickets = store.list_tickets()
+    for t in tickets:
+        t["url"] = ticket_url(t)
+        t["pickup"] = slot_label(t.get("slot", ""))
+    return render_template("admin/tickets.html", tickets=tickets, slots=store.slot_settings())
+
+
+@app.get("/admin/tickets/print")
+def admin_tickets_print():
+    staff_only()
+    tickets = [t for t in store.list_tickets() if t["status"] == "unused"]
+    for t in tickets:
+        t["qr"] = qr_svg(ticket_url(t))
+    return render_template("admin/tickets_print.html", tickets=tickets)
+
+
+@app.post("/api/tickets/create")
+def tickets_create():
+    staff_only()
+    n = int((request.get_json(silent=True) or {}).get("n", 10))
+    if not 1 <= n <= 500:
+        return jsonify({"ok": False, "reason": "1〜500枚で指定してね"}), 400
+    made = store.create_tickets(n)
+    return jsonify({"ok": True, "from": made[0]["number"], "to": made[-1]["number"]})
 
 
 # ===== 守り神の広場（2026-10-01） =====

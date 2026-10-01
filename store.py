@@ -154,3 +154,75 @@ def log(entry: dict) -> None:
 
 def count_events(event: str) -> int:
     return sum(1 for _ in col("events").where("event", "==", event).stream())
+
+
+# ===== チケット（2026-10-01） =====
+# チケット1枚に1つのページ（/12-K7QP の形）。番号の後ろの4文字は推測できない合言葉で、QRにだけ入っている。
+# 1枚1回だけ使える。答え終わったら受け取りの時間の枠を決めて保存する。
+import random  # noqa: E402
+
+TICKET_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # 見まちがえやすい 0 O 1 I は使わない
+
+
+def create_tickets(n: int) -> list[dict]:
+    """チケットを n 枚作る。番号は今までの続きから。"""
+    ref = col("counters").document("tickets")
+    snap = ref.get()
+    start = ((snap.to_dict() or {}).get("n", 0) if snap.exists else 0) + 1
+    out = []
+    batch = db().batch()
+    rng = random.SystemRandom()
+    for num in range(start, start + n):
+        t = {"number": num, "secret": "".join(rng.choice(TICKET_CHARS) for _ in range(4)),
+             "status": "unused", "created_at": now()}
+        batch.set(col("tickets").document(str(num)), t)
+        out.append(t)
+    batch.set(ref, {"n": start + n - 1})
+    batch.commit()
+    return out
+
+
+def get_ticket(num: int) -> dict | None:
+    snap = col("tickets").document(str(num)).get()
+    return snap.to_dict() if snap.exists else None
+
+
+def list_tickets() -> list[dict]:
+    return sorted((s.to_dict() for s in col("tickets").stream()), key=lambda t: t["number"])
+
+
+def slot_settings() -> dict:
+    """受け取りの枠の決まり。仮に10分ごとに10人まで（2026-10-02のミーティングで決め直す）。"""
+    snap = col("settings").document("slots").get()
+    d = snap.to_dict() if snap.exists else {}
+    return {"minutes": d.get("minutes", 10), "capacity": d.get("capacity", 10), "lead": d.get("lead", 5)}
+
+
+def claim_ticket(num: int, secret: str, token: str, serial: int) -> dict | None:
+    """答え終わったチケットを「使った」にして、受け取りの枠を決める。もう使われていたら None。"""
+    from datetime import timedelta
+
+    tref = col("tickets").document(str(num))
+    sref = col("counters").document("slots")
+    st = slot_settings()
+
+    @firestore.transactional
+    def run(tx):
+        t = tref.get(transaction=tx).to_dict()
+        if not t or t["secret"] != secret or t["status"] != "unused":
+            return None
+        counts = sref.get(transaction=tx).to_dict() or {}
+        # 今から lead 分後より後の、空きのある最初の枠
+        base = datetime.now() + timedelta(minutes=st["lead"])
+        m = st["minutes"]
+        slot = base.replace(second=0, microsecond=0) + timedelta(minutes=(m - base.minute % m) % m)
+        while counts.get(slot.strftime("%Y-%m-%d %H:%M"), 0) >= st["capacity"]:
+            slot += timedelta(minutes=m)
+        key = slot.strftime("%Y-%m-%d %H:%M")
+        counts[key] = counts.get(key, 0) + 1
+        tx.set(sref, counts)
+        upd = {"status": "used", "token": token, "serial": serial, "slot": key, "used_at": now()}
+        tx.update(tref, upd)
+        return {**t, **upd}
+
+    return run(db().transaction())

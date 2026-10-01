@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>チケット</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #14202b; --panel: #1f2f3d; --panel2: #2b4152; --text: #f2f6f8; --muted: #a9bccb; --accent: #ffcc33; --ok: #7fe0a8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: "M PLUS Rounded 1c", sans-serif; padding: 28px 16px 60px; }
+  main { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { margin: 0; font-size: 1.5rem; }
+  a { color: var(--muted); }
+  .note { color: var(--muted); font-size: .85rem; margin: 0; line-height: 1.7; }
+  .bar { background: var(--panel); border-radius: 14px; padding: 14px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .bar input { font: inherit; width: 90px; padding: 8px 10px; border-radius: 10px; border: 0; }
+  button, .btn { font: inherit; font-weight: 800; border: 0; border-radius: 12px; padding: 10px 16px; background: var(--accent); color: #3a2400; cursor: pointer; text-decoration: none; }
+  .btn.sub { background: var(--panel2); color: var(--text); }
+  .wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 14px; overflow: hidden; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--panel2); font-size: .92rem; white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; }
+  .used { color: var(--ok); font-weight: 800; }
+  .unused { color: var(--muted); }
+  code { font-size: .8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <a href="/admin">← 管理者画面へ</a>
+  <h1>チケット</h1>
+  <p class="note">チケット1枚ごとにQRがあり、読むとその人専用の診断ページが開きます。1枚1回だけ使えます。<br>
+    受け取りの時間：{{ slots.minutes }}分ごとに{{ slots.capacity }}人まで（答え終わってから{{ slots.lead }}分以上あとの枠）。※ミーティングで決め直す仮の値</p>
+
+  <div class="bar">
+    <input id="n" type="number" min="1" max="500" value="10"> 枚
+    <button id="make">チケットを作る</button>
+    <a class="btn sub" href="/admin/tickets/print" target="_blank">まだ使っていないチケットを印刷</a>
+    <span id="msg" class="note"></span>
+  </div>
+
+  <div class="wrap">
+  <table>
+    <tr><th>番号</th><th>状態</th><th>受け取り</th><th>結果</th><th>ページ</th></tr>
+    {% for t in tickets %}
+    <tr>
+      <td><b>No.{{ t.number }}</b></td>
+      {% if t.status == 'used' %}
+      <td class="used">使用済み</td><td><b>{{ t.pickup }}</b></td><td><a href="/r/{{ t.token }}" target="_blank">見る</a></td>
+      {% else %}
+      <td class="unused">未使用</td><td>-</td><td>-</td>
+      {% endif %}
+      <td><a href="{{ t.url }}" target="_blank"><code>{{ t.url }}</code></a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="note">まだチケットがありません</td></tr>
+    {% endfor %}
+  </table>
+  </div>
+</main>
+<script>
+document.getElementById('make').onclick = async () => {
+  const n = Number(document.getElementById('n').value);
+  if (!confirm(`チケットを${n}枚作りますか？`)) return;
+  const r = await (await fetch('/api/tickets/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ n }) })).json();
+  if (r.ok) location.reload(); else document.getElementById('msg').textContent = r.reason;
+};
+</script>
+</body>
+</html>
