@@ -79,6 +79,7 @@
 const world = document.getElementById('world');
 const walkers = new Map();     // id → {el, x, y, tx, ty, speed}
 const queue = [];              // NEW! で見せる順番待ち
+const seen = new Set();        // 一度でも受け取った守り神。NEW! で登場している最中に、もう一度登場させないため（2026-10-01に同じ守り神が複数出た）
 let first = true, showing = false;
 
 // 雲
@@ -168,10 +169,11 @@ async function poll() {
     if (r.code) document.getElementById('code').textContent = r.code;
     const ids = new Set(r.members.map((m) => m.id));
     // 広場から消えた守り神（スタッフが広場を空にしたときなど）だけ取り除く。入った守り神はずっと残る
-    for (const [id, w] of walkers) if (!ids.has(id)) { w.el.remove(); walkers.delete(id); }
+    for (const [id, w] of walkers) if (!ids.has(id)) { w.el.remove(); walkers.delete(id); seen.delete(id); }
     resize(r.members.length);
     for (const m of r.members) {
-      if (walkers.has(m.id) || queue.some((q) => q.id === m.id)) continue;
+      if (seen.has(m.id)) continue;
+      seen.add(m.id);
       if (first) addWalker(m);          // 開いたときにいた守り神は、そのまま歩かせる
       else queue.push(m);               // あとから来た守り神は NEW! で登場
     }
