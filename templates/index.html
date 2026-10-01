@@ -35,7 +35,9 @@
   .choices { display: flex; flex-direction: column; gap: 12px; width: 100%; }
   .choices button { background: var(--panel2); color: var(--text); padding: 20px 16px; font-size: 1rem; line-height: 1.4; }
   .choices button:active { background: var(--accent); color: #3a2400; }
-  .back { margin-top: 18px; background: none; color: var(--muted); font-weight: 500; padding: 6px; }
+  /* 質問と好きなものの画面の左上に置く「戻る」ボタン */
+  .back { position: fixed; top: 14px; left: 14px; z-index: 20; background: var(--panel); color: var(--text);
+    font-weight: 800; font-size: .9rem; padding: 10px 16px; border-radius: 99px; }
 
   /* 好きなもの・絵柄 */
   label.h { font-weight: 800; margin: 6px 0 10px; display: block; text-align: center; line-height: 1.6; }
@@ -103,12 +105,13 @@
   </section>
 
   <!-- 2. 質問 -->
+  <button class="back hidden" id="backBtn">← 戻る</button>
+
   <section id="s-quiz" class="wrap hidden">
     <div class="progress"><i id="bar"></i></div>
     <div class="qnum" id="qnum"></div>
     <div class="qtext" id="qtext"></div>
     <div class="choices"><button id="optA"></button><button id="optB"></button></div>
-    <button class="back" id="prevBtn">← ひとつ前にもどる</button>
   </section>
 
   <!-- 3. 好きなもの・絵柄 -->
@@ -152,6 +155,7 @@ let answers = [], style = 'cute', current = null;
 
 function show(id) {
   ['s-start', 's-quiz', 's-fav', 's-result'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
+  $('backBtn').classList.toggle('hidden', id !== 's-quiz' && id !== 's-fav');
   window.scrollTo({ top: 0 });
 }
 
@@ -164,7 +168,6 @@ function renderQuestion() {
   $('qtext').textContent = q.q;
   $('optA').textContent = q.a[0];
   $('optB').textContent = q.b[0];
-  $('prevBtn').classList.toggle('hidden', i === 0);
 }
 
 // お店のあいことば：合っていれば診断を始める。店のタブレットでは、一度入れたら覚えておく
@@ -182,7 +185,12 @@ $('startBtn').onclick = async () => {
 };
 $('optA').onclick = () => { answers.push(QUESTIONS[answers.length].a[1]); renderQuestion(); };
 $('optB').onclick = () => { answers.push(QUESTIONS[answers.length].b[1]); renderQuestion(); };
-$('prevBtn').onclick = () => { answers.pop(); renderQuestion(); };
+// 左上の「戻る」：質問なら1つ前へ（1問目なら最初の画面へ）、好きなものの画面なら最後の質問へ
+$('backBtn').onclick = () => {
+  if (!$('s-fav').classList.contains('hidden')) { answers.pop(); show('s-quiz'); renderQuestion(); return; }
+  if (!answers.length) { show('s-start'); return; }
+  answers.pop(); renderQuestion();
+};
 
 document.querySelectorAll('.examples button').forEach((b) => b.onclick = () => { $('favorite').value = b.textContent; });
 document.querySelectorAll('#styles button').forEach((b) => b.onclick = () => {
