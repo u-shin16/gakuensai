@@ -160,6 +160,32 @@ def blocked(text: str) -> bool:
     return any(w.lower() in text.lower() for w in BLOCKED_WORDS)
 
 
+# ===== ダミーモード（2026-10-01 作り直し） =====
+# Geminiを使わずにカードを作る（0円）。AIの上限に達したときや、画面の流れを試すとき用。
+# 切り替えは管理者画面（/admin）だけ。キーが無いとき・.env に MOCK=1 のときは必ずダミー。
+
+def is_mock() -> bool:
+    if not API_KEY or os.environ.get("MOCK") == "1":
+        return True
+    return store.ai_mode() == "dummy"
+
+
+def mock_card(code: str, favorite: str) -> dict:
+    love, friend, study, money = ADVICE[code]
+    return {
+        "allowed": True, "reason": "",
+        "monster": favorite[:4] + random.choice(["モン", "まる", "りん", "ぼう", "ドン", "ぴょん"]),
+        "message": f"（ダミー）きみのいいところは、{favorite}の時間にもきっと活きるよ。",
+        "love": love, "friend": friend, "study": study, "money": money,
+        "image_prompt": TYPES[code]["motif"],
+    }
+
+
+def mock_draw(info: dict) -> bytes:
+    import draw_example
+    return draw_example.draw(info)
+
+
 def ai_card(code: str, favorite: str, style: str, profile: list[str], used_names: list[str]) -> dict:
     t = TYPES[code]
     love, friend, study, money = ADVICE[code]
@@ -332,7 +358,7 @@ def ai_error_reason(e: Exception, what: str) -> str:
 @app.route("/")
 def index():
     questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
-    return render_template("index.html", questions=questions)
+    return render_template("index.html", questions=questions, mock=is_mock())
 
 
 @app.post("/api/card")
@@ -364,8 +390,7 @@ def make_card():
         return jsonify({"ok": False, "reason": "ごめんね、アニメやゲームにいるキャラクターはカードにできないんだ。"
                                            "ほかの好きなものを入れてみて！（例：カレー、ねこ、サッカー）"})
 
-    if not API_KEY:
-        return jsonify({"ok": False, "reason": "Geminiのキーが入っていないので、カードを作れません（スタッフの人へ：.env を確認してください）"}), 500
+    mock = is_mock()
     code = decide_type(answers)
     t = TYPES[code]
     profile = axis_profile(answers)
@@ -373,13 +398,16 @@ def make_card():
     pool = ThreadPoolExecutor(max_workers=2)
     # 守り神のひとこと（作る→チェックして直す、で約10秒）は、ほかに頼らないので最初に始めておく。
     # 文章→絵（合わせて約10秒）と並行して進むので、待ち時間は増えない。
-    f_msg = pool.submit(ai_message, code, favorite, profile)
+    f_msg = None if mock else pool.submit(ai_message, code, favorite, profile)
     try:
         try:
-            card = ai_card(code, favorite, style, profile, used[-150:])
-            # 守り神の名前がほかの人とかぶったら、1回だけ作り直す（人とかぶらないことを一番大事にする）
-            if card.get("allowed") and card.get("monster") in used:
-                card = ai_card(code, favorite, style, profile, used[-150:] + [card["monster"]])
+            if mock:
+                card = mock_card(code, favorite)
+            else:
+                card = ai_card(code, favorite, style, profile, used[-150:])
+                # 守り神の名前がほかの人とかぶったら、1回だけ作り直す（人とかぶらないことを一番大事にする）
+                if card.get("allowed") and card.get("monster") in used:
+                    card = ai_card(code, favorite, style, profile, used[-150:] + [card["monster"]])
         except Exception as e:
             app.logger.exception("カードの中身の生成に失敗")
             return jsonify({"ok": False, "reason": ai_error_reason(e, "カードを作れませんでした")}), 502
@@ -389,17 +417,18 @@ def make_card():
             return jsonify({"ok": False, "reason": card.get("reason") or "その好きなものはカードにできないんだ。ほかのものにしてね"})
 
         try:
-            image = DRAW({"image_prompt": card["image_prompt"], "monster": card.get("monster", ""), "type_code": code,
+            image = (mock_draw if mock else DRAW)({"image_prompt": card["image_prompt"], "monster": card.get("monster", ""), "type_code": code,
                           "type_name": t["name"], "motif": t["motif"], "hue": t["hue"], "color": t["color"],
                           "favorite": favorite, "style": style})
         except Exception as e:
             app.logger.exception("絵の生成に失敗")
             return jsonify({"ok": False, "reason": ai_error_reason(e, "絵を描けませんでした")}), 502
 
-        try:
-            card["message"] = f_msg.result() or card["message"]
-        except Exception:
-            app.logger.exception("ひとことの作成に失敗（最初の文章の係が書いた文を使う）")
+        if f_msg is not None:
+            try:
+                card["message"] = f_msg.result() or card["message"]
+            except Exception:
+                app.logger.exception("ひとことの作成に失敗（最初の文章の係が書いた文を使う）")
     finally:
         pool.shutdown(wait=False)
 
@@ -407,10 +436,11 @@ def make_card():
     result = {
         "serial": serial, "type_code": code, "favorite": favorite, "style": style,
         **{k: card[k] for k in ("monster", "message", "love", "friend", "study", "money")},
+        **({"mock": True} if mock else {}),
     }
     token = save_result(result, image)
     write_log({"event": "card", "serial": serial, "token": token, "type": code, "favorite": favorite,
-               "style": style})
+               "style": style, **({"mock": True} if mock else {})})
     url = f"{PUBLIC_BASE_URL or request.host_url.rstrip('/')}/r/{token}"
     pickup = ""
     if ticket:
@@ -462,7 +492,8 @@ def ticket_page(num: int, code: str):
     if t["status"] != "unused":
         return render_template("ticket_used.html", t=t, pickup=slot_label(t.get("slot", "")))
     questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
-    return render_template("index.html", questions=questions, ticket=f"{t['number']}-{t['secret']}", number=t["number"])
+    return render_template("index.html", questions=questions, ticket=f"{t['number']}-{t['secret']}", number=t["number"],
+                           mock=is_mock())
 
 
 @app.get("/<int:num>")
@@ -554,7 +585,22 @@ def staff_only() -> None:
 def admin_home():
     staff_only()
     return render_template("admin/home.html", code=store.plaza_code(), plaza=len(store.plaza_members()),
-                           cards=store.count_results(), shop=shop_code(), email=session.get("admin_email", ""))
+                           cards=store.count_results(), shop=shop_code(), email=session.get("admin_email", ""),
+                           mock=is_mock(), has_key=bool(API_KEY), forced=os.environ.get("MOCK") == "1")
+
+
+@app.post("/api/mode")
+def set_mode():
+    """ダミー／本物の切り替え（管理者だけ）。"""
+    staff_only()
+    mode = (request.get_json(silent=True) or {}).get("mode")
+    if mode not in ("dummy", "real"):
+        return jsonify({"ok": False}), 400
+    if mode == "real" and not API_KEY:
+        return jsonify({"ok": False, "reason": "Geminiのキーが入っていないので本物にできません"}), 400
+    store.set_ai_mode(mode)
+    write_log({"event": "mode", "mode": mode, "by": session.get("admin_email", "local")})
+    return jsonify({"ok": True, "mode": mode})
 
 
 @app.get("/plaza/admin")
@@ -674,7 +720,7 @@ def characters():
             "message": r.get("message", ""),
             "created_at": r.get("created_at", "")[:16].replace("T", " "),
             "image": f"/img/{r['image_file']}",
-            "dummy": False,
+            "dummy": bool(r.get("mock")),
         })
     rows.sort(key=lambda x: x["serial"], reverse=True)
     return render_template("admin/characters.html", rows=rows, show_dummy=False)
@@ -721,5 +767,5 @@ def stats():
 
 
 if __name__ == "__main__":
-    print(f"AI：{TEXT_MODEL} / {IMAGE_MODEL}" if API_KEY else "Geminiのキーがありません（.env を確認）")
+    print("ダミーモード（AIを使わない）" if is_mock() else f"AI：{TEXT_MODEL} / {IMAGE_MODEL}")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8120)), debug=False)

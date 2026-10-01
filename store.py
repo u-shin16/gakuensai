@@ -226,3 +226,15 @@ def claim_ticket(num: int, secret: str, token: str, serial: int) -> dict | None:
         return {**t, **upd}
 
     return run(db().transaction())
+
+
+# ===== ダミーモード（2026-10-01） =====
+
+def ai_mode() -> str:
+    """"real"（Geminiで作る）か "dummy"（AIを使わない・0円）。既定は real。"""
+    snap = col("settings").document("mode").get()
+    return (snap.to_dict() or {}).get("mode", "real") if snap.exists else "real"
+
+
+def set_ai_mode(mode: str) -> None:
+    col("settings").document("mode").set({"mode": mode, "updated_at": now()})

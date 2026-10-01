@@ -89,6 +89,7 @@
   .qr img { width: 58px; height: 58px; display: block; background: #fff; padding: 3px; border-radius: 4px; }
 
   .actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
+  .mockbadge { background: #ff5577; color: #fff; font-size: .75rem; font-weight: 800; padding: 4px 12px; border-radius: 99px; margin-bottom: 10px; }
   .ticketno { margin: 0 0 18px; padding: 6px 18px; border-radius: 99px; background: var(--panel); color: var(--accent); font-weight: 800; letter-spacing: .05em; }
   .pickup { width: 100%; background: var(--accent); color: #3a2400; border-radius: 16px; padding: 14px 16px; margin-bottom: 18px; text-align: center; font-weight: 800; line-height: 1.6; }
   .pickup b { display: block; font-size: 2rem; }
@@ -96,6 +97,7 @@
 </head>
 <body>
 <div class="wrap">
+  {% if mock %}<div class="mockbadge">ダミーモード（AIを使わない・お試し用）</div>{% endif %}
   <h1>守り神診断</h1>
 
   <!-- 1. はじめ -->

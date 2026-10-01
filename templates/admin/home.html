@@ -42,6 +42,16 @@
     <button id="newShop" style="margin-left:auto;font:inherit;font-weight:800;border:0;border-radius:12px;padding:10px 16px;background:#2b4152;color:#f2f6f8;cursor:pointer">変える</button>
   </div>
 
+  <div class="stat" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap{% if mock %};outline:3px solid #ff5577{% endif %}">
+    <div><div class="n" id="modeName" style="color:{{ '#ff8fa3' if mock else '#7fe0a8' }}">{{ 'ダミー' if mock else '本物（AI）' }}</div>
+      <div class="l">カードの作り方。ダミーはAIを使わず0円（絵は丸だけ・文は決まった文）。お試しやAIの上限に達したとき用</div></div>
+    {% if not forced and has_key %}
+    <button id="modeBtn" data-to="{{ 'real' if mock else 'dummy' }}" style="margin-left:auto;font:inherit;font-weight:800;border:0;border-radius:12px;padding:10px 16px;background:#2b4152;color:#f2f6f8;cursor:pointer">{{ '本物に戻す' if mock else 'ダミーにする' }}</button>
+    {% else %}
+    <span class="l" style="margin-left:auto">{{ '.env の MOCK=1 でダミーに固定中' if forced else 'Geminiのキーが無いのでダミーに固定中' }}</span>
+    {% endif %}
+  </div>
+
   <div class="menu">
     <a href="/admin/plaza"><b>広場の管理</b><span>あいことばを変える・守り神を広場から出す</span></a>
     <a href="/admin/characters"><b>これまでの守り神</b><span>作ったカードの一覧（好きなものも出る）</span></a>
@@ -51,6 +61,13 @@
   </div>
 </main>
 <script>
+const modeBtn = document.getElementById('modeBtn');
+if (modeBtn) modeBtn.onclick = async () => {
+  const to = modeBtn.dataset.to;
+  if (!confirm(to === 'real' ? '本物（AI）に戻しますか？カード1枚ごとにAIの料金（約10円）がかかります。' : 'ダミーにしますか？お客さんのカードもAIを使わない仮のものになります。')) return;
+  const r = await (await fetch('/api/mode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: to }) })).json();
+  if (r.ok) location.reload(); else alert(r.reason || '切り替えられませんでした');
+};
 document.getElementById('newShop').onclick = async () => {
   if (!confirm('お店のあいことばを新しくしますか？（店のタブレットにも新しいあいことばを入れ直してください）')) return;
   const r = await (await fetch('/api/shop/newcode', { method: 'POST' })).json();
