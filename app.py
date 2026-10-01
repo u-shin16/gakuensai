@@ -33,7 +33,7 @@ import qrcode
 import qrcode.image.svg
 from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 
-from trim import edge_color, has_bright_edges, trim_margins, zoom_to_clean
+from trim import edge_color, frame_box, has_bright_edges, trim_margins, zoom_to_clean
 from types_data import ADVICE, AXIS_WORDS, CREATURES, QUESTIONS, TYPES, axis_profile, best_partners, decide_type, match, rival
 
 load_dotenv()
@@ -333,6 +333,64 @@ def extend_background(data: bytes, mime: str, hue: str) -> bytes:
     return data
 
 
+MARGIN_CHECK_PROMPT = (
+    "Look only at the outer edges and corners of this square illustration. "
+    "Answer margin=true if ANY of these is visible: a white, cream or pale border or margin; an inner panel or frame "
+    "(rounded or square) with a different color outside it; edges or corners that fade to white or to a pale wash (vignette); "
+    "a paper edge; or the painted scene not reaching all four edges. "
+    "Answer margin=false only if the painted scene clearly continues right up to all four edges with no frame."
+)
+MARGIN_SCHEMA = {"type": "object", "properties": {"margin": {"type": "boolean"}, "where": {"type": "string"}},
+                 "required": ["margin", "where"]}
+
+
+def ai_has_margin(data: bytes) -> bool:
+    """絵に余白・枠・白いぼかしがあるかをAIに見て答えさせる（2026-10-01）。
+    プログラムの判定では、角の丸い内側の枠や、うっすら明るいふちを見つけられなかったため。"""
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=API_KEY)
+    resp = client.models.generate_content(
+        model=TEXT_MODEL,
+        contents=[types.Part.from_bytes(data=data, mime_type="image/png"), MARGIN_CHECK_PROMPT],
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json", response_schema=MARGIN_SCHEMA, temperature=0,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        ),
+    )
+    r = json.loads(resp.text)
+    if r.get("margin"):
+        app.logger.info("余白あり：%s", r.get("where"))
+    return bool(r.get("margin"))
+
+
+RETRY_NOTE = (" IMPORTANT: the previous attempt had a border or pale edges. The background scenery must be painted in "
+              "clearly colored medium tones all the way to all four edges and corners: no white, no pale vignette, "
+              "no inner panel or frame.")
+MAX_IMAGE_TRIES = 3
+
+
+def image_without_margin(prompt: str, style: str, hue: str) -> str:
+    """余白のない絵ができるまで描き直す（最大3回）。ゆーしん「余白は絶対にやめて」（2026-10-01）。
+    毎回、プログラムの判定とAIの目視の両方で確かめる。3回とも余白があれば、保存時の zoom_to_clean で切って仕上げる。"""
+    uri = ""
+    for i in range(MAX_IMAGE_TRIES):
+        uri = ai_image(prompt + (RETRY_NOTE if i else ""), style, hue)
+        data = base64.b64decode(uri.split(",", 1)[1])
+        try:
+            margin = has_bright_edges(data) or frame_box(data) is not None or ai_has_margin(data)
+        except Exception:
+            app.logger.exception("余白の確認に失敗（この絵を使う）")
+            return uri
+        if not margin:
+            if i:
+                app.logger.info("描き直して%d回目で余白のない絵になった", i + 1)
+            return uri
+    app.logger.info("%d回描いても余白が残った（保存時に切って仕上げる）", MAX_IMAGE_TRIES)
+    return uri
+
+
 def fill_to_edges(image_uri: str, hue: str) -> str:
     """余白を絶対に出さない（ゆーしんの指示）。
     ① 紙のふちや白い四隅があれば、AIに背景を端まで描き足してもらう（ふちの線がある絵はこれでほぼ消える）
@@ -503,7 +561,7 @@ def make_card():
             return jsonify({"ok": False, "reason": card.get("reason") or "その好きなものはカードにできないんだ。ほかのものにしてね"})
 
         try:
-            image = mock_image(t["color"]) if mock else fill_to_edges(ai_image(card["image_prompt"], style, t["hue"]), t["hue"])
+            image = mock_image(t["color"]) if mock else image_without_margin(card["image_prompt"], style, t["hue"])
         except Exception as e:
             app.logger.exception("絵の生成に失敗")
             return jsonify({"ok": False, "reason": ai_error_reason(e, "絵を描けませんでした")}), 502
