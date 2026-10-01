@@ -44,29 +44,6 @@ API_KEY = os.environ.get("GEMINI_API_KEY", "")
 TEXT_MODEL = os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
 IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
-DATA_DIR_EARLY = Path(__file__).parent / "data"
-MODE_PATH = DATA_DIR_EARLY / "mode.json"
-
-
-def is_mock() -> bool:
-    """ダミーモード（AIを使わない・0円）か。キーが無ければ必ずダミー。
-    実戦モード（Geminiを使う・1枚約6円）は画面の切り替えで選ぶ。既定はダミー。"""
-    if not API_KEY or os.environ.get("MOCK") == "1":
-        return True
-    try:
-        return json.loads(MODE_PATH.read_text(encoding="utf-8")).get("mode") != "real"
-    except (FileNotFoundError, ValueError):
-        return True
-
-DATA_DIR = Path(__file__).parent / "data"
-LOG_PATH = DATA_DIR / "log.jsonl"
-RESULT_DIR = DATA_DIR / "results"   # 結果ページ用。1人1ファイル（JSON＋絵）
-# QRコードに入れるURLの頭。未設定なら開いているアドレスを使う（スマホで試すときはLANのアドレスで開く）
-PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
-TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{16}$")
-_lock = threading.Lock()
-
-
 # 実在キャラ・有名作品は作らない（著作権）。AIの判定より先に、ここで確実に弾く。
 BLOCKED_WORDS = [
     "ピカチュウ", "ポケモン", "ポケットモンスター", "マリオ", "ルイージ", "カービィ", "ゼルダ",
@@ -175,27 +152,6 @@ def write_log(entry: dict) -> None:
 
 def blocked(text: str) -> bool:
     return any(w.lower() in text.lower() for w in BLOCKED_WORDS)
-
-
-def mock_card(code: str, favorite: str) -> dict:
-    t = TYPES[code]
-    love, friend, study, money = ADVICE[code]
-    return {
-        "allowed": True, "reason": "",
-        "monster": f"{favorite[:4]}モン",
-        "message": "（ダミー）ぼくがずっと、きみを見守っているよ。",
-        "love": love, "friend": friend, "study": study, "money": money,
-        "image_prompt": t["motif"],
-    }
-
-
-def mock_image(c: str) -> str:
-    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
-           f'<rect width="200" height="200" fill="{c}"/>'
-           f'<circle cx="100" cy="110" r="55" fill="#fff" opacity=".85"/>'
-           f'<circle cx="80" cy="100" r="8"/><circle cx="120" cy="100" r="8"/>'
-           f'<path d="M80 130 Q100 145 120 130" stroke="#000" stroke-width="5" fill="none"/></svg>')
-    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
 
 
 def ai_card(code: str, favorite: str, style: str, profile: list[str], used_names: list[str]) -> dict:
@@ -511,7 +467,7 @@ def ai_error_reason(e: Exception, what: str) -> str:
 @app.route("/")
 def index():
     questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
-    return render_template("index.html", mock=is_mock(), has_key=bool(API_KEY), questions=questions)
+    return render_template("index.html", questions=questions)
 
 
 @app.post("/api/card")
@@ -534,7 +490,8 @@ def make_card():
         return jsonify({"ok": False, "reason": "ごめんね、アニメやゲームにいるキャラクターはカードにできないんだ。"
                                            "ほかの好きなものを入れてみて！（例：カレー、ねこ、サッカー）"})
 
-    mock = is_mock()
+    if not API_KEY:
+        return jsonify({"ok": False, "reason": "Geminiのキーが入っていないので、カードを作れません（スタッフの人へ：.env を確認してください）"}), 500
     code = decide_type(answers)
     t = TYPES[code]
     profile = axis_profile(answers)
@@ -542,16 +499,13 @@ def make_card():
     pool = ThreadPoolExecutor(max_workers=2)
     # 守り神のひとこと（作る→チェックして直す、で約10秒）は、ほかに頼らないので最初に始めておく。
     # 文章→絵（合わせて約10秒）と並行して進むので、待ち時間は増えない。
-    f_msg = None if mock else pool.submit(ai_message, code, favorite, profile)
+    f_msg = pool.submit(ai_message, code, favorite, profile)
     try:
         try:
-            if mock:
-                card = mock_card(code, favorite)
-            else:
-                card = ai_card(code, favorite, style, profile, used[-150:])
-                # 守り神の名前がほかの人とかぶったら、1回だけ作り直す（人とかぶらないことを一番大事にする）
-                if card.get("allowed") and card.get("monster") in used:
-                    card = ai_card(code, favorite, style, profile, used[-150:] + [card["monster"]])
+            card = ai_card(code, favorite, style, profile, used[-150:])
+            # 守り神の名前がほかの人とかぶったら、1回だけ作り直す（人とかぶらないことを一番大事にする）
+            if card.get("allowed") and card.get("monster") in used:
+                card = ai_card(code, favorite, style, profile, used[-150:] + [card["monster"]])
         except Exception as e:
             app.logger.exception("カードの中身の生成に失敗")
             return jsonify({"ok": False, "reason": ai_error_reason(e, "カードを作れませんでした")}), 502
@@ -561,16 +515,15 @@ def make_card():
             return jsonify({"ok": False, "reason": card.get("reason") or "その好きなものはカードにできないんだ。ほかのものにしてね"})
 
         try:
-            image = mock_image(t["color"]) if mock else image_without_margin(card["image_prompt"], style, t["hue"])
+            image = image_without_margin(card["image_prompt"], style, t["hue"])
         except Exception as e:
             app.logger.exception("絵の生成に失敗")
             return jsonify({"ok": False, "reason": ai_error_reason(e, "絵を描けませんでした")}), 502
 
-        if f_msg is not None:
-            try:
-                card["message"] = f_msg.result() or card["message"]
-            except Exception:
-                app.logger.exception("ひとことの作成に失敗（最初の文章の係が書いた文を使う）")
+        try:
+            card["message"] = f_msg.result() or card["message"]
+        except Exception:
+            app.logger.exception("ひとことの作成に失敗（最初の文章の係が書いた文を使う）")
     finally:
         pool.shutdown(wait=False)
 
@@ -582,49 +535,9 @@ def make_card():
     }
     token = save_result(result, image)
     write_log({"event": "card", "serial": serial, "token": token, "type": code, "favorite": favorite,
-               "style": style, "mock": mock})
+               "style": style})
     url = f"{PUBLIC_BASE_URL or request.host_url.rstrip('/')}/r/{token}"
     return jsonify({"ok": True, **result_payload(load_result(token), token), "url": url, "qr": qr_svg(url)})
-
-
-@app.post("/api/mode")
-def set_mode():
-    """ダミー／実戦の切り替え。"""
-    mode = (request.get_json(silent=True) or {}).get("mode")
-    if mode not in ("dummy", "real"):
-        return jsonify({"ok": False}), 400
-    if mode == "real" and not API_KEY:
-        return jsonify({"ok": False, "reason": "Geminiのキーが入っていないので実戦モードにできません"}), 400
-    MODE_PATH.parent.mkdir(exist_ok=True)
-    MODE_PATH.write_text(json.dumps({"mode": mode}), encoding="utf-8")
-    return jsonify({"ok": True, "mode": mode})
-
-
-# ===== 守り神の広場（2026-10-01） =====
-# 店の画面（まずはこのパソコン）に広場を映し、結果ページで「あいことば」を入れた人の守り神が現れて歩き回る。
-# あいことばは広場の画面に大きく出す（店の前にいる人だけが入れられるようにするため）。
-PLAZA_PATH = DATA_DIR / "plaza.json"
-# 入った守り神は全員ずっと広場に残る（ゆーしん「1つの大きい広場に全員がたまる」2026-10-01）。
-# 数が増えたら、広場の画面のほうで守り神を小さくして全員を収める。
-
-
-def load_plaza() -> dict:
-    try:
-        return json.loads(PLAZA_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, ValueError):
-        return {"code": "", "members": []}
-
-
-def save_plaza(p: dict) -> None:
-    DATA_DIR.mkdir(exist_ok=True)
-    PLAZA_PATH.write_text(json.dumps(p, ensure_ascii=False), encoding="utf-8")
-
-
-def plaza_code(p: dict) -> str:
-    if not p.get("code"):
-        p["code"] = f"{secrets.randbelow(10000):04d}"
-        save_plaza(p)
-    return p["code"]
 
 
 @app.get("/plaza")
@@ -682,8 +595,8 @@ def plaza_members():
 @app.get("/characters")
 def characters():
     """これまでに作った守り神の一覧（スタッフ・ゆーしんの確認用）。
-    ダミーで作ったもの（仮の絵）は、?dummy=1 のときだけ出す。"""
-    show_dummy = request.args.get("dummy") == "1"
+    ダミー機能は2026-10-01に消した。それまでにダミーで作った仮の絵（svg）は出さない。"""
+    show_dummy = False
     rows = []
     if RESULT_DIR.exists():
         for path in RESULT_DIR.glob("*.json"):
@@ -747,12 +660,12 @@ def stats():
     """試してもらった結果のまとめ。お試しモードで作ったカードは数えない。"""
     rows = read_log()
     return jsonify({
-        "cards": sum(1 for r in rows if r["event"] == "card" and not r.get("mock")),
+        "cards": sum(1 for r in rows if r["event"] == "card" and not r.get("mock")),  # 2026-10-01まではダミーで作った分に mock が付いている
         "refused": sum(1 for r in rows if r["event"] == "refused"),
         "matches": sum(1 for r in rows if r["event"] == "match"),
     })
 
 
 if __name__ == "__main__":
-    print("ダミーモード" if is_mock() else f"実戦モード：{TEXT_MODEL} / {IMAGE_MODEL}")
+    print(f"AI：{TEXT_MODEL} / {IMAGE_MODEL}" if API_KEY else "Geminiのキーがありません（.env を確認）")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8120)), debug=False)

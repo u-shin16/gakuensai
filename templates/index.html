@@ -19,11 +19,7 @@
   h1 { margin: 0 0 6px; font-size: 1.6rem; letter-spacing: .05em; text-align: center; }
   .lead { margin: 0 0 20px; color: var(--muted); font-size: .92rem; text-align: center; line-height: 1.7; }
   .modebar { display: flex; gap: 4px; background: var(--panel); border-radius: 99px; padding: 3px; margin-bottom: 14px; }
-  .modebar button { background: none; color: var(--muted); font-size: .72rem; padding: 5px 12px; border-radius: 99px; }
-  .modebar button.on[data-m=dummy] { background: #ff5577; color: #fff; }
   .modebar .listlink { color: var(--muted); font-size: .72rem; padding: 5px 12px; text-decoration: none; }
-  .modebar button.on[data-m=real] { background: #2bb673; color: #fff; }
-  .mock { background: #ff5577; color: #fff; font-size: .75rem; padding: 4px 10px; border-radius: 99px; margin-bottom: 14px; }
   button, a.btn {
     font: inherit; font-weight: 800; border: 0; border-radius: 14px; cursor: pointer; text-decoration: none;
     padding: 14px 18px; background: var(--accent); color: #3a2400;
@@ -99,8 +95,6 @@
 <div class="wrap">
   <h1>守り神診断</h1>
   <div class="modebar">
-    <button type="button" data-m="dummy" class="{{ 'on' if mock else '' }}">ダミー（0円）</button>
-    <button type="button" data-m="real" class="{{ '' if mock else 'on' }}" {{ '' if has_key else 'disabled' }}>実戦（Gemini・1枚約6円）</button>
     <a class="listlink" href="/characters" target="_blank">これまでの守り神</a>
     <a class="listlink" href="/plaza" target="_blank">守り神の広場</a>
   </div>
@@ -176,10 +170,6 @@ function renderQuestion() {
   $('prevBtn').classList.toggle('hidden', i === 0);
 }
 
-document.querySelectorAll('.modebar button').forEach((b) => b.onclick = async () => {
-  if (b.classList.contains('on')) return;
-  if (b.dataset.m === 'real' && !confirm('実戦モードにすると、1枚作るごとにGeminiの料金（約6円）がかかります。切り替えますか？')) return;
-  const res = await fetch('/api/mode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: b.dataset.m }) });
   const r = await res.json();
   if (!r.ok) { alert(r.reason || '切り替えられませんでした'); return; }
   document.querySelectorAll('.modebar button').forEach((x) => x.classList.toggle('on', x === b));
