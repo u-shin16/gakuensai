@@ -7,32 +7,53 @@
 <title>管理者ログイン</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
-<script src="https://accounts.google.com/gsi/client" async></script>
 <style>
   :root { --bg: #14202b; --panel: #1f2f3d; --text: #f2f6f8; --muted: #a9bccb; --err: #ff8f8f; }
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: "M PLUS Rounded 1c", sans-serif;
     display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .box { background: var(--panel); border-radius: 18px; padding: 28px 28px 24px; max-width: 420px; width: 100%; text-align: center; }
+  .box { background: var(--panel); border-radius: 18px; padding: 28px; max-width: 420px; width: 100%; text-align: center; }
   h1 { margin: 0 0 8px; font-size: 1.4rem; }
   p { color: var(--muted); font-size: .9rem; line-height: 1.7; margin: 0 0 18px; }
-  .err { color: var(--err); font-weight: 800; }
-  .btn { display: flex; justify-content: center; }
+  .err { color: var(--err); font-weight: 800; min-height: 1.4em; }
+  button { font: inherit; font-weight: 800; border: 0; border-radius: 99px; padding: 12px 22px; background: #fff; color: #222; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 10px; }
+  button:disabled { opacity: .5; }
 </style>
 </head>
 <body>
 <div class="box">
   <h1>管理者ログイン</h1>
   <p>登録されたGoogleアカウントだけが入れます。</p>
-  {% if error == 'denied' %}<p class="err">このアカウントは登録されていません。</p>
-  {% elif error == 'invalid' %}<p class="err">ログインを確かめられませんでした。もう一度試してください。</p>
-  {% elif error == 'setup' %}<p class="err">Googleログインの設定がまだです（GOOGLE_CLIENT_ID）。</p>{% endif %}
-  {% if client_id %}
-  <div id="g_id_onload" data-client_id="{{ client_id }}" data-login_uri="/admin/login" data-ux_mode="redirect" data-auto_prompt="false"></div>
-  <div class="btn"><div class="g_id_signin" data-type="standard" data-size="large" data-text="signin_with" data-shape="pill" data-locale="ja"></div></div>
-  {% else %}
-  <p class="err">Googleログインの設定がまだです（GOOGLE_CLIENT_ID）。</p>
+  {% if fb.apiKey %}
+  <button id="login"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Googleでログイン</button>
   {% endif %}
+  <p class="err" id="err">{% if not fb.apiKey %}Firebaseの設定がまだです（FIREBASE_API_KEY など）。{% endif %}</p>
 </div>
+{% if fb.apiKey %}
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+const auth = getAuth(initializeApp({{ fb | tojson }}));
+const btn = document.getElementById('login'), err = document.getElementById('err');
+const MSG = { denied: 'このアカウントは登録されていません。', invalid: 'ログインを確かめられませんでした。もう一度試してください。' };
+
+btn.onclick = async () => {
+  btn.disabled = true; err.textContent = '';
+  try {
+    const cred = await signInWithPopup(auth, new GoogleAuthProvider());
+    const idToken = await cred.user.getIdToken();
+    const r = await fetch('/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) });
+    const j = await r.json();
+    await signOut(auth);  // ログイン状態はサーバー側（クッキー）で持つ
+    if (j.ok) { location.href = '/admin'; return; }
+    err.textContent = MSG[j.error] || MSG.invalid;
+  } catch (e) {
+    err.textContent = e.code === 'auth/popup-closed-by-user' ? '' : 'ログインできませんでした（' + (e.code || e.message) + '）';
+  } finally { btn.disabled = false; }
+};
+</script>
+{% endif %}
 </body>
 </html>

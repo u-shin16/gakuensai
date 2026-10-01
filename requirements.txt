@@ -5,3 +5,4 @@ qrcode
 pillow
 numpy
 gunicorn
+firebase-admin

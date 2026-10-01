@@ -34,6 +34,7 @@ import qrcode.image.svg
 from flask import Flask, abort, jsonify, redirect, render_template, request, send_from_directory, session
 
 from trim import edge_color, frame_box, has_bright_edges, trim_margins, zoom_to_clean
+import store
 from types_data import ADVICE, AXIS_WORDS, CREATURES, QUESTIONS, TYPES, axis_profile, best_partners, decide_type, match, rival
 
 load_dotenv()
@@ -46,7 +47,10 @@ app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
 
 # 管理者画面にログインできるGoogleアカウント（.env の ADMIN_EMAILS にカンマ区切り）。
 # 登録したアカウントだけが入れる（ゆーしんの決まり、2026-10-01）。登録の方法はミーティングで決める
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+# ログインは Firebase Authentication の Google ログイン（2026-10-01）。ウェブ用の設定は公開してよい値
+FIREBASE_WEB = {"apiKey": os.environ.get("FIREBASE_API_KEY", ""),
+                "authDomain": os.environ.get("FIREBASE_AUTH_DOMAIN", ""),
+                "projectId": os.environ.get("FIREBASE_PROJECT_ID", "")}
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
 
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
@@ -54,8 +58,7 @@ TEXT_MODEL = os.environ.get("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
 IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
 DATA_DIR = Path(__file__).parent / "data"
-LOG_PATH = DATA_DIR / "log.jsonl"
-RESULT_DIR = DATA_DIR / "results"   # 結果ページ用。1人1ファイル（JSON＋絵）
+RESULT_DIR = DATA_DIR / "results"   # 守り神の絵の置き場所（結果などのデータは Firestore。store.py）
 # QRコードに入れるURLの頭。未設定なら開いているアドレスを使う（スマホで試すときはLANのアドレスで開く）
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{16}$")
@@ -154,17 +157,12 @@ allowed=true のとき：
 """
 
 
-def read_log() -> list[dict]:
-    if not LOG_PATH.exists():
-        return []
-    return [json.loads(l) for l in LOG_PATH.read_text(encoding="utf-8").splitlines() if l.strip()]
-
-
 def write_log(entry: dict) -> None:
-    DATA_DIR.mkdir(exist_ok=True)
-    entry["at"] = datetime.now().isoformat(timespec="seconds")
-    with _lock, LOG_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    """記録は Firestore の events に残す。記録に失敗しても、お客さんの操作は止めない。"""
+    try:
+        store.log(entry)
+    except Exception:
+        app.logger.exception("記録の保存に失敗")
 
 
 def blocked(text: str) -> bool:
@@ -406,43 +404,25 @@ def ai_image(prompt: str, style: str, hue: str) -> str:
 
 
 def save_result(result: dict, image_data_uri: str) -> str:
-    """結果と絵を保存して、推測されないトークンを返す。"""
+    """絵をサーバーに、結果を Firestore に保存して、推測されないトークンを返す。"""
     token = secrets.token_urlsafe(12)  # 16文字
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
-    header, b64 = image_data_uri.split(",", 1)
-    ext = "svg" if "svg" in header else "png"
-    raw = base64.b64decode(b64)
-    if ext == "png":
-        # 描き足しても残った紙のふち・白い四隅は、中心に向かって少し拡大して切る（塗らない。塗ると跡が見えたため）
-        raw = zoom_to_clean(raw)
-    (RESULT_DIR / f"{token}.{ext}").write_bytes(raw)
-    art_bg = edge_color(raw) if ext == "png" else ""
-    result = {**result, "image_file": f"{token}.{ext}", "art_bg": art_bg, "created_at": datetime.now().isoformat(timespec="seconds")}
-    (RESULT_DIR / f"{token}.json").write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+    raw = base64.b64decode(image_data_uri.split(",", 1)[1])
+    # 描き直しても残った紙のふち・白い四隅は、中心に向かって少し拡大して切る（塗らない。塗ると跡が見えたため）
+    raw = zoom_to_clean(raw)
+    (RESULT_DIR / f"{token}.png").write_bytes(raw)
+    store.save_result(token, {**result, "image_file": f"{token}.png", "art_bg": edge_color(raw),
+                              "created_at": datetime.now().isoformat(timespec="seconds")})
     return token
-
-
-def used_monster_names() -> list[str]:
-    """これまでに作った守り神の名前（古い順）。"""
-    if not RESULT_DIR.exists():
-        return []
-    rows = []
-    for path in RESULT_DIR.glob("*.json"):
-        try:
-            r = json.loads(path.read_text(encoding="utf-8"))
-            rows.append((r.get("created_at", ""), r.get("monster", "")))
-        except ValueError:
-            continue
-    return [name for _, name in sorted(rows) if name]
 
 
 def load_result(token: str) -> dict:
     if not TOKEN_RE.match(token):
         abort(404)
-    path = RESULT_DIR / f"{token}.json"
-    if not path.exists():
+    r = store.get_result(token)
+    if r is None:
         abort(404)
-    return json.loads(path.read_text(encoding="utf-8"))
+    return r
 
 
 def qr_svg(url: str) -> str:
@@ -514,7 +494,7 @@ def make_card():
     code = decide_type(answers)
     t = TYPES[code]
     profile = axis_profile(answers)
-    used = used_monster_names()
+    used = list(reversed(store.recent_monster_names(150)))
     pool = ThreadPoolExecutor(max_workers=2)
     # 守り神のひとこと（作る→チェックして直す、で約10秒）は、ほかに頼らないので最初に始めておく。
     # 文章→絵（合わせて約10秒）と並行して進むので、待ち時間は増えない。
@@ -546,8 +526,7 @@ def make_card():
     finally:
         pool.shutdown(wait=False)
 
-    with _lock:
-        serial = sum(1 for r in read_log() if r["event"] == "card") + 1
+    serial = store.next_serial()
     result = {
         "serial": serial, "type_code": code, "favorite": favorite, "style": style,
         **{k: card[k] for k in ("monster", "message", "love", "friend", "study", "money")},
@@ -560,59 +539,20 @@ def make_card():
 
 
 # ===== 守り神の広場（2026-10-01） =====
-# 店の画面（まずはこのパソコン）に広場を映し、結果ページで「あいことば」を入れた人の守り神が現れて歩き回る。
-# あいことばは広場の画面に大きく出す（店の前にいる人だけが入れられるようにするため）。
-PLAZA_PATH = DATA_DIR / "plaza.json"
-# 入った守り神は全員ずっと広場に残る（ゆーしん「1つの大きい広場に全員がたまる」2026-10-01）。
-# 数が増えたら、広場の画面のほうで守り神を小さくして全員を収める。
-
-
-def load_plaza() -> dict:
-    try:
-        return json.loads(PLAZA_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, ValueError):
-        return {"code": "", "members": []}
-
-
-def save_plaza(p: dict) -> None:
-    DATA_DIR.mkdir(exist_ok=True)
-    PLAZA_PATH.write_text(json.dumps(p, ensure_ascii=False), encoding="utf-8")
-
-
-def plaza_code(p: dict) -> str:
-    if not p.get("code"):
-        p["code"] = f"{secrets.randbelow(10000):04d}"
-        save_plaza(p)
-    return p["code"]
-
+# 店の画面に広場を映し、結果ページで「あいことば」を入れた人の守り神が現れて歩き回る。
+# 入った守り神は全員ずっと広場に残る（ゆーしん「1つの大きい広場に全員がたまる」）。数が増えたら画面のほうで小さくする。
 
 @app.get("/plaza")
 def plaza_page():
-    with _lock:
-        code = plaza_code(load_plaza())
-    return render_template("plaza.html", code=code)
+    return render_template("plaza.html", code=store.plaza_code())
 
 
 # ===== お店のあいことば（2026-10-01） =====
 # 本番に置くと、URLを知っている人ならだれでもカードを作れてしまい、AI代がゆーしんに請求される。
 # チケットの仕組みができるまでは、お店で教える4けたの「お店のあいことば」がないとカードを作れないようにする。
-SETTINGS_PATH = DATA_DIR / "settings.json"
-
-
-def load_settings() -> dict:
-    try:
-        return json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, ValueError):
-        return {}
-
 
 def shop_code() -> str:
-    st = load_settings()
-    if not st.get("shop_code"):
-        st["shop_code"] = f"{secrets.randbelow(10000):04d}"
-        DATA_DIR.mkdir(exist_ok=True)
-        SETTINGS_PATH.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
-    return st["shop_code"]
+    return store.shop_code()
 
 
 @app.post("/api/shop/check")
@@ -625,31 +565,11 @@ def shop_check():
 @app.post("/api/shop/newcode")
 def shop_newcode():
     staff_only()
-    with _lock:
-        st = load_settings()
-        st["shop_code"] = ""
-        SETTINGS_PATH.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
-        code = shop_code()
-    return jsonify({"ok": True, "code": code})
+    return jsonify({"ok": True, "code": store.shop_code(renew=True)})
 
 
-@app.get("/admin")
-def admin_home():
-    """管理者画面の入口。お客さんの画面とは分ける（2026-10-01）。
-    いまは「アプリを動かしているパソコンからだけ開ける」で守る。Googleログインは、管理者の決め方が決まってから付ける。"""
-    staff_only()
-    p = load_plaza()
-    cards = sum(1 for _ in RESULT_DIR.glob("*.png")) if RESULT_DIR.exists() else 0  # ダミーの仮の絵（svg）は数えない
-    return render_template("admin/home.html", code=p.get("code", ""), plaza=len(p.get("members", [])), cards=cards,
-                           shop=shop_code(), email=session.get("admin_email", ""))
-
-
-@app.get("/plaza/admin")
-@app.get("/characters")
-def old_admin_urls():
-    """前のアドレスから、管理者画面の新しいアドレスへ案内する。"""
-    return redirect("/admin/plaza" if request.path.startswith("/plaza") else "/admin/characters")
-
+# ===== 管理者画面（2026-10-01） =====
+# 登録したGoogleアカウント（ADMIN_EMAILS）だけが入れる。ログインは Firebase Authentication。
 
 def is_admin() -> bool:
     """管理者として入れるか。
@@ -669,30 +589,42 @@ def staff_only() -> None:
     abort(403)
 
 
+@app.get("/admin")
+def admin_home():
+    staff_only()
+    return render_template("admin/home.html", code=store.plaza_code(), plaza=len(store.plaza_members()),
+                           cards=store.count_results(), shop=shop_code(), email=session.get("admin_email", ""))
+
+
+@app.get("/plaza/admin")
+@app.get("/characters")
+def old_admin_urls():
+    """前のアドレスから、管理者画面の新しいアドレスへ案内する。"""
+    return redirect("/admin/plaza" if request.path.startswith("/plaza") else "/admin/characters")
+
+
 @app.get("/admin/login")
 def admin_login():
-    return render_template("admin/login.html", client_id=GOOGLE_CLIENT_ID, error=request.args.get("error", ""))
+    return render_template("admin/login.html", fb=FIREBASE_WEB, error=request.args.get("error", ""))
 
 
 @app.post("/admin/login")
 def admin_login_post():
-    """Googleのログインボタンから受け取ったIDトークンを確かめ、登録したアカウントなら管理者として入れる。"""
-    from google.auth.transport import requests as google_requests
-    from google.oauth2 import id_token
+    """FirebaseのGoogleログインで受け取ったIDトークンを確かめ、登録したアカウントなら管理者として入れる。"""
+    from firebase_admin import auth
 
-    if not GOOGLE_CLIENT_ID:
-        return redirect("/admin/login?error=setup")
+    store.db()  # Firebase を初期化しておく
     try:
-        info = id_token.verify_oauth2_token(request.form.get("credential", ""), google_requests.Request(), GOOGLE_CLIENT_ID)
-    except ValueError:
-        return redirect("/admin/login?error=invalid")
+        info = auth.verify_id_token(str((request.get_json(silent=True) or {}).get("idToken", "")))
+    except Exception:
+        return jsonify({"ok": False, "error": "invalid"}), 401
     email = (info.get("email") or "").lower()
     if not info.get("email_verified") or email not in ADMIN_EMAILS:
         write_log({"event": "admin_denied"})
-        return redirect("/admin/login?error=denied")
+        return jsonify({"ok": False, "error": "denied"}), 403
     session.clear()
     session["admin_email"] = email
-    return redirect("/admin")
+    return jsonify({"ok": True})
 
 
 @app.get("/admin/logout")
@@ -703,11 +635,9 @@ def admin_logout():
 
 @app.get("/admin/plaza")
 def plaza_admin():
-    """広場の管理画面（スタッフ用）。あいことば・広場にいる守り神の一覧・広場から出す。"""
+    """広場の管理画面。あいことば・広場にいる守り神の一覧・広場から出す。"""
     staff_only()
-    with _lock:
-        code = plaza_code(load_plaza())
-    return render_template("admin/plaza.html", code=code)
+    return render_template("admin/plaza.html", code=store.plaza_code())
 
 
 @app.post("/api/plaza/kick")
@@ -715,15 +645,10 @@ def plaza_kick():
     """管理画面から、守り神を広場から出す。all=true なら全員。"""
     staff_only()
     body = request.get_json(silent=True) or {}
-    with _lock:
-        p = load_plaza()
-        before = len(p["members"])
-        if body.get("all"):
-            p["members"] = []
-        else:
-            p["members"] = [m for m in p["members"] if m["token"] != body.get("token")]
-        save_plaza(p)
-    return jsonify({"ok": True, "removed": before - len(p["members"])})
+    if body.get("all"):
+        return jsonify({"ok": True, "removed": store.plaza_clear()})
+    store.plaza_leave(str(body.get("token", "")))
+    return jsonify({"ok": True})
 
 
 @app.post("/api/plaza/leave")
@@ -731,22 +656,14 @@ def plaza_leave():
     """結果ページから、自分の守り神を広場から出す。トークンは推測できないので、本人だけが出せる。"""
     token = str((request.get_json(silent=True) or {}).get("token", ""))
     load_result(token)  # 無いトークンは404
-    with _lock:
-        p = load_plaza()
-        p["members"] = [m for m in p["members"] if m["token"] != token]
-        save_plaza(p)
+    store.plaza_leave(token)
     return jsonify({"ok": True})
 
 
 @app.post("/api/plaza/newcode")
 def plaza_newcode():
-    """あいことばを変える（管理画面から。スタッフ用）。"""
     staff_only()
-    with _lock:
-        p = load_plaza()
-        p["code"] = ""
-        code = plaza_code(p)
-    return jsonify({"ok": True, "code": code})
+    return jsonify({"ok": True, "code": store.plaza_code(renew=True)})
 
 
 @app.post("/api/plaza/join")
@@ -755,14 +672,10 @@ def plaza_join():
     token = str(body.get("token", ""))
     code = str(body.get("code", "")).strip()
     r = load_result(token)  # 無いトークンは404
-    with _lock:
-        p = load_plaza()
-        if code != plaza_code(p):
-            return jsonify({"ok": False, "reason": "あいことばがちがうよ。広場の画面に出ている4けたの数字を入れてね"}), 400
-        if any(m["token"] == token for m in p["members"]):
-            return jsonify({"ok": True, "already": True})
-        p["members"].append({"token": token, "joined_at": datetime.now().isoformat(timespec="seconds")})
-        save_plaza(p)
+    if code != store.plaza_code():
+        return jsonify({"ok": False, "reason": "あいことばがちがうよ。広場の画面に出ている4けたの数字を入れてね"}), 400
+    if not store.plaza_join(token):
+        return jsonify({"ok": True, "already": True})
     write_log({"event": "plaza", "serial": r.get("serial")})
     return jsonify({"ok": True})
 
@@ -770,64 +683,52 @@ def plaza_join():
 @app.get("/api/plaza")
 def plaza_members():
     """広場にいる守り神（入った全員）。映すのは絵・名前・番号・タイプだけ。"""
-    p = load_plaza()
     out = []
-    for m in p["members"]:
-        path = RESULT_DIR / f"{m['token']}.json"
-        if not path.exists():
+    for token, joined_at in store.plaza_members():
+        r = store.get_result(token)
+        if not r:
             continue
-        r = json.loads(path.read_text(encoding="utf-8"))
         t = TYPES.get(r.get("type_code"), {})
-        out.append({"id": m["token"], "serial": r.get("serial"), "monster": r.get("monster", ""),
+        out.append({"id": token, "serial": r.get("serial"), "monster": r.get("monster", ""),
                     "type_name": t.get("name", ""), "color": t.get("color", "#888888"),
-                    "image": f"/img/{r['image_file']}", "joined_at": m["joined_at"]})
-    return jsonify({"members": out, "total": len(p["members"]), "code": p.get("code", "")})
+                    "image": f"/img/{r['image_file']}", "joined_at": joined_at})
+    return jsonify({"members": out, "total": len(out), "code": store.plaza_code()})
 
 
 @app.get("/admin/characters")
 def characters():
-    """これまでに作った守り神の一覧（スタッフ・ゆーしんの確認用）。
-    ダミー機能は2026-10-01に消した。それまでにダミーで作った仮の絵（svg）は出さない。"""
-    staff_only()  # 好きなものが出るので、このパソコンからだけ開ける
-    show_dummy = False
+    """これまでに作った守り神の一覧（スタッフ用。好きなものも出る）。"""
+    staff_only()
     rows = []
-    if RESULT_DIR.exists():
-        for path in RESULT_DIR.glob("*.json"):
-            try:
-                r = json.loads(path.read_text(encoding="utf-8"))
-            except ValueError:
-                continue
-            is_dummy = r.get("image_file", "").endswith(".svg")
-            if is_dummy and not show_dummy:
-                continue
-            t = TYPES.get(r.get("type_code"), {})
-            rows.append({
-                "token": path.stem,
-                "serial": r.get("serial", 0),
-                "monster": r.get("monster", ""),
-                "type_name": t.get("name", ""),
-                "color": t.get("color", "#888888"),
-                "style": "かっこいい" if r.get("style") == "cool" else "かわいい",
-                "favorite": r.get("favorite", ""),
-                "message": r.get("message", ""),
-                "created_at": r.get("created_at", "")[:16].replace("T", " "),
-                "image": f"/img/{r['image_file']}",
-                "dummy": is_dummy,
-            })
+    for token, r in store.list_results():
+        t = TYPES.get(r.get("type_code"), {})
+        rows.append({
+            "token": token,
+            "serial": r.get("serial", 0),
+            "monster": r.get("monster", ""),
+            "type_name": t.get("name", ""),
+            "color": t.get("color", "#888888"),
+            "style": "かっこいい" if r.get("style") == "cool" else "かわいい",
+            "favorite": r.get("favorite", ""),
+            "message": r.get("message", ""),
+            "created_at": r.get("created_at", "")[:16].replace("T", " "),
+            "image": f"/img/{r['image_file']}",
+            "dummy": False,
+        })
     rows.sort(key=lambda x: x["serial"], reverse=True)
-    return render_template("admin/characters.html", rows=rows, show_dummy=show_dummy)
+    return render_template("admin/characters.html", rows=rows, show_dummy=False)
 
 
 @app.get("/r/<token>")
 def result_page(token: str):
     """カードのQRコードから開く、その人だけの結果ページ。"""
-    in_plaza = any(m["token"] == token for m in load_plaza().get("members", []))
-    return render_template("result.html", r=result_payload(load_result(token), token), in_plaza=in_plaza)
+    r = load_result(token)
+    return render_template("result.html", r=result_payload(r, token), in_plaza=store.in_plaza(token))
 
 
 @app.get("/img/<name>")
 def result_image(name: str):
-    if not re.match(r"^[A-Za-z0-9_-]{16}\.(png|svg)$", name):
+    if not re.match(r"^[A-Za-z0-9_-]{16}\.png$", name):
         abort(404)
     return send_from_directory(RESULT_DIR, name, max_age=86400)
 
@@ -836,28 +737,26 @@ def result_image(name: str):
 def match_cards():
     """2枚のカード番号から相性を出す。家族や友だちで見せ合う用。"""
     body = request.get_json(silent=True) or {}
-    cards = {r["serial"]: r for r in read_log() if r["event"] == "card"}
     try:
-        a, b = cards[int(body.get("a"))], cards[int(body.get("b"))]
-    except (KeyError, TypeError, ValueError):
+        a, b = store.find_by_serial(int(body.get("a"))), store.find_by_serial(int(body.get("b")))
+    except (TypeError, ValueError):
+        a = b = None
+    if not a or not b:
         return jsonify({"ok": False, "reason": "そのカード番号は見つからないよ"}), 404
-    if a["serial"] == b["serial"]:
+    (_, ra), (_, rb) = a, b
+    if ra["serial"] == rb["serial"]:
         return jsonify({"ok": False, "reason": "ちがうカードの番号を入れてね"}), 400
-    m = match(a["type"], b["type"])
-    write_log({"event": "match", "a": a["serial"], "b": b["serial"], "score": m["score"]})
-    return jsonify({"ok": True, "a": TYPES[a["type"]]["name"], "b": TYPES[b["type"]]["name"], **m})
+    m = match(ra["type_code"], rb["type_code"])
+    write_log({"event": "match", "a": ra["serial"], "b": rb["serial"], "score": m["score"]})
+    return jsonify({"ok": True, "a": TYPES[ra["type_code"]]["name"], "b": TYPES[rb["type_code"]]["name"], **m})
 
 
 @app.get("/api/stats")
 def stats():
-    """試してもらった結果のまとめ。お試しモードで作ったカードは数えない。"""
+    """試してもらった結果のまとめ。"""
     staff_only()
-    rows = read_log()
-    return jsonify({
-        "cards": sum(1 for r in rows if r["event"] == "card" and not r.get("mock")),  # 2026-10-01まではダミーで作った分に mock が付いている
-        "refused": sum(1 for r in rows if r["event"] == "refused"),
-        "matches": sum(1 for r in rows if r["event"] == "match"),
-    })
+    return jsonify({"cards": store.count_results(), "refused": store.count_events("refused"),
+                    "matches": store.count_events("match")})
 
 
 if __name__ == "__main__":
