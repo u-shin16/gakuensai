@@ -53,6 +53,8 @@ app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
 FIREBASE_WEB = {"apiKey": os.environ.get("FIREBASE_API_KEY", ""),
                 "authDomain": os.environ.get("FIREBASE_AUTH_DOMAIN", ""),
                 "projectId": os.environ.get("FIREBASE_PROJECT_ID", "")}
+# カード・チケットを消すときのパスワード（.env の DELETE_PASSWORD。値はコードにもGitHubにも書かない。2026-10-02）
+DELETE_PASSWORD = os.environ.get("DELETE_PASSWORD", "")
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
 
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
@@ -516,7 +518,9 @@ def admin_tickets():
 @app.get("/admin/tickets/print")
 def admin_tickets_print():
     staff_only()
-    tickets = [t for t in store.list_tickets() if t["status"] == "unused"]
+    # ?n=1,2,3 なら選んだチケットだけ（使用済みも含む）、なければまだ使っていないチケットぜんぶ
+    picked = {int(x) for x in request.args.get("n", "").split(",") if x.strip().isdigit()}
+    tickets = [t for t in store.list_tickets() if (t["number"] in picked if picked else t["status"] == "unused")]
     for t in tickets:
         t["qr"] = qr_svg(ticket_url(t))
     return render_template("admin/tickets_print.html", tickets=tickets)
@@ -530,6 +534,30 @@ def admin_card(token: str):
     card = {**result_payload(load_result(token), token), "url": url, "qr": qr_svg(url)}
     questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
     return render_template("index.html", questions=questions, preset=card, mock=False)
+
+
+@app.post("/api/tickets/manage")
+def tickets_manage():
+    """チケットを消す・未使用に戻す（管理者だけ・削除用パスワードが要る。2026-10-02）。"""
+    staff_only()
+    body = request.get_json(silent=True) or {}
+    if not DELETE_PASSWORD:
+        return jsonify({"ok": False, "reason": "削除用のパスワードが設定されていません（.env の DELETE_PASSWORD）"}), 500
+    if not secrets.compare_digest(str(body.get("password", "")), DELETE_PASSWORD):
+        write_log({"event": "ticket_manage_refused", "by": session.get("admin_email", "local")})
+        return jsonify({"ok": False, "reason": "パスワードがちがいます"}), 403
+    action = body.get("action")
+    numbers = [int(n) for n in (body.get("numbers") or []) if str(n).isdigit()]
+    if action == "delete" and body.get("all"):
+        n = store.delete_all_tickets()
+    elif action == "delete" and numbers:
+        n = store.delete_tickets(numbers)
+    elif action == "reset" and numbers:
+        n = store.reset_tickets(numbers)
+    else:
+        return jsonify({"ok": False, "reason": "チケットが選ばれていません"}), 400
+    write_log({"event": f"ticket_{action}", "count": n, "all": bool(body.get("all")), "by": session.get("admin_email", "local")})
+    return jsonify({"ok": True, "count": n})
 
 
 @app.post("/api/tickets/create")
@@ -740,8 +768,7 @@ def characters():
 
 # ===== カードの削除（2026-10-02） =====
 # 管理者画面の「これまでの守り神」から、選んだカード・すべてのカードを消せる。
-# 消すときは削除用のパスワードが要る（.env の DELETE_PASSWORD。値はコードにもGitHubにも書かない）。
-DELETE_PASSWORD = os.environ.get("DELETE_PASSWORD", "")
+# 消すときは削除用のパスワードが要る（DELETE_PASSWORD。上の設定のところで読む）。
 
 
 @app.post("/api/cards/delete")

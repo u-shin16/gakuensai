@@ -25,6 +25,28 @@
   .used { color: var(--ok); font-weight: 800; }
   .unused { color: var(--muted); }
   code { font-size: .8rem; color: var(--muted); }
+  /* 管理（2026-10-02）：絞り込み・チェック・下の操作の帯・パスワード */
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filters button { background: var(--panel); color: var(--muted); }
+  .filters button.on { background: var(--panel2); color: var(--text); }
+  .filters b { color: var(--accent); margin-left: 4px; }
+  td.ck, th.ck { width: 44px; text-align: center; }
+  td.ck input, th.ck input { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+  tr.on td { background: rgba(255,204,51,.08); }
+  .actbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: rgba(20,32,43,.97); border-top: 1px solid var(--panel2);
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .actbar .sel { color: var(--muted); font-size: .9rem; margin-right: 6px; }
+  .actbar button { background: var(--panel2); color: var(--text); }
+  .actbar button:disabled { opacity: .4; cursor: default; }
+  button.danger { background: #e0445f !important; color: #fff !important; }
+  .modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal[hidden] { display: none; }
+  .modal .box { background: var(--panel); border-radius: 16px; padding: 22px; width: 100%; max-width: 360px; }
+  .modal h2 { margin: 0 0 8px; font-size: 1.15rem; }
+  .modal p { margin: 0 0 14px; color: var(--muted); font-size: .88rem; line-height: 1.6; }
+  .modal input { width: 100%; font: inherit; font-size: 1.3rem; letter-spacing: .3em; text-align: center; padding: 10px; border-radius: 10px; border: 2px solid var(--panel2); margin-bottom: 8px; }
+  .modal .err { color: #ff8f8f; min-height: 1.4em; font-size: .85rem; font-weight: 800; }
+  .modal .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -41,11 +63,19 @@
     <span id="msg" class="note"></span>
   </div>
 
+  {% set used = tickets|selectattr('status', 'equalto', 'used')|list|length %}
+  <div class="filters" id="filters">
+    <button type="button" class="on" data-f="">すべて<b>{{ tickets|length }}</b></button>
+    <button type="button" data-f="unused">未使用<b>{{ tickets|length - used }}</b></button>
+    <button type="button" data-f="used">使用済み<b>{{ used }}</b></button>
+  </div>
+
   <div class="wrap">
   <table>
-    <tr><th>番号</th><th>状態</th><th>受け取り</th><th>カード</th><th>ページ</th></tr>
+    <tr><th class="ck"><input type="checkbox" id="ckAll" title="表示中をすべて選ぶ"></th><th>番号</th><th>状態</th><th>受け取り</th><th>カード</th><th>ページ</th></tr>
     {% for t in tickets %}
-    <tr>
+    <tr data-n="{{ t.number }}" data-s="{{ t.status }}">
+      <td class="ck"><input type="checkbox" value="{{ t.number }}"></td>
       <td><b>No.{{ t.number }}</b></td>
       {% if t.status == 'used' %}
       <td class="used">使用済み</td><td><b>{{ t.pickup }}</b></td><td><a href="/admin/card/{{ t.token }}" target="_blank">カードを印刷</a></td>
@@ -55,17 +85,84 @@
       <td><a href="{{ t.url }}" target="_blank"><code>{{ t.url }}</code></a></td>
     </tr>
     {% else %}
-    <tr><td colspan="5" class="note">まだチケットがありません</td></tr>
+    <tr><td colspan="6" class="note">まだチケットがありません</td></tr>
     {% endfor %}
   </table>
   </div>
+  <div style="height:90px"></div>
 </main>
+<div class="actbar">
+  <span class="sel" id="sel">0枚を選択中</span>
+  <button type="button" id="aPrint" disabled>選んだチケットを印刷</button>
+  <button type="button" id="aReset" disabled>未使用に戻す</button>
+  <button type="button" class="danger" id="aDel" disabled>選んだチケットを削除</button>
+  <button type="button" class="danger" id="aDelAll">すべてのチケットを削除</button>
+</div>
+<div class="modal" id="modal" hidden>
+  <div class="box">
+    <h2 id="mTitle"></h2>
+    <p id="mText"></p>
+    <input id="pw" type="password" inputmode="numeric" autocomplete="off" placeholder="パスワード">
+    <div class="err" id="mErr"></div>
+    <div class="row"><button type="button" class="sub" id="mCancel" style="background:var(--panel2);color:var(--text)">やめる</button><button type="button" class="danger" id="mOk">実行する</button></div>
+  </div>
+</div>
 <script>
 document.getElementById('make').onclick = async () => {
   const n = Number(document.getElementById('n').value);
   if (!confirm(`チケットを${n}枚作りますか？`)) return;
   const r = await (await fetch('/api/tickets/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ n }) })).json();
   if (r.ok) location.reload(); else document.getElementById('msg').textContent = r.reason;
+};
+
+// ===== 管理（2026-10-02）=====
+const $ = (id) => document.getElementById(id);
+const rows = [...document.querySelectorAll('tr[data-n]')];
+const shown = () => rows.filter((r) => r.style.display !== 'none');
+const picked = () => rows.filter((r) => r.querySelector('input').checked).map((r) => Number(r.dataset.n));
+function refresh() {
+  rows.forEach((r) => r.classList.toggle('on', r.querySelector('input').checked));
+  const p = picked(), n = p.length;
+  $('sel').textContent = n + '枚を選択中';
+  ['aPrint', 'aReset', 'aDel'].forEach((id) => { $(id).disabled = n === 0; });
+  const vis = shown();
+  $('ckAll').checked = vis.length > 0 && vis.every((r) => r.querySelector('input').checked);
+}
+document.addEventListener('change', (e) => { if (e.target.matches('tr[data-n] input')) refresh(); });
+$('ckAll').onchange = () => { shown().forEach((r) => { r.querySelector('input').checked = $('ckAll').checked; }); refresh(); };
+document.querySelectorAll('#filters button').forEach((b) => b.onclick = () => {
+  document.querySelectorAll('#filters button').forEach((x) => x.classList.toggle('on', x === b));
+  rows.forEach((r) => { r.style.display = !b.dataset.f || r.dataset.s === b.dataset.f ? '' : 'none';
+    if (r.style.display === 'none') r.querySelector('input').checked = false; });
+  refresh();
+});
+$('aPrint').onclick = () => window.open('/admin/tickets/print?n=' + picked().join(','), '_blank');
+
+let pending = null;
+function ask(req, title, text) {
+  pending = req; $('mTitle').textContent = title; $('mText').textContent = text; $('pw').value = ''; $('mErr').textContent = '';
+  $('modal').hidden = false; $('pw').focus();
+}
+$('aDel').onclick = () => { const p = picked(); ask({ action: 'delete', numbers: p }, 'チケットを削除',
+  `選んだ ${p.length}枚（No.${p.join('、No.')}）を削除します。そのQRはもう使えなくなります。作ったカードは消えません。`); };
+$('aDelAll').onclick = () => ask({ action: 'delete', all: true }, 'すべてのチケットを削除',
+  `チケット ${rows.length}枚をすべて削除します。次に作るチケットは No.1 からになります。作ったカードは消えません。`);
+$('aReset').onclick = () => { const p = picked(); ask({ action: 'reset', numbers: p }, '未使用に戻す',
+  `選んだチケットのうち使用済みのものを未使用に戻します。同じQRでもう一度診断できるようになります。作ったカードは消えません。`); };
+$('mCancel').onclick = () => { $('modal').hidden = true; pending = null; };
+$('pw').onkeydown = (e) => { if (e.key === 'Enter') $('mOk').click(); };
+$('mOk').onclick = async () => {
+  if (!pending) return;
+  const password = $('pw').value;
+  if (!password) { $('mErr').textContent = 'パスワードを入れてください'; return; }
+  $('mOk').disabled = true;
+  try {
+    const r = await (await fetch('/api/tickets/manage', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...pending, password }) })).json();
+    if (!r.ok) { $('mErr').textContent = r.reason || 'できませんでした'; return; }
+    location.reload();
+  } catch (e) { $('mErr').textContent = '通信に失敗しました'; }
+  finally { $('mOk').disabled = false; }
 };
 </script>
 </body>

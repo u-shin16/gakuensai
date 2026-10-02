@@ -251,3 +251,49 @@ def delete_result(token: str) -> dict | None:
     ref.delete()
     col("plaza_members").document(token).delete()
     return snap.to_dict()
+
+
+# ===== チケットの管理（2026-10-02） =====
+
+def _release_slots(tickets: list[dict]) -> None:
+    """使用済みチケットを消す・戻すときに、受け取り枠の人数を減らす。"""
+    keys = [t["slot"] for t in tickets if t.get("slot")]
+    if not keys:
+        return
+    ref = col("counters").document("slots")
+    snap = ref.get()
+    counts = (snap.to_dict() or {}) if snap.exists else {}
+    for k in keys:
+        if counts.get(k, 0) > 0:
+            counts[k] -= 1
+    ref.set({k: v for k, v in counts.items() if v > 0})
+
+
+def delete_tickets(numbers: list[int]) -> int:
+    found = [t for t in (get_ticket(n) for n in numbers) if t]
+    for t in found:
+        col("tickets").document(str(t["number"])).delete()
+    _release_slots(found)
+    return len(found)
+
+
+def delete_all_tickets() -> int:
+    """チケットを全部消して、番号を1から振り直せるようにする（受け取り枠の人数も0に）。"""
+    n = 0
+    for s in col("tickets").stream():
+        s.reference.delete()
+        n += 1
+    col("counters").document("tickets").delete()
+    col("counters").document("slots").delete()
+    return n
+
+
+def reset_tickets(numbers: list[int]) -> int:
+    """使用済みのチケットを未使用に戻す（同じQRでもう一度診断できる）。作ったカードは消さない。"""
+    from google.cloud.firestore_v1 import DELETE_FIELD
+    used = [t for t in (get_ticket(n) for n in numbers) if t and t["status"] != "unused"]
+    for t in used:
+        col("tickets").document(str(t["number"])).update(
+            {"status": "unused", "token": DELETE_FIELD, "serial": DELETE_FIELD, "slot": DELETE_FIELD, "used_at": DELETE_FIELD})
+    _release_slots(used)
+    return len(used)
