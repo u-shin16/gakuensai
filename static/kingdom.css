@@ -366,3 +366,10 @@ body.at-start { background: #2a1d0f !important; }       /* 写真が読み込ま
   75%  { transform: scale(1.24) rotate(0deg);   object-position: 60% 30%; }
   100% { transform: scale(1.12) rotate(-.4deg); object-position: 0% 70%; }
 }
+
+/* ===== ホームの背景：本物の空撮動画（2026-10-02 Higgsfield MiniMax・10秒・20クレジット） =====
+   動画が再生されたら上に重ねる。流れないときは下の写真（動画の最初の場面）がそのまま見える */
+.gate.kingdom img { animation: none; transform: none; object-position: 50% 50%; }
+.gate.kingdom video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* スマホの縦画面では、動画の真ん中（湖とフラミンゴ）を中心に見せる */
+@media (max-aspect-ratio: 4/5) { .gate.kingdom video, .gate.kingdom img { object-position: 55% 50%; } }
