@@ -25,6 +25,14 @@
   .dots { display: flex; gap: 8px; justify-content: center; margin-bottom: .6rem; }
   .dots i { width: 12px; height: 12px; border-radius: 50%; background: #2f6f4e; animation: dot 1.2s ease-in-out infinite; }
   .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
+  /* 相手が切断中（2026-10-02） */
+  #pvp-gone { position: fixed; inset: 0; z-index: 20; background: rgba(74,56,38,.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #pvp-gone .gone-box { background: #fffaf0; border: 2px solid #e6d8b4; border-radius: 20px; padding: 1.3rem 1.2rem; max-width: 22rem; width: 100%;
+    text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.25); animation: gonein .25s ease-out; }
+  #pvp-gone h2 { margin: .3rem 0 .4rem; color: #c8442f; font-size: 1.15rem; }
+  #pvp-gone p { margin: .3rem 0; color: #4a3826; line-height: 1.6; font-size: .92rem; }
+  #pvp-gone .gone-left { font-weight: 800; color: #3f7429; }
+  @keyframes gonein { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
   @keyframes dot { 0%, 80%, 100% { transform: scale(.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
 </style>
 </head>
@@ -46,6 +54,7 @@
 const ME = {{ r.battle | tojson }}, MONTH = {{ r.month | tojson }}, ENEMY = {{ (enemy or None) | tojson }};
 const TOKEN = {{ token | tojson }}, MYNO = {{ r.serial | tojson }};
 const PASSPORT = '/r/' + TOKEN;
+const AGAIN = new URLSearchParams(location.search).get('again') === '1';
 const no4 = (n) => 'No.' + String(n).padStart(4, '0');
 const app = document.getElementById('app');
 
@@ -64,7 +73,7 @@ new MutationObserver(() => {
   if (again && !again.dataset.kd) {
     again.dataset.kd = '1'; again.textContent = 'もう一回';
     // コンピューター戦は新しい相手で、友人戦はもう一度2人で待ち合わせてから
-    again.onclick = () => { location.href = ENEMY ? location.pathname + '?vs=' + ENEMY.serial : location.pathname; };
+    again.onclick = () => { location.href = ENEMY ? location.pathname + '?vs=' + ENEMY.serial + '&again=1' : location.pathname; };
   }
   if (back) back.remove();   // 「パスポートに戻る」は左上にあるので、下には出さない（2026-10-02 ゆーしん）
 }).observe(app, { childList: true, subtree: true });
@@ -88,6 +97,17 @@ if (!ENEMY) {
         </div>
       </div>`;
   }
+  // 自分が抜けている間に、相手の不戦勝で終わっていたとき
+  function forfeitedView() {
+    app.innerHTML = `
+      <div class="waitbox">
+        <p class="phase">友人戦</p>
+        <div class="win wait-card"><h2>通信が切れている間に、相手の不戦勝になりました</h2>
+          <p>もう一度戦うときは、下のボタンを押して、相手にも番号を入れてもらってね</p></div>
+        <div class="dock"><button class="primary" id="retry" type="button">もう一回</button></div>
+      </div>`;
+    document.getElementById('retry').onclick = () => { location.href = location.pathname + '?vs=' + ENEMY.serial + '&again=1'; };
+  }
   function timeoutView() {
     app.innerHTML = `
       <div class="waitbox">
@@ -108,7 +128,8 @@ if (!ENEMY) {
     if (Date.now() - started > LIMIT) { stop = true; timeoutView(); return; }
     try {
       const r = await (await fetch('/api/battle/wait', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: TOKEN, vs: ENEMY.serial }) })).json();
+        body: JSON.stringify({ token: TOKEN, vs: ENEMY.serial, again: AGAIN }) })).json();
+      if (r.forfeited) { stop = true; forfeitedView(); return; }
       // 2人そろったら、交代で技を選ぶ対戦を始める（pvp.js）
       if (r.ready) { stop = true; window.playPvp({ id: r.match, token: TOKEN, seed: r.seed, side: r.side,
         me: ME, meMonth: MONTH, foe: ENEMY.result, foeMonth: ENEMY.month }); return; }

@@ -335,8 +335,25 @@ def battle_leave(serial: int) -> None:
 # pvp/{試合ID} = {lo, hi（番号の小さい方・大きい方）, seed（乱数のたね）, created, done, picks: {"1": {"lo": 技, "hi": 技}}, qte: {"1-0": 倍率}}
 # pvp_current/{lo}-{hi} = いまの試合ID。2人が同時に待ち合わせに成功しても、同じ試合に入るようにする。
 
-def pvp_start(a: int, b: int, fresh: float = 120.0) -> dict:
-    """2人の試合を始める（もう始まっていれば同じ試合を返す）。"""
+def pvp_last_active(m: dict) -> float:
+    """試合で最後に2人のどちらかが動いていた時刻（秒）。"""
+    seen = m.get("seen") or {}
+    return max([m.get("created", 0), *[float(v) for v in seen.values()]])
+
+
+def pvp_current(a: int, b: int) -> dict | None:
+    """2人のいちばん新しい試合（終わっていても返す）。"""
+    lo, hi = sorted((a, b))
+    snap = col("pvp_current").document(f"{lo}-{hi}").get()
+    if not snap.exists:
+        return None
+    mid = snap.to_dict()["id"]
+    m = pvp_get(mid)
+    return {**m, "id": mid} if m else None
+
+
+def pvp_start(a: int, b: int, fresh: float = 90.0) -> dict:
+    """2人の試合を始める（まだ続いている試合があれば、同じ試合を返す。途中で抜けた人が戻ってきたときもここ）。"""
     import time
     lo, hi = sorted((a, b))
     cur = col("pvp_current").document(f"{lo}-{hi}")
@@ -347,10 +364,10 @@ def pvp_start(a: int, b: int, fresh: float = 120.0) -> dict:
         d = snap.to_dict() if snap.exists else None
         if d:
             m = col("pvp").document(d["id"]).get(transaction=tx).to_dict()
-            if m and not m.get("done") and time.time() - m.get("created", 0) < fresh:
+            if m and not m.get("done") and time.time() - pvp_last_active(m) < fresh:
                 return {**m, "id": d["id"]}
         mid = secrets.token_hex(8)
-        m = {"lo": lo, "hi": hi, "seed": secrets.randbelow(2**31), "created": time.time(), "done": False, "picks": {}, "qte": {}}
+        m = {"lo": lo, "hi": hi, "seed": secrets.randbelow(2**31), "created": time.time(), "done": False, "picks": {}, "qte": {}, "seen": {}}
         tx.set(col("pvp").document(mid), m)
         tx.set(cur, {"id": mid})
         return {**m, "id": mid}

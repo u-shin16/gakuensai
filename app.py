@@ -24,6 +24,7 @@ import random
 import re
 import secrets
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -909,6 +910,15 @@ def battle_wait():
     if body.get("leave"):
         store.battle_leave(r["serial"])
         return jsonify({"ok": True})
+    # 対戦の途中で抜けた人が戻ってきたとき：続いている試合があれば、相手を待たずにそこへ戻す（2026-10-02）
+    cur = store.pvp_current(r["serial"], vs)
+    if cur and not cur.get("done") and time.time() - store.pvp_last_active(cur) < 90:
+        return jsonify({"ok": True, "ready": True, "match": cur["id"], "seed": cur["seed"], "resume": True,
+                        "side": "lo" if r["serial"] == cur["lo"] else "hi"})
+    # 抜けている間に相手の不戦勝で終わっていたとき（5分以内）は、それを知らせる
+    if cur and cur.get("forfeit") and time.time() - store.pvp_last_active(cur) < 300 \
+            and cur["forfeit"] != ("lo" if r["serial"] == cur["lo"] else "hi") and not body.get("again"):
+        return jsonify({"ok": True, "ready": False, "forfeited": True})
     store.battle_wait(r["serial"], vs)
     ready = store.battle_waiting_for(vs) == r["serial"]
     if not ready:
@@ -946,6 +956,10 @@ def pvp_act():
             store.pvp_set(mid, {"qte": {f"{rnd}-{int(body['step'])}": float(body["value"])}})
         elif kind == "done":
             store.pvp_set(mid, {"done": True})
+        elif kind == "ping":   # 生きている合図（3秒ごと）。相手の画面はこれで「切断中」かどうかを見る
+            store.pvp_set(mid, {"seen": {side: time.time()}})
+        elif kind == "forfeit":   # 相手が戻らなかったので、自分の不戦勝で終わる
+            store.pvp_set(mid, {"done": True, "forfeit": side})
         else:
             return jsonify({"ok": False}), 400
     except (KeyError, TypeError, ValueError):
@@ -960,7 +974,8 @@ def pvp_state():
     if not who:
         return jsonify({"ok": False}), 403
     m = store.pvp_get(who[0])
-    return jsonify({"ok": True, "picks": m.get("picks", {}), "qte": m.get("qte", {}), "done": m.get("done", False)})
+    return jsonify({"ok": True, "picks": m.get("picks", {}), "qte": m.get("qte", {}), "done": m.get("done", False),
+                    "forfeit": m.get("forfeit", ""), "seen": m.get("seen", {}), "created": m.get("created", 0), "now": time.time()})
 
 
 @app.get("/api/stats")
