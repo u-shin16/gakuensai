@@ -114,14 +114,40 @@ main { background: transparent !important; }
 .myno { background: linear-gradient(#b98048, #a5713d) !important; color: #fff8e6 !important; border: 2px solid #7a5028; }
 .dots i { background: var(--k-leaf) !important; }
 
+/* ===== 1画面に収める（2026-10-02 ゆーしん「スクロールしなくても全体が見えるように」）=====
+   上の帯を除いた画面の高さに、HP・ログ・キャラ・技を全部入れる。キャラの欄（field）だけが伸び縮みし、
+   キャラの絵の大きさも画面の高さに合わせて変わる。並び順はメンバーのまま */
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; overflow-y: hidden; }
+body > .topbar { flex: none; width: 100%; }
+body > main#app { flex: 1 1 auto; min-height: 0 !important; height: auto; width: 100%; overflow: hidden;
+  padding-top: .4rem !important; padding-bottom: calc(.5rem + env(safe-area-inset-bottom)) !important; }
+.arena-stage { flex: 1 1 auto; min-height: 0; gap: .35rem !important; }
+.arena-stage > .phase { margin: 0; padding: .15rem .8rem !important; font-size: .9rem; }
+.arena-stage .field { flex: 1 1 auto; min-height: 7.5rem !important; }
+.arena-stage .actor .portrait.field-art { width: clamp(4.8rem, 17vh, 9.4rem) !important; height: clamp(4.8rem, 17vh, 9.4rem) !important; }
+.arena-stage .actor.player .portrait.field-art { width: clamp(5.6rem, 21vh, 11.4rem) !important; height: clamp(5.6rem, 21vh, 11.4rem) !important; }
+.arena-stage .dock { flex: none; margin-top: .2rem !important; padding-top: 0; }
+.arena-stage .skill-grid { gap: .4rem; }
+.arena-stage .skill-grid .choice { min-height: 0 !important; padding-top: .45rem; padding-bottom: .45rem; }
+.arena-stage .choice strong { font-size: .98rem; }
+.arena-stage .choice .detail { font-size: .78rem; }
+.arena-stage > .win { padding: .35rem .7rem; }   /* このラウンドの行動 */
+.arena-stage > .win p { margin: .05rem 0; }
+.arena-stage .primary { margin-top: .5rem; min-height: 2.9rem; }
+.arena-stage .qte { margin: .2rem 0 .4rem; }
+/* 背の低い画面（小さいスマホ・横向き）は、さらに詰める */
+@media (max-height: 640px) {
+  .hud .trait { display: none; }
+  .arena-stage .skill-grid .choice { padding-top: .3rem; padding-bottom: .3rem; }
+  .arena-stage .choice .detail { font-size: .72rem; }
+}
+
 /* ===== PC（横に広い画面）：並びはそのまま、全体を広く大きく ===== */
 @media (min-width: 760px) {
   .topbar, main { max-width: 44rem !important; }
-  main { font-size: 17px; border-radius: 0 0 18px 18px; margin-bottom: 32px; padding-left: 1.4rem; padding-right: 1.4rem; }
-  .field { min-height: 19rem; }
-  .actor .portrait.field-art { width: 9.4rem; height: 9.4rem; }
-  .actor.player .portrait.field-art { width: 11.4rem; height: 11.4rem; }
-  .skill-grid .choice { min-height: 4.2rem; }
+  main { font-size: 17px; padding-left: 1.4rem; padding-right: 1.4rem; }
+  .arena-stage .skill-grid .choice { padding-top: .6rem; padding-bottom: .6rem; }
   .primary, .ghost { min-height: 3.4rem; }
   /* 説明は、下からではなく画面の真ん中に出す */
   .sheet { width: min(30rem, 92vw); bottom: 50%; border-radius: 18px; animation: sheetmid .22s ease-out; transform: translate(-50%, 50%); }
