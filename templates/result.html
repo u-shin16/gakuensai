@@ -42,6 +42,9 @@
   .inplaza b { color: var(--accent); font-size: 1.1rem; }
   [hidden] { display: none !important; }
   .err { color: #ff8fa3; }
+  .battlebtn { display: block; text-align: center; margin-top: 14px; font-weight: 800; text-decoration: none; padding: 14px; border-radius: 14px;
+    background: #1d4632; color: #e4c47e; }
+  dd small { color: var(--muted); }
   footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: .8rem; line-height: 1.8; }
   footer a { color: var(--accent); }
 </style>
@@ -95,6 +98,19 @@
     </div>
   </div>
 
+  {% if r.battle %}
+  <!-- バトル（2026-10-02 案2）：メンバーが作った動物バトルで戦える -->
+  <div class="panel">
+    <h2>バトル</h2>
+    <p class="lead">あなたの技（全部で5つ＋通常攻撃）</p>
+    <dl>
+      {% for k in r.battle_skills %}<dt>{{ k.slot }}</dt><dd><b>{{ k.name }}</b><br><small>{{ k.note }}</small></dd>{% endfor %}
+    </dl>
+    <a class="btn battlebtn" href="/battle/{{ r.token }}">コンピューターと戦う</a>
+    <p style="margin-top:14px">友だちのパスポート番号（左上の No.）を入れると、その人と戦えます。</p>
+    <div class="row"><input id="vs" type="number" min="1" inputmode="numeric" placeholder="相手の No."><button id="vsBtn">この人と戦う</button></div>
+  </div>
+  {% else %}
   <div class="panel">
     <h2>相性</h2>
     <dl>
@@ -105,6 +121,7 @@
     <div class="row"><input id="other" type="number" min="1" inputmode="numeric" placeholder="相手の No."><button id="matchBtn">相性を見る</button></div>
     <div class="matchres" id="res"></div>
   </div>
+  {% endif %}
 
   <footer>
     2026.11.21 学園祭の模擬店「どうぶつ王国 観光パスポート」<br>
@@ -139,7 +156,11 @@ document.getElementById('leaveBtn').onclick = async () => {
     document.getElementById('code').value = '';
   }
 };
-document.getElementById('matchBtn').onclick = async () => {
+if (document.getElementById('vsBtn')) document.getElementById('vsBtn').onclick = () => {
+  const n = document.getElementById('vs').value;
+  if (n) location.href = '/battle/{{ r.token }}?vs=' + encodeURIComponent(n);
+};
+if (document.getElementById('matchBtn')) document.getElementById('matchBtn').onclick = async () => {
   const b = document.getElementById('other').value;
   const out = document.getElementById('res');
   if (!b) return;

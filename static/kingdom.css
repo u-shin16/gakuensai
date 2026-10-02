@@ -353,3 +353,8 @@ body.at-start { background: #2a1d0f !important; }       /* 写真が読み込ま
 @keyframes fly8 { 0% { transform: scale(1.16); object-position: 65% 50%; } 16.25%, 100% { transform: scale(1.07); object-position: 35% 55%; } }
 /* 動きが苦手な設定の人には、1枚目を止めて見せる */
 @media (prefers-reduced-motion: reduce) { .gate.drone img:nth-child(1) { opacity: 1; } }
+
+/* 誕生月のボタン（3列×4段）。2026-10-02 動物バトル診断 */
+.choices.months { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.choices.months button { padding: 16px 6px !important; text-align: center; font-size: 1.05rem; }
+.choices.months button::before { display: none; }

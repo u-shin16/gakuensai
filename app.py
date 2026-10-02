@@ -39,7 +39,16 @@ from flask import Flask, abort, jsonify, redirect, render_template, request, sen
 from trim import edge_color, zoom_to_clean
 import drawing
 import store
-from types_data import ADVICE, AXIS_WORDS, CREATURES, QUESTIONS, TYPES, axis_profile, best_partners, decide_type, match, rival
+from types_data import ADVICE, AXIS_WORDS, TYPES, best_partners, match, rival
+import battle_data as bd
+
+
+def type_info(code: str) -> dict:
+    """タイプの中身。2026-10-02からは動物バトル診断の5タイプ（ネコ科など）。それより前のカードは16タイプ（ESTJなど）。"""
+    if code in bd.ANIMAL_TYPES:
+        return bd.ANIMAL_TYPES[code]
+    t = TYPES.get(code)
+    return {**t, "advice": ADVICE[code]} if t else {}
 
 app = Flask(__name__)
 # 管理者のログイン状態をクッキーに入れるための鍵。本番では .env の SECRET_KEY を使う
@@ -143,9 +152,8 @@ allowed=true のとき：
   - 好きなものは入れない。項目の話題から外れない（勉強・仕事は勉強か仕事の場面のまま）
   - 下はこのタイプの傾向の例。そのまま写さない
     恋愛「{love}」／友情「{friend}」／勉強・仕事「{study}」／お金「{money}」
-- image_prompt：絵を描くための英語の説明。守り神のもとになるものは「{creature}」（生き物とは限らない。物・植物・自然・精霊などのこともある）。その姿に、性格の雰囲気「{motif}」と、好きなもの「{favorite}」の要素を目に見える形で混ぜたオリジナルの守り神1体。
-  もとになるものは、持ち物ではなく体そのものの形にする（例：ちょうちんなら、体がちょうちんでできている）。ふつうの人間の姿にはしない。
-  ドラゴン・トカゲ・ヘビの姿にはしない（好きなものがそれ自体の場合だけ例外）。既存キャラに似せない。文字は入れない
+- image_prompt：絵を描くための英語の説明。守り神のもとになる動物は「{creature}」。だれが見てもその動物だと分かる姿をはっきり残したまま、性格の雰囲気「{motif}」と、好きなもの「{favorite}」の要素を、模様・色・身につけた物・まわりの小物として目に見える形で混ぜたオリジナルの守り神1体。
+  ふつうの人間の姿にはしない。ドラゴンの姿にはしない。既存キャラに似せない。文字は入れない
   絵柄が「かっこいい」なら、強くて凛々しい姿（ちびキャラ・赤ちゃんっぽい姿にしない）として書く。「かわいい」なら、まるっこくて愛らしい姿として書く
 """
 
@@ -173,13 +181,13 @@ def is_mock() -> bool:
 
 
 def mock_card(code: str, favorite: str) -> dict:
-    love, friend, study, money = ADVICE[code]
+    love, friend, study, money = type_info(code)["advice"]
     return {
         "allowed": True, "reason": "",
         "monster": favorite[:4] + random.choice(["モン", "まる", "りん", "ぼう", "ドン", "ぴょん"]),
         "message": f"（ダミー）きみのいいところは、{favorite}の時間にもきっと活きるよ。",
         "love": love, "friend": friend, "study": study, "money": money,
-        "image_prompt": TYPES[code]["motif"],
+        "image_prompt": type_info(code)["motif"],
     }
 
 
@@ -188,16 +196,16 @@ def mock_draw(info: dict) -> bytes:
     return draw_example.draw(info)
 
 
-def ai_card(code: str, favorite: str, style: str, profile: list[str], used_names: list[str]) -> dict:
-    t = TYPES[code]
-    love, friend, study, money = ADVICE[code]
+def ai_card(code: str, favorite: str, style: str, profile: list[str], used_names: list[str], creature: str) -> dict:
+    t = type_info(code)
+    love, friend, study, money = t["advice"]
     from google import genai
     from google.genai import types
 
     client = genai.Client(api_key=API_KEY)
     prompt = CARD_PROMPT.format(
         type_name=t["name"], type_desc=t["desc"], strong=t["strong"], weak=t["weak"],
-        element=t["element"], favorite=favorite, motif=t["motif"], creature=random.choice(CREATURES),
+        element=t["element"], favorite=favorite, motif=t["motif"], creature=creature,
         love=love, friend=friend, study=study, money=money,
         profile="、".join(profile), used_names="、".join(used_names) or "（まだなし）",
         style="かわいい" if style == "cute" else "かっこいい",
@@ -284,7 +292,7 @@ def ai_message(code: str, favorite: str, profile: list[str]) -> str:
     from google import genai
     from google.genai import types
 
-    t = TYPES[code]
+    t = type_info(code)
     client = genai.Client(api_key=API_KEY)
     resp = client.models.generate_content(
         model=TEXT_MODEL,
@@ -330,8 +338,8 @@ def qr_svg(url: str) -> str:
 
 def result_payload(r: dict, token: str) -> dict:
     """保存した結果に、タイプの説明など固定の中身を足して返す。"""
-    t = TYPES[r["type_code"]]
-    return {
+    t = type_info(r["type_code"])
+    out = {
         **r,
         "token": token,
         "type_name": t["name"],
@@ -339,13 +347,23 @@ def result_payload(r: dict, token: str) -> dict:
         "color": t["color"],
         "type_desc": t["desc"],
         "aruaru": t["aruaru"],
-        "axes": [AXIS_WORDS[c] for c in r["type_code"]],
         "strong": t["strong"],
         "weak": t["weak"],
-        "partners": best_partners(r["type_code"]),
-        "rival": rival(r["type_code"]),
         "image": f"/img/{r['image_file']}",
     }
+    b = r.get("battle")
+    if b:   # 動物バトル診断のカード
+        out["axes"] = [f"{b['statUp']} +10%", f"{b['statDown']} −10%", f"{r['month']}月生まれ"]
+        out["battle_skills"] = (
+            [{"slot": "攻撃", "name": b["attack"], "note": bd.SKILL_NOTES[b["attack"]]}]
+            + [{"slot": "技", "name": n, "note": bd.SKILL_NOTES[n]} for n in b["others"]]
+            + [{"slot": "タイプ", "name": bd.TYPE_SKILLS[b["type"]], "note": f"{t['name']}だけの技"},
+               {"slot": f"{r['month']}月", "name": bd.MONTH_SKILLS[r["month"] - 1], "note": "誕生月の技"}])
+    else:   # 2026-10-01までの16タイプのカード
+        out["axes"] = [AXIS_WORDS[c] for c in r["type_code"]]
+        out["partners"] = best_partners(r["type_code"])
+        out["rival"] = rival(r["type_code"])
+    return out
 
 
 def ai_error_reason(e: Exception, what: str) -> str:
@@ -359,7 +377,7 @@ def ai_error_reason(e: Exception, what: str) -> str:
 
 @app.route("/")
 def index():
-    questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
+    questions = bd.questions_for_page()
     return render_template("index.html", questions=questions, mock=is_mock())
 
 
@@ -378,11 +396,13 @@ def make_card():
     answers = body.get("answers") or []
     favorite = str(body.get("favorite", "")).strip()
     style = body.get("style") if body.get("style") in drawing.STYLES else "cute"
-
-    if len(answers) != len(QUESTIONS) or any(
-        pick not in (q["a"][1], q["b"][1]) for q, pick in zip(QUESTIONS, answers)
-    ):
-        return jsonify({"ok": False, "reason": "質問にぜんぶ答えてね"}), 400
+    try:
+        month = int(body.get("month"))
+        judged = bd.judge([int(a) for a in answers])
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "reason": "誕生月と質問にぜんぶ答えてね"}), 400
+    if not 1 <= month <= 12:
+        return jsonify({"ok": False, "reason": "誕生月をえらんでね"}), 400
     if not favorite:
         return jsonify({"ok": False, "reason": "好きなものを入れてね"}), 400
     if len(favorite) > 20:
@@ -393,9 +413,11 @@ def make_card():
                                            "ほかの好きなものを入れてみて！（例：カレー、ねこ、サッカー）"})
 
     mock = is_mock()
-    code = decide_type(answers)
-    t = TYPES[code]
-    profile = axis_profile(answers)
+    # 動物バトル診断（2026-10-02 案2）：誕生月と6問から、動物タイプ・ステータス・技が決まる
+    code = judged["type"]
+    t = type_info(code)
+    profile = [f"{judged['statUp']}が高め", f"{judged['statDown']}が低め", f"得意技は{judged['attack']}"]
+    creature = random.choice(t["animals"])
     used = list(reversed(store.recent_monster_names(150)))
     pool = ThreadPoolExecutor(max_workers=2)
     # 守り神のひとこと（作る→チェックして直す、で約10秒）は、ほかに頼らないので最初に始めておく。
@@ -406,10 +428,10 @@ def make_card():
             if mock:
                 card = mock_card(code, favorite)
             else:
-                card = ai_card(code, favorite, style, profile, used[-150:])
+                card = ai_card(code, favorite, style, profile, used[-150:], creature)
                 # 守り神の名前がほかの人とかぶったら、1回だけ作り直す（人とかぶらないことを一番大事にする）
                 if card.get("allowed") and card.get("monster") in used:
-                    card = ai_card(code, favorite, style, profile, used[-150:] + [card["monster"]])
+                    card = ai_card(code, favorite, style, profile, used[-150:] + [card["monster"]], creature)
         except Exception as e:
             app.logger.exception("カードの中身の生成に失敗")
             return jsonify({"ok": False, "reason": ai_error_reason(e, "カードを作れませんでした")}), 502
@@ -437,6 +459,7 @@ def make_card():
     serial = store.next_serial()
     result = {
         "serial": serial, "type_code": code, "favorite": favorite, "style": style,
+        "month": month, "answers": [int(a) for a in answers], "battle": judged, "creature": creature,
         **{k: card[k] for k in ("monster", "message", "love", "friend", "study", "money")},
         **({"mock": True} if mock else {}),
     }
@@ -495,7 +518,7 @@ def ticket_page(num: int, code: str):
         return render_template("ticket_bad.html"), 404
     if t["status"] != "unused":
         return render_template("ticket_used.html", t=t, pickup=slot_label(t.get("slot", "")))
-    questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
+    questions = bd.questions_for_page()
     return render_template("index.html", questions=questions, ticket=f"{t['number']}-{t['secret']}", number=t["number"],
                            mock=is_mock())
 
@@ -532,7 +555,7 @@ def admin_card(token: str):
     staff_only()
     url = f"{PUBLIC_BASE_URL or request.host_url.rstrip('/')}/r/{token}"
     card = {**result_payload(load_result(token), token), "url": url, "qr": qr_svg(url)}
-    questions = [{"q": q["q"], "a": q["a"], "b": q["b"]} for q in QUESTIONS]
+    questions = bd.questions_for_page()
     return render_template("index.html", questions=questions, preset=card, mock=False)
 
 
@@ -735,7 +758,7 @@ def plaza_members():
         r = store.get_result(token)
         if not r:
             continue
-        t = TYPES.get(r.get("type_code"), {})
+        t = type_info(r.get("type_code", ""))
         out.append({"id": token, "serial": r.get("serial"), "monster": r.get("monster", ""),
                     "type_name": t.get("name", ""), "color": t.get("color", "#888888"),
                     "image": f"/img/{r['image_file']}", "joined_at": joined_at})
@@ -748,7 +771,7 @@ def characters():
     staff_only()
     rows = []
     for token, r in store.list_results():
-        t = TYPES.get(r.get("type_code"), {})
+        t = type_info(r.get("type_code", ""))
         rows.append({
             "token": token,
             "serial": r.get("serial", 0),
@@ -826,9 +849,34 @@ def match_cards():
     (_, ra), (_, rb) = a, b
     if ra["serial"] == rb["serial"]:
         return jsonify({"ok": False, "reason": "ちがうカードの番号を入れてね"}), 400
+    if ra["type_code"] not in TYPES or rb["type_code"] not in TYPES:
+        return jsonify({"ok": False, "reason": "このカードは相性ではなく、バトルで遊べるよ"}), 400
     m = match(ra["type_code"], rb["type_code"])
     write_log({"event": "match", "a": ra["serial"], "b": rb["serial"], "score": m["score"]})
     return jsonify({"ok": True, "a": TYPES[ra["type_code"]]["name"], "b": TYPES[rb["type_code"]]["name"], **m})
+
+
+# ===== バトル（2026-10-02 案2）=====
+# パスポート（結果ページ）から、メンバーが作った動物バトルで戦う。中身は static/battle/ の quiz.js・battle.js をそのまま使う。
+# 相手はコンピューター（ランダム）か、友だちのパスポート番号（?vs=番号）。
+
+@app.get("/battle/<token>")
+def battle_page(token: str):
+    r = load_result(token)
+    if not r.get("battle"):
+        abort(404)
+    enemy = None
+    vs = request.args.get("vs", "")
+    if vs.isdigit():
+        found = store.find_by_serial(int(vs))
+        if found and found[1].get("battle") and found[1]["serial"] != r["serial"]:
+            e = found[1]
+            enemy = {"result": e["battle"], "month": e["month"], "serial": e["serial"], "monster": e.get("monster", "")}
+        else:
+            return render_template("battle.html", r=r, token=token, enemy=None,
+                                   error="その番号のパスポートは見つからないか、バトルできないよ"), 404
+    write_log({"event": "battle", "serial": r["serial"], "vs": enemy["serial"] if enemy else "cpu"})
+    return render_template("battle.html", r=r, token=token, enemy=enemy, error="")
 
 
 @app.get("/api/stats")

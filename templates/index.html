@@ -140,7 +140,7 @@
     </div>
 
     <ol class="flow">
-      <li><i>1</i><span>10の質問に<br>答える</span></li>
+      <li><i>1</i><span>誕生月と6つの<br>質問に答える</span></li>
       <li><i>2</i><span>AIがあなただけの<br>守り神を描く</span></li>
       <li><i>3</i><span>パスポートを<br>受け取る</span></li>
     </ol>
@@ -164,7 +164,7 @@
     <div class="progress"><i id="bar"></i></div>
     <div class="qnum" id="qnum"></div>
     <div class="qtext" id="qtext"></div>
-    <div class="choices"><button id="optA"></button><button id="optB"></button></div>
+    <div class="choices" id="choices"></div>
   </section>
 
   <!-- 3. 好きなもの・絵柄 -->
@@ -221,16 +221,27 @@ function show(id) {
   window.scrollTo({ top: 0 });
 }
 
+// 動物バトル診断（2026-10-02 案2）：はじめに誕生月（12個）、つぎに6問（4択）。答えは番号（0〜3）で持つ
+const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+let month = 0;
 function renderQuestion() {
-  const i = answers.length;
-  if (i >= QUESTIONS.length) { show('s-fav'); if (matchMedia('(hover: hover)').matches) $('favorite').focus(); return; }
-  const q = QUESTIONS[i];
-  $('bar').style.width = (i / QUESTIONS.length * 100) + '%';
-  $('qnum').textContent = `質問 ${i + 1} / ${QUESTIONS.length}`;
-  $('qtext').textContent = q.q;
+  const i = answers.length, total = QUESTIONS.length + 1;
+  if (month && i >= QUESTIONS.length) { show('s-fav'); if (matchMedia('(hover: hover)').matches) $('favorite').focus(); return; }
+  const step = month ? i + 1 : 0;
+  $('bar').style.width = (step / total * 100) + '%';
+  const box = $('choices');
+  box.classList.toggle('months', !month);
+  if (!month) {
+    $('qnum').textContent = 'まずは誕生月';
+    $('qtext').textContent = '誕生月は？';
+    box.innerHTML = MONTHS.map((m, k) => `<button type="button" data-k="${k}">${m}</button>`).join('');
+  } else {
+    const q = QUESTIONS[i];
+    $('qnum').textContent = `質問 ${i + 1} / ${QUESTIONS.length}`;
+    $('qtext').textContent = q.q;
+    box.innerHTML = q.options.map((o, k) => `<button type="button" data-k="${k}">${esc(o)}</button>`).join('');
+  }
   $('qtext').classList.remove('anim'); void $('qtext').offsetWidth; $('qtext').classList.add('anim');
-  $('optA').textContent = q.a[0];
-  $('optB').textContent = q.b[0];
 }
 
 // お店のあいことば：合っていれば診断を始める。
@@ -239,28 +250,29 @@ const TICKET = {{ (ticket or '') | tojson }};  // チケットのQRから開い�
 let shop = '';
 try { localStorage.removeItem('shopCode'); } catch (e) {}  // 前の版で覚えていた数字を消す
 $('startBtn').onclick = async () => {
-  if (TICKET) { answers = []; show('s-quiz'); renderQuestion(); return; }
+  if (TICKET) { answers = []; month = 0; show('s-quiz'); renderQuestion(); return; }
   const code = $('shopCode').value.trim();
   if (!code) { $('shopStatus').textContent = 'お店のあいことばを入れてね'; return; }
   const r = await (await fetch('/api/shop/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) })).json();
   if (!r.ok) { $('shopStatus').textContent = 'あいことばがちがうよ。お店の人に聞いてね'; return; }
   shop = code; $('shopStatus').textContent = '';
-  answers = []; show('s-quiz'); renderQuestion();
+  answers = []; month = 0; show('s-quiz'); renderQuestion();
 };
 // 2回続けて押されても1問ずつしか進まないよう、押したあと少しだけ受け付けない（スマホで指が2回当たったとき）
 let answering = false;
-function answer(key) {
+function answer(k) {
   if (answering || answers.length >= QUESTIONS.length) return;
   answering = true; setTimeout(() => { answering = false; }, 350);
-  answers.push(QUESTIONS[answers.length][key][1]); renderQuestion();
+  if (!month) month = k + 1; else answers.push(k);
+  renderQuestion();
 }
-$('optA').onclick = () => answer('a');
-$('optB').onclick = () => answer('b');
+$('choices').onclick = (e) => { const b = e.target.closest('button[data-k]'); if (b) answer(Number(b.dataset.k)); };
 // 左上の「戻る」：質問なら1つ前へ（1問目なら最初の画面へ）、好きなものの画面なら最後の質問へ
 $('backBtn').onclick = () => {
   if (!$('s-fav').classList.contains('hidden')) { answers.pop(); show('s-quiz'); renderQuestion(); return; }
-  if (!answers.length) { show('s-start'); return; }
-  answers.pop(); renderQuestion();
+  if (answers.length) { answers.pop(); renderQuestion(); return; }
+  if (month) { month = 0; renderQuestion(); return; }
+  show('s-start');
 };
 
 document.querySelectorAll('.examples button').forEach((b) => b.onclick = () => { $('favorite').value = b.textContent; });
@@ -281,7 +293,7 @@ $('makeBtn').onclick = async () => {
   const timer = setInterval(() => { i = (i + 1) % LOADING_MSGS.length; $('status').textContent = LOADING_MSGS[i]; }, 2500);
   try {
     const res = await fetch('/api/card', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers, favorite, style, shop, ticket: TICKET }) });
+      body: JSON.stringify({ month, answers, favorite, style, shop, ticket: TICKET }) });
     const data = await res.json();
     if (data.used) { location.reload(); return; }  // ほかの画面で先に使われた
     if (!data.ok) { $('status').className = 'error'; $('status').textContent = data.reason; return; }
@@ -351,7 +363,7 @@ const PRESET = {{ (preset or None) | tojson }};
 if (PRESET) { current = PRESET; renderResult(PRESET); show('s-result'); }
 
 if ($('nextBtn')) $('nextBtn').onclick = () => {
-  answers = []; $('favorite').value = ''; $('status').textContent = '';
+  answers = []; month = 0; $('favorite').value = ''; $('status').textContent = '';
   show('s-start');
 };
 
