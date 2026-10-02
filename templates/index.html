@@ -104,22 +104,12 @@
   <!-- 1. はじめ（入り口）：2026-10-02 作り直し。絵は画面の幅いっぱい、題名はパスポートの表紙 -->
   <section id="s-start" class="start">
     <!-- 背景：区域ごとに分かれた動物王国の上を、ドローンで飛んでいるように切れ目なくゆっくり移動する（2026-10-02 ゆーしん「ズートピアみたいに区域ごとに」）。
-         Higgsfieldで作った10秒の空撮動画（MiniMax）を繰り返し流す。最初と最後が同じ場面なので切れ目なくつながる。
+         Higgsfieldで作った12秒の空撮動画（MiniMax）を繰り返し流す。サバンナ→滝の森→フラミンゴの湖→氷の区域を回って全体に戻る。最初と最後が同じ場面なので切れ目なくつながる。
          動画を流せない端末（iPhoneの低電力モードなど）では、下の写真がそのまま見える -->
     <div class="gate kingdom" aria-hidden="true">
-      <img src="/static/kingdom-flight-poster.webp" alt="">
-      <video id="flight" src="/static/kingdom-flight.mp4" poster="/static/kingdom-flight-poster.webp" autoplay muted loop playsinline preload="auto"></video>
-      <!-- 区域めぐり：空撮の上から各区域へ降りていき、その区域の動物を近くで見せてまた上に戻る（2026-10-02 ゆーしん「全部の区域を回る、動物がちゃんと映る」） -->
-      <div class="zones" id="zones">
-        <img data-x="52" data-y="84" data-name="サバンナ区" data-animals="ゾウ・キリン・シマウマ" src="/static/habitat-savanna.webp" alt="" loading="lazy">
-        <img data-x="16" data-y="40" data-name="熱帯雨林区" data-animals="オランウータン・コンゴウインコ" src="/static/habitat-rainforest.webp" alt="" loading="lazy">
-        <img data-x="50" data-y="24" data-name="竹林区" data-animals="ジャイアントパンダ・レッサーパンダ" src="/static/habitat-bamboo.webp" alt="" loading="lazy">
-        <img data-x="88" data-y="12" data-name="海の区" data-animals="クジラ・イルカ" src="/static/habitat-ocean.webp" alt="" loading="lazy">
-        <img data-x="86" data-y="45" data-name="氷の区" data-animals="ペンギン・アザラシ" src="/static/habitat-antarctica.webp" alt="" loading="lazy">
-        <img data-x="52" data-y="52" data-name="フラミンゴ湖区" data-animals="フラミンゴ・カバ・シマウマ" src="/static/habitat-flamingo.webp" alt="" loading="lazy">
-      </div>
+      <img src="/static/kingdom-tour-poster.webp" alt="">
+      <video id="flight" src="/static/kingdom-tour.mp4" poster="/static/kingdom-tour-poster.webp" autoplay muted loop playsinline preload="auto"></video>
     </div>
-    <div class="zonelabel" id="zonelabel" aria-hidden="true"><b></b><span></span></div>
     <div class="start-space"></div>
 
     <div class="cover">
@@ -241,38 +231,6 @@ function renderQuestion() {
 
 // お店のあいことば：合っていれば診断を始める。
 // 画面を開き直したら毎回入れ直す（覚えておくと、次の人やほかの人に数字が見えてしまうため。2026-10-01 ゆーしん）
-// ===== 区域めぐり（2026-10-02）=====
-// 地図をぐるっと一周する順（サバンナ→熱帯雨林→竹林→海→氷→フラミンゴ湖）に回り、最後に全体の空撮へ戻る。
-// 空撮動画を3.5秒見せる → その区域へ寄りながら（1.4秒）近くの写真に切り替え → 4.2秒見せる → 引いて空撮に戻る、を6区域くり返す。
-// 入国審査を始めたら止める（背景が見えないので）。動きが苦手な設定の人には動かさない。
-(function zoneTour() {
-  const gate = document.querySelector('.gate.kingdom'), video = document.getElementById('flight');
-  const zones = [...document.querySelectorAll('#zones img')], label = document.getElementById('zonelabel');
-  if (!gate || !zones.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  let i = 0;
-  (async function loop() {
-    await wait(3500);
-    while (true) {
-      if (!document.body.classList.contains('at-start')) { await wait(1000); continue; }
-      const z = zones[i % zones.length]; i++;
-      video.style.transformOrigin = z.dataset.x + '% ' + z.dataset.y + '%';
-      gate.classList.add('dive');                                   // 空撮をその区域へ寄せる
-      await wait(800);
-      z.classList.remove('fly'); void z.offsetWidth; z.classList.add('on', 'fly');   // 近くの写真へ（ゆっくり流れる）
-      label.querySelector('b').textContent = z.dataset.name;
-      label.querySelector('span').textContent = z.dataset.animals;
-      label.classList.add('on');
-      await wait(4200);
-      label.classList.remove('on');
-      z.classList.remove('on');                                     // 空撮に戻る
-      gate.classList.remove('dive');
-      await wait(3200);
-      if (i % zones.length === 0) await wait(4000);                // 一周したら、全体の空撮を少し長めに見せてからまた回る
-    }
-  })();
-})();
-
 // 動きが苦手な設定の人には、背景の動画を止めて最初の場面だけ見せる
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) { const v = document.getElementById('flight'); if (v) { v.removeAttribute('autoplay'); v.pause(); } }
 const TICKET = {{ (ticket or '') | tojson }};  // チケットのQRから開いたときだけ入る（このときはお店のあいことばはいらない）

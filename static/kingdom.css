@@ -373,21 +373,3 @@ body.at-start { background: #2a1d0f !important; }       /* 写真が読み込ま
 .gate.kingdom video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 /* スマホの縦画面では、動画の真ん中（湖とフラミンゴ）を中心に見せる */
 @media (max-aspect-ratio: 4/5) { .gate.kingdom video, .gate.kingdom img { object-position: 55% 50%; } }
-
-/* ===== 区域めぐり（2026-10-02） ===== */
-.gate.kingdom video { transition: transform 1.4s cubic-bezier(.5,0,.3,1), filter 1.4s; transform: scale(1); }
-.gate.kingdom.dive video { transform: scale(2.8); filter: blur(1.5px); }
-.zones img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transform: scale(1.25);
-  transition: opacity .9s ease, transform .9s ease; }
-.zones img.on { opacity: 1; transform: scale(1.08); }
-.zones img.fly { animation: zonefly 6s linear both; }
-@keyframes zonefly { from { object-position: 35% 50%; } to { object-position: 65% 45%; } }
-/* 区域の名前とそこにいる動物（左上の札） */
-.zonelabel { position: fixed; z-index: 2; top: 14px; left: 14px; max-width: calc(100% - 140px);
-  background: linear-gradient(160deg, #2b6146, #1d4632); color: #e4c47e; border: 1px solid rgba(228,196,126,.6);
-  border-radius: 12px; padding: 7px 12px 8px; box-shadow: 0 6px 16px rgba(0,0,0,.35);
-  opacity: 0; transform: translateY(-8px); transition: opacity .5s, transform .5s; pointer-events: none; }
-.zonelabel.on { opacity: 1; transform: none; }
-.zonelabel b { display: block; font-family: "Kaisei Decol", serif; font-size: 1rem; letter-spacing: .12em; }
-.zonelabel span { display: block; font-size: .7rem; color: #f3e6c4; margin-top: 1px; }
-body:not(.at-start) .zonelabel { display: none; }
