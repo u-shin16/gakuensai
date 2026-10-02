@@ -288,9 +288,9 @@ body.at-start { padding-top: 0 !important; padding-bottom: 0 !important; }
 .pbtn:has(button:disabled) .peek { animation: peekwait 1.2s ease-in-out infinite; }
 @keyframes peekwait { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
 
-/* 動物を乗せたので、くまの耳と肉球の印はやめる */
-button.big { padding-left: 34px !important; padding-right: 34px !important; background-image: none !important; }
-button.big::before, button.big::after { content: none !important; }
+/* 動物を乗せたボタン（入国審査）だけ、くまの耳と肉球の印はやめる。カードを作るボタンは前のまま（2026-10-02 ゆーしん） */
+.pbtn button.big { padding-left: 34px !important; padding-right: 34px !important; background-image: none !important; }
+.pbtn button.big::before, .pbtn button.big::after { content: none !important; }
 
 /* ===== スマホで安定させる（2026-10-02 ゆーしん「UIについて不安定なところはないように」） ===== */
 html, body { overflow-x: clip; }                         /* 横にずれない（幅いっぱいの絵が原因でスクロールしない） */
