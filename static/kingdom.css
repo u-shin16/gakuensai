@@ -171,3 +171,62 @@ button:not(.big):active, a.btn:active { transform: scale(.95); }
 
 /* 動きが苦手な人の設定では止める */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ===== はじめの画面（入り口）2026-10-02 作り直し =====
+   ゆーしん「画像を貼るだけじゃアカン」。絵は画面の幅いっぱいの景色にして、題名はパスポートの表紙で見せる */
+body.at-start { background: linear-gradient(#f7f0dc, #efe4c6) !important; }
+body.at-start .sign { display: none; }
+body.at-start .mockbadge { position: fixed; top: 10px; right: 10px; z-index: 30; margin: 0; }
+
+.start { width: 100%; display: flex; flex-direction: column; align-items: center; }
+.gate { width: 100vw; margin: -24px calc(50% - 50vw) 0; height: clamp(250px, 56vw, 480px); overflow: hidden; position: relative; }
+.gate img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 72%; display: block;
+  -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent);
+  animation: gatezoom 18s ease-in-out infinite alternate; transform-origin: 50% 70%; }
+@keyframes gatezoom { from { transform: scale(1); } to { transform: scale(1.06); } }
+
+/* パスポートの表紙 */
+.cover { position: relative; z-index: 2; width: 236px; margin-top: -64px; padding: 22px 18px 18px; text-align: center;
+  color: #e4c47e; border-radius: 8px 16px 16px 8px; overflow: hidden;
+  background:
+    repeating-radial-gradient(circle at 50% 38%, rgba(228,196,126,.07) 0 1px, transparent 1px 7px),
+    linear-gradient(160deg, #2b6146, #1d4632 60%, #173a29);
+  box-shadow: inset 10px 0 0 rgba(0,0,0,.18), inset 11px 0 0 rgba(228,196,126,.25), inset 0 0 0 5px #1d4632, inset 0 0 0 6px rgba(228,196,126,.55),
+    0 18px 30px rgba(40,30,10,.35), 0 3px 0 #10281c;
+  animation: coverfloat 5s ease-in-out infinite; }
+.cover::after { content: ""; position: absolute; inset: -40% auto -40% -60%; width: 40%; transform: rotate(18deg);
+  background: linear-gradient(90deg, transparent, rgba(255,240,200,.22), transparent); animation: shine 5.5s ease-in-out infinite; }
+@keyframes coverfloat { 0%, 100% { transform: rotate(-2deg) translateY(0); } 50% { transform: rotate(-1deg) translateY(-6px); } }
+@keyframes shine { 0%, 55% { left: -60%; } 85%, 100% { left: 130%; } }
+.cover .crest { width: 74px; height: 74px; display: block; margin: 0 auto 8px; filter: drop-shadow(0 1px 0 rgba(0,0,0,.35)); }
+.cover .kingdom { font-family: "Kaisei Decol", serif; font-size: 1.55rem; letter-spacing: .14em; text-shadow: 0 1px 0 rgba(0,0,0,.4); }
+.cover .en { font-size: .58rem; letter-spacing: .32em; opacity: .8; margin: 2px 0 10px; }
+.cover .pp { font-family: "Kaisei Decol", serif; font-size: 1.05rem; letter-spacing: .3em; padding: 6px 0;
+  border-top: 1px solid rgba(228,196,126,.5); border-bottom: 1px solid rgba(228,196,126,.5); }
+.cover .foot { font-size: .55rem; letter-spacing: .25em; opacity: .7; margin-top: 10px; }
+
+/* 入国のながれ */
+.flow { list-style: none; display: flex; justify-content: center; gap: 0; padding: 0; margin: 26px 0 18px; width: 100%; max-width: 400px; }
+.flow li { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative;
+  font-size: .74rem; line-height: 1.45; color: var(--muted); font-weight: 800; }
+.flow li + li::before { content: ""; position: absolute; top: 15px; right: 50%; width: 100%; border-top: 2px dotted #c9b88f; z-index: 0; margin-right: 18px; }
+.flow i { font-style: normal; position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--leaf); color: #fff; font-size: .9rem; margin-bottom: 6px; box-shadow: 0 3px 0 var(--leaf-dark);
+  animation: hop 3s ease-in-out infinite; }
+.flow li:nth-child(2) i { animation-delay: .25s; }
+.flow li:nth-child(3) i { animation-delay: .5s; }
+@keyframes hop { 0%, 70%, 100% { transform: translateY(0); } 78% { transform: translateY(-6px); } 86% { transform: translateY(0); } }
+
+/* 入国の手続き（あいことばとボタン） */
+.entry { width: 100%; max-width: 360px; display: flex; flex-direction: column; align-items: center; background: #fffaf0;
+  border: 1px solid #e6d8b4; border-radius: 20px; padding: 18px 18px 14px; box-shadow: 0 6px 18px rgba(80,50,20,.08); }
+.entry label.h { margin: 0 0 8px; font-size: .95rem; }
+.entry label.h small { display: block; font-size: .75rem; }
+.entry #shopCode { width: 190px; text-align: center; font-size: 1.6rem; letter-spacing: .5em; padding: 10px 0 10px .5em; margin-bottom: 18px;
+  border: 2px dashed #c9b88f !important; border-radius: 12px; background: #fffdf7 !important; }
+.entry #shopCode::placeholder { color: #d6c8a6; }
+.entry .ticketno { margin-bottom: 16px; }
+.entry button.big { margin-top: 8px; }
+#shopStatus { min-height: 1.4em; margin-top: 10px; color: #c8442f; text-align: center; font-size: .85rem; font-weight: 800; }
+
+@media (min-width: 700px) { .cover { margin-top: -110px; } }

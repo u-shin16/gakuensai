@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>どうぶつ王国 観光パスポート</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&family=Kaisei+Decol:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root { --bg: #1b1433; --panel: #2a2150; --panel2: #3b2f6e; --text: #fff; --muted: #b9b0d9; --accent: #ffcc33; }
@@ -96,23 +96,54 @@
 </style>
 <link rel="stylesheet" href="/static/kingdom.css">
 </head>
-<body>
+<body class="at-start">
 <div class="wrap">
   {% if mock %}<div class="mockbadge">ダミーモード（AIを使わない・お試し用）</div>{% endif %}
   {% include "_sign.html" %}
 
-  <!-- 1. はじめ -->
-  <section id="s-start" class="wrap">
-    <img class="hero" src="/static/kingdom-gate.webp" alt="どうぶつ王国の入り口">
-    <p class="lead">10個の質問に答えると、あなたの性格タイプと、<br>あなたを守る「守り神」が決まります。<br>守り神はAIがその場で描く、世界に1体だけ。</p>
-    {% if ticket %}
-    <p class="ticketno">チケット No.{{ number }}</p>
-    {% else %}
-    <label class="h" for="shopCode">お店のあいことば<br><small>お店の人に聞いてね</small></label>
-    <input id="shopCode" type="text" inputmode="numeric" maxlength="4" placeholder="4けたの数字" autocomplete="off" value="" style="text-align:center;letter-spacing:.3em;max-width:240px;margin-bottom:16px">
-    {% endif %}
-    <button class="big" id="startBtn">診断をはじめる</button>
-    <div id="shopStatus" style="min-height:1.5em;margin-top:10px;color:#ff8fa3;text-align:center"></div>
+  <!-- 1. はじめ（入り口）：2026-10-02 作り直し。絵は画面の幅いっぱい、題名はパスポートの表紙 -->
+  <section id="s-start" class="start">
+    <div class="gate" aria-hidden="true"><img src="/static/kingdom-gate.webp" alt=""></div>
+
+    <div class="cover">
+      <svg class="crest" viewBox="0 0 120 120" aria-hidden="true">
+        <circle cx="60" cy="60" r="56" fill="none" stroke="currentColor" stroke-width="2"/>
+        <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 4"/>
+        <g fill="currentColor">
+          <ellipse cx="60" cy="70" rx="15" ry="12.5"/>
+          <ellipse cx="41" cy="52" rx="6" ry="7.5"/><ellipse cx="52.5" cy="42" rx="6" ry="7.8"/>
+          <ellipse cx="67.5" cy="42" rx="6" ry="7.8"/><ellipse cx="79" cy="52" rx="6" ry="7.5"/>
+        </g>
+        <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M26 86c-6-10-7-24-1-36"/><path d="M94 86c6-10 7-24 1-36"/>
+        </g>
+        <g fill="currentColor">
+          <ellipse cx="22" cy="62" rx="3.2" ry="6" transform="rotate(-20 22 62)"/><ellipse cx="22" cy="76" rx="3.2" ry="6" transform="rotate(-40 22 76)"/>
+          <ellipse cx="98" cy="62" rx="3.2" ry="6" transform="rotate(20 98 62)"/><ellipse cx="98" cy="76" rx="3.2" ry="6" transform="rotate(40 98 76)"/>
+        </g>
+      </svg>
+      <div class="kingdom">どうぶつ王国</div>
+      <div class="en">KINGDOM OF ANIMALS</div>
+      <div class="pp">観光パスポート</div>
+      <div class="foot">PASSPORT ・ 2026.11.21</div>
+    </div>
+
+    <ol class="flow">
+      <li><i>1</i><span>10の質問に<br>答える</span></li>
+      <li><i>2</i><span>AIがあなただけの<br>守り神を描く</span></li>
+      <li><i>3</i><span>パスポートを<br>受け取る</span></li>
+    </ol>
+
+    <div class="entry">
+      {% if ticket %}
+      <p class="ticketno">チケット No.{{ number }}</p>
+      {% else %}
+      <label class="h" for="shopCode">お店のあいことば<small>お店の人に聞いてね</small></label>
+      <input id="shopCode" type="text" inputmode="numeric" maxlength="4" placeholder="・・・・" autocomplete="off" value="">
+      {% endif %}
+      <button class="big" id="startBtn">入国審査をはじめる</button>
+      <div id="shopStatus"></div>
+    </div>
   </section>
 
   <!-- 2. 質問 -->
@@ -173,6 +204,7 @@ let answers = [], style = 'cute', current = null;
 
 function show(id) {
   ['s-start', 's-quiz', 's-fav', 's-result', 's-done'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
+  document.body.classList.toggle('at-start', id === 's-start');
   $('backBtn').classList.toggle('hidden', id !== 's-quiz' && id !== 's-fav');
   window.scrollTo({ top: 0 });
 }
