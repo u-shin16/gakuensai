@@ -353,3 +353,16 @@ body.at-start { background: #2a1d0f !important; }       /* 写真が読み込ま
 @keyframes fly8 { 0% { transform: scale(1.16); object-position: 65% 50%; } 16.25%, 100% { transform: scale(1.07); object-position: 35% 55%; } }
 /* 動きが苦手な設定の人には、1枚目を止めて見せる */
 @media (prefers-reduced-motion: reduce) { .gate.drone img:nth-child(1) { opacity: 1; } }
+
+/* ===== ホームの背景：区域ごとの動物王国を、ドローンで飛ぶように切れ目なく移動（2026-10-02） =====
+   1枚の空撮写真の上を、寄りながら左（滝と森）→ 真ん中（フラミンゴの湖）→ 右（氷の区域）へゆっくり流れ、また戻る（片道20秒）。
+   スマホの縦画面では横に大きく流れるので、区域を順に飛んでいくように見える */
+.gate.kingdom img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; -webkit-mask-image: none; mask-image: none;
+  animation: kfly 40s ease-in-out infinite; will-change: transform, object-position; }
+@keyframes kfly {
+  0%   { transform: scale(1.12) rotate(-.4deg); object-position: 0% 70%; }
+  25%  { transform: scale(1.22) rotate(0deg);   object-position: 35% 55%; }
+  50%  { transform: scale(1.14) rotate(.4deg);  object-position: 100% 45%; }
+  75%  { transform: scale(1.24) rotate(0deg);   object-position: 60% 30%; }
+  100% { transform: scale(1.12) rotate(-.4deg); object-position: 0% 70%; }
+}
