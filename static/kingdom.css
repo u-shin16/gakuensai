@@ -329,20 +329,27 @@ body.has-back .sign { margin-top: 44px; }
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 body.at-start { background: #2a1d0f !important; }       /* 写真が読み込まれるまでの色 */
 
-/* ===== ホームの背景：生息地をドローンで飛んでいるように（2026-10-02 ゆーしん「もっと動きが欲しい」「クレジットは最小限」） =====
-   4枚を8秒ずつ、1.5秒かけて重ねながら切り替える（1周32秒・ずっと繰り返す）。
+/* ===== ホームの背景：生息地をドローンで飛んでいるように（2026-10-02 ゆーしん「もっと動きが欲しい」「クレジットは最小限」「切り替えを2秒くらいに」） =====
+   8枚を約2秒ずつ、0.8秒かけて重ねながら切り替える（1周16秒・ずっと繰り返す）。
    それぞれ、ゆっくり寄りながら横へ流れる（スマホの縦画面だと横に大きく流れ、空撮らしく見える） */
 .gate.drone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; will-change: opacity, transform;
   -webkit-mask-image: none; mask-image: none; }
-.gate.drone img:nth-child(1) { animation: hfade 32s linear -1.5s infinite, fly1 32s linear -1.5s infinite; }
-.gate.drone img:nth-child(2) { animation: hfade 32s linear 6.5s infinite, fly2 32s linear 6.5s infinite; }
-.gate.drone img:nth-child(3) { animation: hfade 32s linear 14.5s infinite, fly3 32s linear 14.5s infinite; }
-.gate.drone img:nth-child(4) { animation: hfade 32s linear 22.5s infinite, fly4 32s linear 22.5s infinite; }
-@keyframes hfade { 0% { opacity: 0; } 4.7% { opacity: 1; } 25% { opacity: 1; } 29.7% { opacity: 0; } 100% { opacity: 0; } }
-/* 見えている間（0〜30%）だけ動く。あとは止めておく */
-@keyframes fly1 { 0% { transform: scale(1.06); object-position: 25% 50%; } 30%, 100% { transform: scale(1.18); object-position: 60% 45%; } }
-@keyframes fly2 { 0% { transform: scale(1.18); object-position: 70% 40%; } 30%, 100% { transform: scale(1.06); object-position: 35% 55%; } }
-@keyframes fly3 { 0% { transform: scale(1.08) rotate(-.6deg); object-position: 20% 60%; } 30%, 100% { transform: scale(1.2) rotate(.4deg); object-position: 55% 50%; } }
-@keyframes fly4 { 0% { transform: scale(1.2); object-position: 45% 30%; } 30%, 100% { transform: scale(1.07); object-position: 60% 60%; } }
+@keyframes hfade { 0% { opacity: 0; } 5.00% { opacity: 1; } 12.50% { opacity: 1; } 17.50% { opacity: 0; } 100% { opacity: 0; } }
+.gate.drone img:nth-child(1) { animation: hfade 16s linear -0.8s infinite, fly1 16s linear -0.8s infinite; }
+@keyframes fly1 { 0% { transform: scale(1.06); object-position: 25% 50%; } 17.50%, 100% { transform: scale(1.14); object-position: 55% 45%; } }
+.gate.drone img:nth-child(2) { animation: hfade 16s linear 1.2s infinite, fly2 16s linear 1.2s infinite; }
+@keyframes fly2 { 0% { transform: scale(1.14); object-position: 70% 40%; } 17.50%, 100% { transform: scale(1.06); object-position: 40% 55%; } }
+.gate.drone img:nth-child(3) { animation: hfade 16s linear 3.2s infinite, fly3 16s linear 3.2s infinite; }
+@keyframes fly3 { 0% { transform: scale(1.08); object-position: 20% 60%; } 17.50%, 100% { transform: scale(1.16); object-position: 50% 50%; } }
+.gate.drone img:nth-child(4) { animation: hfade 16s linear 5.2s infinite, fly4 16s linear 5.2s infinite; }
+@keyframes fly4 { 0% { transform: scale(1.16); object-position: 45% 30%; } 17.50%, 100% { transform: scale(1.07); object-position: 60% 60%; } }
+.gate.drone img:nth-child(5) { animation: hfade 16s linear 7.2s infinite, fly5 16s linear 7.2s infinite; }
+@keyframes fly5 { 0% { transform: scale(1.06); object-position: 60% 50%; } 17.50%, 100% { transform: scale(1.15); object-position: 30% 45%; } }
+.gate.drone img:nth-child(6) { animation: hfade 16s linear 9.2s infinite, fly6 16s linear 9.2s infinite; }
+@keyframes fly6 { 0% { transform: scale(1.15); object-position: 30% 60%; } 17.50%, 100% { transform: scale(1.06); object-position: 60% 40%; } }
+.gate.drone img:nth-child(7) { animation: hfade 16s linear 11.2s infinite, fly7 16s linear 11.2s infinite; }
+@keyframes fly7 { 0% { transform: scale(1.07); object-position: 50% 70%; } 17.50%, 100% { transform: scale(1.16); object-position: 45% 35%; } }
+.gate.drone img:nth-child(8) { animation: hfade 16s linear 13.2s infinite, fly8 16s linear 13.2s infinite; }
+@keyframes fly8 { 0% { transform: scale(1.16); object-position: 65% 50%; } 17.50%, 100% { transform: scale(1.07); object-position: 35% 55%; } }
 /* 動きが苦手な設定の人には、1枚目を止めて見せる */
 @media (prefers-reduced-motion: reduce) { .gate.drone img:nth-child(1) { opacity: 1; } }
