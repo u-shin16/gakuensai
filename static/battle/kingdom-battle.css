@@ -82,7 +82,7 @@ main { background: transparent !important; }
 .topbar span { color: #ffe2a8 !important; }
 /* ラウンドの表示：木の札 */
 .phase { color: #5a3a18; }
-.arena-stage > .phase, .stage > .phase, .waitbox > .phase { align-self: center; background: linear-gradient(#b98048, #a5713d); color: #fff8e6;
+.arena-stage > .phase, .stage > .phase, .waitbox > .phase, .result-screen > .phase { align-self: center; background: linear-gradient(#b98048, #a5713d); color: #fff8e6;
   border: 2px solid #7a5028; border-radius: 12px; padding: .25rem .9rem; box-shadow: 0 3px 0 #7a5028; }
 /* 札・HPの帯・ログ：クリーム色と砂色の枠 */
 .win, .hud { background: var(--k-cream) !important; border-color: #e6d8b4 !important; box-shadow: 0 3px 0 #e0d2ad; }

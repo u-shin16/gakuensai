@@ -34,6 +34,30 @@
   #pvp-gone .gone-left { font-weight: 800; color: #3f7429; }
   #pvp-gone .gone-leave { width: 100%; margin-top: .8rem; }
   @keyframes gonein { from { transform: scale(.94); } to { transform: none; } }
+  /* 結果の画面（2026-10-02） */
+  .result-screen { display: flex; flex-direction: column; gap: .6rem; flex: 1 1 auto; min-height: 0; animation: rIn .35s ease-out; }
+  @keyframes rIn { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .result-screen > .phase { align-self: center; margin: 0; }
+  .r-outcome { margin: 0; text-align: center; font-size: 2.2rem; letter-spacing: .1em; animation: rPop .5s cubic-bezier(.3,1.6,.5,1); }
+  .result-screen.win .r-outcome { color: #c47f22; text-shadow: 0 3px 0 #f5d7a2; }
+  .result-screen.lose .r-outcome { color: #5a6b7a; }
+  .result-screen.draw .r-outcome { color: #3f7429; }
+  @keyframes rPop { from { transform: scale(.6); } to { transform: none; } }
+  .r-vs { display: flex; align-items: center; justify-content: center; gap: .6rem; }
+  .r-side { flex: 1; max-width: 10rem; display: flex; flex-direction: column; align-items: center; text-align: center; gap: .15rem; }
+  .r-side b { font-size: .85rem; color: #3f7429; } .r-side small { font-size: .8rem; color: #8a765a; }
+  .r-art { width: clamp(4rem, 13vh, 6.5rem); height: clamp(4rem, 13vh, 6.5rem); border-radius: 18px; overflow: hidden; border: 3px solid #fff;
+    box-shadow: 0 4px 10px rgba(0,0,0,.15); background: #fdf6e6; display: grid; place-items: center; color: #8a765a; font-weight: 800; }
+  .r-art img { width: 100%; height: 100%; object-fit: cover; }
+  .result-screen.win .r-side.me .r-art, .result-screen.lose .r-side.foe .r-art { border-color: #f2a541; animation: rBob 1.6s ease-in-out infinite; }
+  @keyframes rBob { 50% { transform: translateY(-5px); } }
+  .r-x { font-weight: 900; color: #a5713d; font-size: 1.1rem; }
+  .r-log { flex: 1 1 auto; min-height: 5rem; display: flex; flex-direction: column; overflow: hidden; }
+  .r-log h2 { margin: 0 0 .3rem; }
+  .r-log .log { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; max-height: none !important; font-size: .88rem; }
+  .r-log .log p { margin: .15rem 0; padding-bottom: .15rem; border-bottom: 1px dashed #eadfc7; }
+  .r-dock { flex: none; margin-top: 0 !important; }
+  .r-dock .ghost { margin-top: .5rem; width: 100%; }
   @keyframes dot { 0%, 80%, 100% { transform: scale(.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
 </style>
 </head>
@@ -59,24 +83,73 @@ const AGAIN = new URLSearchParams(location.search).get('again') === '1';
 const no4 = (n) => 'No.' + String(n).padStart(4, '0');
 const app = document.getElementById('app');
 
-// 終わったときのボタン：「もう一回」だけ（2026-10-02 ゆーしん）
-// battle.js がボタンを作った直後に、文字と動きをこちらで上書きする
 // キャラの絵の欄に、パスポートの案内アニマルの絵を出す（自分。友人戦なら相手も）。コンピューターの相手は battle.js の絵のまま
 const MY_IMG = '/img/{{ r.image_file }}', FOE_IMG = {{ ((enemy.image_file and '/img/' ~ enemy.image_file) if enemy else '') | tojson }};
 function setArt(sel, src) {
   const img = document.querySelector(sel);
   if (img && src && img.getAttribute('src') !== src) { img.hidden = false; img.onerror = null; img.src = src; }
 }
+const againUrl = () => ENEMY ? location.pathname + '?vs=' + ENEMY.serial + '&again=1' : location.pathname;
+
+// 戦いが終わったら、結果とログが見える画面に切りかえる（2026-10-02 ゆーしん「ログが見える画面に飛んで、もう一回・パスポートに戻るを選べるように」）
+// battle.js が終わりのボタン（#rematch）を出したら、最後の一撃を少し見せてから、その画面のHP・ログを読み取って結果の画面を作る
+let resultShown = false;
+function showResult() {
+  if (resultShown) return;
+  resultShown = true;
+  const phase = (document.querySelector('.phase') || {}).textContent || '';
+  const outcome = phase.replace(/^ラウンド\s*\d+\s*/, '').trim() || '対戦終了';
+  const round = (phase.match(/ラウンド\s*(\d+)/) || [])[1] || '';
+  const huds = [...document.querySelectorAll('.hud')].map((h) => ({
+    name: (h.querySelector('h2') || {}).textContent || '',
+    hp: [...h.querySelectorAll('.hud-top p')].map((p) => p.textContent).find((t) => t.startsWith('HP')) || '' }));
+  const foe = huds[0] || {}, me = huds[1] || {};
+  const myImg = (document.querySelector('.actor.player .portrait img') || {}).src || MY_IMG;
+  const foeImg = (document.querySelector('.actor.enemy .portrait img') || {}).src || '';
+  // ログは battle.js の「ログ」の中身を読む（開いてすぐ閉じる）
+  let logHtml = '';
+  const openLog = document.getElementById('open-log');
+  if (openLog) {
+    openLog.click();
+    const sheet = document.getElementById('sheet');
+    logHtml = ((sheet && sheet.querySelector('.log')) || {}).innerHTML || '';
+    if (sheet) sheet.hidden = true;
+    const bd = document.getElementById('backdrop'); if (bd) bd.hidden = true;
+  }
+  const tone = /勝ち/.test(outcome) ? 'win' : /負け/.test(outcome) ? 'lose' : 'draw';
+  const art = (src, label) => `<div class="r-art">${src && !/\/art\//.test(src) ? `<img src="${src}" alt="">` : `<span>${label}</span>`}</div>`;
+  app.innerHTML = `
+    <div class="result-screen ${tone}">
+      <p class="phase">${round ? 'ラウンド ' + round + '　' : ''}対戦終了</p>
+      <h1 class="r-outcome">${outcome}</h1>
+      <div class="r-vs">
+        <div class="r-side me">${art(myImg, 'あなた')}<b>${me.name}</b><small>${me.hp}</small></div>
+        <span class="r-x">VS</span>
+        <div class="r-side foe">${art(foeImg, '相手')}<b>${foe.name}</b><small>${foe.hp}</small></div>
+      </div>
+      <div class="win r-log"><h2>バトルのログ</h2><div class="log">${logHtml || '<p>ログはありません</p>'}</div></div>
+      <div class="dock r-dock">
+        <button class="primary" id="r-again" type="button">もう一回</button>
+        <button class="ghost" id="r-back" type="button">パスポートに戻る</button>
+      </div>
+    </div>`;
+  const log = app.querySelector('.r-log .log'); if (log) log.scrollTop = log.scrollHeight;
+  document.getElementById('r-again').onclick = () => { location.href = againUrl(); };
+  document.getElementById('r-back').onclick = () => { location.href = PASSPORT; };
+}
+
 new MutationObserver(() => {
+  if (resultShown) return;
   setArt('.actor.player .portrait img', MY_IMG);
   setArt('.actor.enemy .portrait img', FOE_IMG);
-  const again = document.getElementById('rematch'), back = document.getElementById('restart');
+  const again = document.getElementById('rematch');
   if (again && !again.dataset.kd) {
-    again.dataset.kd = '1'; again.textContent = 'もう一回';
-    // コンピューター戦は新しい相手で、友人戦はもう一度2人で待ち合わせてから
-    again.onclick = () => { location.href = ENEMY ? location.pathname + '?vs=' + ENEMY.serial + '&again=1' : location.pathname; };
+    again.dataset.kd = '1';
+    const back = document.getElementById('restart'); if (back) back.remove();
+    again.textContent = '結果を見る';
+    again.onclick = showResult;
+    setTimeout(showResult, 1600);   // 最後の一撃を見せてから、自動で結果の画面へ
   }
-  if (back) back.remove();   // 「パスポートに戻る」は左上にあるので、下には出さない（2026-10-02 ゆーしん）
 }).observe(app, { childList: true, subtree: true });
 
 if (!ENEMY) {
