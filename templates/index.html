@@ -103,12 +103,16 @@
 
   <!-- 1. はじめ（入り口）：2026-10-02 作り直し。絵は画面の幅いっぱい、題名はパスポートの表紙 -->
   <section id="s-start" class="start">
-    <!-- 背景：区域ごとに分かれた動物王国の上を、ドローンで飛んでいるように切れ目なくゆっくり移動する（2026-10-02 ゆーしん「ズートピアみたいに区域ごとに」）。
-         Higgsfieldで作った12秒の空撮動画（MiniMax）を繰り返し流す。サバンナ→滝の森→フラミンゴの湖→氷の区域を回って全体に戻る。最初と最後が同じ場面なので切れ目なくつながる。
-         動画を流せない端末（iPhoneの低電力モードなど）では、下の写真がそのまま見える -->
-    <div class="gate kingdom" aria-hidden="true">
-      <img src="/static/kingdom-tour-poster.webp" alt="">
-      <video id="flight" src="/static/kingdom-tour.mp4" poster="/static/kingdom-tour-poster.webp" autoplay muted loop playsinline preload="auto"></video>
+    <!-- 背景：8つの生息地を、ドローンで飛んでいるようにゆっくり動かしながら順番につなぐ（2026-10-02。Higgsfieldの動画は使わず、ブラウザで動かす） -->
+    <div class="gate drone" aria-hidden="true">
+      <img src="/static/habitat-savanna.webp" alt="">
+      <img src="/static/habitat-rainforest.webp" alt="">
+      <img src="/static/habitat-antarctica.webp" alt="">
+      <img src="/static/habitat-flamingo.webp" alt="">
+      <img src="/static/habitat-ocean.webp" alt="">
+      <img src="/static/habitat-bamboo.webp" alt="">
+      <img src="/static/habitat-outback.webp" alt="">
+      <img src="/static/habitat-tundra.webp" alt="">
     </div>
     <div class="start-space"></div>
 
@@ -231,8 +235,6 @@ function renderQuestion() {
 
 // お店のあいことば：合っていれば診断を始める。
 // 画面を開き直したら毎回入れ直す（覚えておくと、次の人やほかの人に数字が見えてしまうため。2026-10-01 ゆーしん）
-// 動きが苦手な設定の人には、背景の動画を止めて最初の場面だけ見せる
-if (matchMedia('(prefers-reduced-motion: reduce)').matches) { const v = document.getElementById('flight'); if (v) { v.removeAttribute('autoplay'); v.pause(); } }
 const TICKET = {{ (ticket or '') | tojson }};  // チケットのQRから開いたときだけ入る（このときはお店のあいことばはいらない）
 let shop = '';
 try { localStorage.removeItem('shopCode'); } catch (e) {}  // 前の版で覚えていた数字を消す
