@@ -60,7 +60,7 @@
       // 待たずに抜ける（2026-10-02 ゆーしん）。抜けた側が先に切断したので、記録上はこちらの不戦勝にしてパスポートへ戻る
       el.querySelector(".gone-leave").onclick = () => { if (onLeave) onLeave(); };
     }
-    el.querySelector(".gone-left").textContent = `あと ${Math.max(0, Math.ceil(left))} 秒で、あなたの不戦勝になります`;
+    el.querySelector(".gone-left").textContent = `あと ${Math.max(0, Math.ceil(left))} 秒待っても戻らなければ、対戦はここまでになります`;
   }
 
   // 条件がそろうまで、0.7秒ごとに試合の状態を見に行く。途中で不戦勝・不戦敗が決まったら、その印を返す
@@ -168,15 +168,15 @@
       if (picked === FORFEIT_WIN || picked === FORFEIT_LOSE) {
         const sheet = document.getElementById("sheet"), back = document.getElementById("backdrop");
         if (sheet) sheet.hidden = true; if (back) back.hidden = true;
-        lost(picked === FORFEIT_WIN ? "相手が戻らなかったので、あなたの不戦勝！" : "通信が切れている間に、相手の不戦勝になりました"); break;
+        lost(picked === FORFEIT_WIN ? "相手がもどってこなかったので、対戦はここまでになったよ" : "はなれている間に、対戦が終わったよ"); break;
       }
       if (known[mine] == null) { Sfx.select(); await send(m, { kind: "pick", round, value: picked }); }
 
       // 2. 相手が選ぶのを待つ
       renderBattle(view({ phaseText: "相手が技を選んでいます…", picks: { player: player.skills[picked].name, enemy: "考え中…" } }));
       const foePick = known[theirs] != null ? Number(known[theirs]) : await until(m, (s) => (s.picks[String(round)] || {})[theirs]);
-      if (foePick === FORFEIT_WIN) { lost("相手が戻らなかったので、あなたの不戦勝！"); break; }
-      if (foePick === FORFEIT_LOSE) { lost("通信が切れている間に、相手の不戦勝になりました"); break; }
+      if (foePick === FORFEIT_WIN) { lost("相手がもどってこなかったので、対戦はここまでになったよ"); break; }
+      if (foePick === FORFEIT_LOSE) { lost("はなれている間に、対戦が終わったよ"); break; }
       const plan = { [mine]: player.skills[picked], [theirs]: enemy.skills[foePick] };
 
       // 3. 2人の技を同時に見せる
@@ -235,7 +235,7 @@
           await wait(900);
         }
       }
-      if (broken) { lost(broken === FORFEIT_WIN ? "相手が戻らなかったので、あなたの不戦勝！" : "通信が切れている間に、相手の不戦勝になりました"); break; }
+      if (broken) { lost(broken === FORFEIT_WIN ? "相手がもどってこなかったので、対戦はここまでになったよ" : "はなれている間に、対戦が終わったよ"); break; }
       if (alive(player) && alive(enemy)) {
         const mark = log.length;
         endRound(lo, hi, log);

@@ -915,7 +915,7 @@ def battle_wait():
     if cur and not cur.get("done") and time.time() - store.pvp_last_active(cur) < 90:
         return jsonify({"ok": True, "ready": True, "match": cur["id"], "seed": cur["seed"], "resume": True,
                         "side": "lo" if r["serial"] == cur["lo"] else "hi"})
-    # 抜けている間に相手の不戦勝で終わっていたとき（5分以内）は、それを知らせる
+    # 抜けている間に対戦が終わっていたとき（5分以内）は、それを知らせる（2026-10-02 一度消したが、ゆーしん「やっぱこの修正しなくていい」で戻した）
     if cur and cur.get("forfeit") and time.time() - store.pvp_last_active(cur) < 300 \
             and cur["forfeit"] != ("lo" if r["serial"] == cur["lo"] else "hi") and not body.get("again"):
         return jsonify({"ok": True, "ready": False, "forfeited": True})
@@ -924,6 +924,10 @@ def battle_wait():
     if not ready:
         return jsonify({"ok": True, "ready": False})
     m = store.pvp_start(r["serial"], vs)
+    # 試合が始まったら、2人の待ち合わせの記録は消す（残っていると、片方が抜けたあとに、いない相手と次の試合が始まってしまう）。
+    # もう片方は、次の問い合わせで上の「続いている試合に戻す」から同じ試合に入る
+    store.battle_leave(r["serial"])
+    store.battle_leave(vs)
     write_log({"event": "battle", "serial": r["serial"], "vs": vs, "match": m["id"]})
     return jsonify({"ok": True, "ready": True, "match": m["id"], "seed": m["seed"],
                     "side": "lo" if r["serial"] == m["lo"] else "hi"})

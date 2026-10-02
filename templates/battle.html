@@ -34,6 +34,8 @@
   #pvp-gone .gone-left { font-weight: 800; color: #3f7429; }
   #pvp-gone .gone-leave { width: 100%; margin-top: .8rem; }
   @keyframes gonein { from { transform: scale(.94); } to { transform: none; } }
+  /* battle.js の終わりのボタンは使わない（すぐ結果の画面に切りかえるため、一瞬も見せない） */
+  #rematch, #restart { display: none !important; }
   /* 結果の画面（2026-10-02） */
   .result-screen { display: flex; flex-direction: column; gap: .6rem; flex: 1 1 auto; min-height: 0; animation: rIn .35s ease-out; }
   @keyframes rIn { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -43,6 +45,7 @@
   .result-screen.lose .r-outcome { color: #5a6b7a; }
   .result-screen.draw .r-outcome { color: #3f7429; }
   @keyframes rPop { from { transform: scale(.6); } to { transform: none; } }
+  .r-note { margin: -.3rem 0 0; text-align: center; color: #8a765a; font-size: .9rem; }
   .r-vs { display: flex; align-items: center; justify-content: center; gap: .6rem; }
   .r-side { flex: 1; max-width: 10rem; display: flex; flex-direction: column; align-items: center; text-align: center; gap: .15rem; }
   .r-side b { font-size: .85rem; color: #3f7429; } .r-side small { font-size: .8rem; color: #8a765a; }
@@ -92,13 +95,13 @@ function setArt(sel, src) {
 const againUrl = () => ENEMY ? location.pathname + '?vs=' + ENEMY.serial + '&again=1' : location.pathname;
 
 // 戦いが終わったら、結果とログが見える画面に切りかえる（2026-10-02 ゆーしん「ログが見える画面に飛んで、もう一回・パスポートに戻るを選べるように」）
-// battle.js が終わりのボタン（#rematch）を出したら、最後の一撃を少し見せてから、その画面のHP・ログを読み取って結果の画面を作る
+// battle.js が終わりのボタン（#rematch）を出したら、すぐその画面のHP・ログを読み取って結果の画面を作る
 let resultShown = false;
 function showResult() {
   if (resultShown) return;
   resultShown = true;
   const phase = (document.querySelector('.phase') || {}).textContent || '';
-  const outcome = phase.replace(/^ラウンド\s*\d+\s*/, '').trim() || '対戦終了';
+  let outcome = phase.replace(/^ラウンド\s*\d+\s*/, '').trim() || '対戦終了';
   const round = (phase.match(/ラウンド\s*(\d+)/) || [])[1] || '';
   const huds = [...document.querySelectorAll('.hud')].map((h) => ({
     name: (h.querySelector('h2') || {}).textContent || '',
@@ -116,12 +119,16 @@ function showResult() {
     if (sheet) sheet.hidden = true;
     const bd = document.getElementById('backdrop'); if (bd) bd.hidden = true;
   }
+  let note = '';
+  if (/もどってこなかった/.test(outcome)) { note = outcome; outcome = 'おつかれさま'; }
+  else if (/はなれている間/.test(outcome)) { note = outcome; outcome = 'おつかれさま'; }
   const tone = /勝ち/.test(outcome) ? 'win' : /負け/.test(outcome) ? 'lose' : 'draw';
   const art = (src, label) => `<div class="r-art">${src && !/\/art\//.test(src) ? `<img src="${src}" alt="">` : `<span>${label}</span>`}</div>`;
   app.innerHTML = `
     <div class="result-screen ${tone}">
       <p class="phase">${round ? 'ラウンド ' + round + '　' : ''}対戦終了</p>
       <h1 class="r-outcome">${outcome}</h1>
+      ${note ? `<p class="r-note">${note}</p>` : ''}
       <div class="r-vs">
         <div class="r-side me">${art(myImg, 'あなた')}<b>${me.name}</b><small>${me.hp}</small></div>
         <span class="r-x">VS</span>
@@ -146,9 +153,8 @@ new MutationObserver(() => {
   if (again && !again.dataset.kd) {
     again.dataset.kd = '1';
     const back = document.getElementById('restart'); if (back) back.remove();
-    again.textContent = '結果を見る';
-    again.onclick = showResult;
-    setTimeout(showResult, 1600);   // 最後の一撃を見せてから、自動で結果の画面へ
+    again.hidden = true;            // 「結果を見る」のボタンは出さず、すぐ結果の画面へ（2026-10-02 ゆーしん）
+    setTimeout(showResult, 0);
   }
 }).observe(app, { childList: true, subtree: true });
 
@@ -171,12 +177,12 @@ if (!ENEMY) {
         </div>
       </div>`;
   }
-  // 自分が抜けている間に、相手の不戦勝で終わっていたとき
+  // 自分がはなれている間に、対戦が終わっていたとき
   function forfeitedView() {
     app.innerHTML = `
       <div class="waitbox">
         <p class="phase">友人戦</p>
-        <div class="win wait-card"><h2>通信が切れている間に、相手の不戦勝になりました</h2>
+        <div class="win wait-card"><h2>前の対戦は、はなれている間に終わったよ</h2>
           <p>もう一度戦うときは、下のボタンを押して、相手にも番号を入れてもらってね</p></div>
         <div class="dock"><button class="primary" id="retry" type="button">もう一回</button></div>
       </div>`;
