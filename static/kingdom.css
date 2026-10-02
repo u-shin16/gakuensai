@@ -230,3 +230,36 @@ body.at-start .mockbadge { position: fixed; top: 10px; right: 10px; z-index: 30;
 #shopStatus { min-height: 1.4em; margin-top: 10px; color: #c8442f; text-align: center; font-size: .85rem; font-weight: 800; }
 
 @media (min-width: 700px) { .cover { margin-top: -110px; } }
+
+/* ===== はじめの画面を1画面に収める（2026-10-02 ゆーしん「スクロールしないといけないのがだるい」） =====
+   画面の高さいっぱいを使い、絵の部分だけが伸び縮みする。ほかの部品は小さめにまとめる */
+body.at-start { padding-top: 0 !important; padding-bottom: 0 !important; }
+.start { height: 100vh; height: 100dvh; justify-content: flex-start; }
+.gate { flex: 1 1 auto; height: auto !important; min-height: 120px; margin-top: 0 !important; }
+.gate img { position: absolute; inset: 0; }
+.cover { flex: none; width: 196px; margin-top: -78px !important; padding: 14px 14px 12px; }
+.cover .crest { width: 50px; height: 50px; margin-bottom: 4px; }
+.cover .kingdom { font-size: 1.28rem; }
+.cover .en { margin: 1px 0 7px; font-size: .5rem; }
+.cover .pp { font-size: .9rem; padding: 4px 0; }
+.cover .foot { margin-top: 7px; font-size: .5rem; }
+.flow { flex: none; margin: 14px 0 10px; }
+.flow li { font-size: .68rem; }
+.flow i { width: 26px; height: 26px; font-size: .8rem; margin-bottom: 4px; }
+.flow li + li::before { top: 12px; }
+.entry { flex: none; padding: 12px 16px 6px; margin-bottom: max(14px, env(safe-area-inset-bottom)); }
+.entry label.h { margin-bottom: 6px; font-size: .88rem; }
+.entry label.h small { display: inline; margin-left: 4px; }
+.entry #shopCode { font-size: 1.35rem; padding: 7px 0 7px .5em; margin-bottom: 14px; }
+.entry .ticketno { margin-bottom: 12px; }
+.entry button.big { margin-top: 6px; padding-top: 14px; padding-bottom: 14px; }
+#shopStatus { margin-top: 4px; }
+
+/* 背の高い画面（PCなど）は表紙を大きく */
+@media (min-height: 820px) {
+  .cover { width: 236px; margin-top: -100px !important; padding: 20px 18px 16px; }
+  .cover .crest { width: 70px; height: 70px; }
+  .cover .kingdom { font-size: 1.55rem; }
+  .cover .pp { font-size: 1.05rem; }
+  .flow { margin: 22px 0 16px; }
+}
