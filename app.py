@@ -957,7 +957,9 @@ def pvp_act():
         elif kind == "done":
             store.pvp_set(mid, {"done": True})
         elif kind == "ping":   # 生きている合図（3秒ごと）。相手の画面はこれで「切断中」かどうかを見る
-            store.pvp_set(mid, {"seen": {side: time.time()}})
+            store.pvp_set(mid, {"seen": {side: time.time()}, "away": {side: False}})
+        elif kind == "away":   # 画面を閉じた・ホーム画面に戻った・ほかのアプリに切り替えた（すぐ「切断中」を出すため）
+            store.pvp_set(mid, {"away": {side: True}})
         elif kind == "forfeit":   # 相手が戻らなかったので、自分の不戦勝で終わる
             store.pvp_set(mid, {"done": True, "forfeit": side})
         else:
@@ -975,7 +977,7 @@ def pvp_state():
         return jsonify({"ok": False}), 403
     m = store.pvp_get(who[0])
     return jsonify({"ok": True, "picks": m.get("picks", {}), "qte": m.get("qte", {}), "done": m.get("done", False),
-                    "forfeit": m.get("forfeit", ""), "seen": m.get("seen", {}), "created": m.get("created", 0), "now": time.time()})
+                    "forfeit": m.get("forfeit", ""), "seen": m.get("seen", {}), "away": m.get("away", {}), "created": m.get("created", 0), "now": time.time()})
 
 
 @app.get("/api/stats")

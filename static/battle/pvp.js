@@ -59,22 +59,41 @@
     el.querySelector(".gone-left").textContent = `あと ${Math.max(0, Math.ceil(left))} 秒で、あなたの不戦勝になります`;
   }
 
-  // 条件がそろうまで、0.7秒ごとに試合の状態を見に行く。相手が抜けたら「切断中」を出し、60秒戻らなければ不戦勝
+  // 条件がそろうまで、0.7秒ごとに試合の状態を見に行く。途中で不戦勝・不戦敗が決まったら、その印を返す
   async function until(m, check) {
     while (true) {
+      if (m.ended) return m.ended;
       try {
         const s = await state(m);
-        if (s) {
-          if (s.forfeit === m.theirs) { goneOverlay(null); return FORFEIT_LOSE; }   // 自分が抜けている間に相手の不戦勝になっていた
-          const v = check(s);
-          if (v !== undefined && v !== null) { goneOverlay(null); return v; }
-          const away = s.now - Math.max(s.created || 0, (s.seen || {})[m.theirs] || 0);
-          if (away > GONE_LIMIT) { goneOverlay(null); await send(m, { kind: "forfeit" }); return FORFEIT_WIN; }
-          goneOverlay(away > GONE_SHOW ? GONE_LIMIT - away : null);
-        }
+        const v = s ? check(s) : undefined;
+        if (v !== undefined && v !== null) return v;
       } catch (e) {}
       await wait(700);
     }
+  }
+
+  // 切断の見張り役：対戦のあいだずっと、1.5秒ごとに相手の合図を見る（2026-10-02 自分が技を選んでいる間も見るように直した。
+  // 前は「相手を待っている間」しか見ておらず、残った人がページを開き直すまで「切断中」が出なかった）
+  function watch(m, onEnd) {
+    let busy = false;
+    const timer = setInterval(async () => {
+      if (m.ended || busy) return;
+      busy = true;
+      try {
+        const s = await state(m);
+        if (s && !m.ended) {
+          if (s.forfeit === m.theirs) { m.ended = FORFEIT_LOSE; goneOverlay(null); onEnd(); }   // 自分が抜けている間に相手の不戦勝になっていた
+          else {
+            const away = s.now - Math.max(s.created || 0, (s.seen || {})[m.theirs] || 0);
+            if (away > GONE_LIMIT) { m.ended = FORFEIT_WIN; goneOverlay(null); send(m, { kind: "forfeit" }); onEnd(); }
+            // 相手が画面を閉じた・ホームに戻ったときはすぐ、合図が止まっただけ（電波など）のときは10秒で「切断中」
+            else goneOverlay(away > GONE_SHOW || (s.away || {})[m.theirs] ? GONE_LIMIT - away : null);
+          }
+        }
+      } catch (e) {}
+      busy = false;
+    }, 1500);
+    return () => { clearInterval(timer); goneOverlay(null); };
   }
 
   async function playPvp(m) {
@@ -87,10 +106,21 @@
     m.theirs = theirs;
     // 生きている合図：3秒ごと（画面を閉じたり、ほかのアプリに切り替えたりすると止まる）
     send(m, { kind: "ping" });
-    const beat = setInterval(() => { if (!finished) send(m, { kind: "ping" }); else clearInterval(beat); }, 3000);
+    const beat = setInterval(() => { if (!finished && !document.hidden) send(m, { kind: "ping" }); else if (finished) clearInterval(beat); }, 3000);
+    // 自分が画面を閉じた・ホーム画面に戻った・ほかのアプリに切り替えたら、すぐ相手に知らせる。戻ってきたらすぐ合図
+    const awayBeacon = () => {
+      if (finished) return;
+      navigator.sendBeacon("/api/pvp/act", new Blob([JSON.stringify({ match: m.id, token: m.token, kind: "away" })], { type: "application/json" }));
+    };
+    const onVis = () => { if (document.hidden) awayBeacon(); else if (!finished) send(m, { kind: "ping" }); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", awayBeacon);
     // 開き直したとき：サーバーに残っている2人の技とタイミングの結果（これまでのぶん）
     let hist = { picks: {}, qte: {} };
     try { hist = (await state(m)) || hist; } catch (e) {}
+    let endNow = () => {};
+    const ended = new Promise((resolve) => { endNow = resolve; });
+    const unwatch = watch(m, () => endNow(m.ended));
     const realWait = window.wait;
     const fastWait = () => Promise.resolve();
     shownHp = null;
@@ -111,7 +141,7 @@
       window.wait = replay ? fastWait : realWait;
       // 1. 自分の技を選ぶ（選び方は battle.js と同じ）。開き直す前に選んでいたら、それを使う
       if (known[mine] == null) renderBattle(view({ command: true, waiting: true, phaseText: "行動を選ぶ" }));
-      const picked = known[mine] != null ? Number(known[mine]) : await new Promise((resolve) => {
+      const picked = known[mine] != null ? Number(known[mine]) : await Promise.race([ended, new Promise((resolve) => {
         document.querySelectorAll("[data-skill]").forEach((button) => {
           button.onclick = () => {
             const skill = player.skills[Number(button.dataset.skill)];
@@ -125,7 +155,12 @@
             if (use) use.onclick = () => { close(); resolve(Number(button.dataset.skill)); };
           };
         });
-      });
+      })]);
+      if (picked === FORFEIT_WIN || picked === FORFEIT_LOSE) {
+        const sheet = document.getElementById("sheet"), back = document.getElementById("backdrop");
+        if (sheet) sheet.hidden = true; if (back) back.hidden = true;
+        lost(picked === FORFEIT_WIN ? "相手が戻らなかったので、あなたの不戦勝！" : "通信が切れている間に、相手の不戦勝になりました"); break;
+      }
       if (known[mine] == null) { Sfx.select(); await send(m, { kind: "pick", round, value: picked }); }
 
       // 2. 相手が選ぶのを待つ
@@ -159,7 +194,8 @@
         } else if (skill.qte && actor === player) {
           const qteLayout = qteWindow(player.type === "鳥類");   // 帯の位置は自分の画面だけのこと（結果の倍率だけ相手に送る）
           renderBattle(view({ qte: true, qteLayout, phaseText: `${skill.name}：緑の帯で止める` }));
-          const result = await askQte(auraSum(player, "qteSlow") > 0, qteLayout);
+          const result = await Promise.race([ended, askQte(auraSum(player, "qteSlow") > 0, qteLayout)]);
+          if (result === FORFEIT_WIN || result === FORFEIT_LOSE) { broken = result; break; }
           qte = result.mult;
           Sfx.qte(result.label);
           const stop = document.getElementById("qte-stop");
@@ -204,7 +240,9 @@
 
     window.wait = realWait;
     clearInterval(beat);
-    goneOverlay(null);
+    unwatch();
+    document.removeEventListener("visibilitychange", onVis);
+    window.removeEventListener("pagehide", awayBeacon);
     if (!finished) {
       finished = true;
       let phaseText = "引き分け";
