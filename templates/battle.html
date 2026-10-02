@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>バトル｜どうぶつ王国 観光パスポート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/battle/battle.css">
+<link rel="stylesheet" href="/static/battle/kingdom-battle.css">
 <style>
   /* どうぶつ王国の色に少し寄せる（元の見た目はそのまま） */
-  body { background: #2b1d0f; }
   .topbar { max-width: 32rem; margin: 0 auto; padding: calc(10px + env(safe-area-inset-top)) 12px 6px; display: flex; gap: 10px; align-items: center;
     background: #1d4632; color: #e4c47e; font-weight: 700; }
   .topbar a { color: #e4c47e; text-decoration: none; font-size: .9rem; }
@@ -16,7 +18,7 @@
   .err { max-width: 32rem; margin: 0 auto; background: #f4f1ea; padding: 24px 16px; }
 </style>
 </head>
-<body>
+<body style="--me-img: url('/img/{{ r.image_file }}') center / cover no-repeat;{% if enemy and enemy.image_file %} --foe-img: url('/img/{{ enemy.image_file }}') center / cover no-repeat;{% endif %}">
 <div class="topbar">
   <a href="/r/{{ token }}">← パスポートに戻る</a>
   <span>No.{{ '%04d' % r.serial }} {{ r.monster }}{% if enemy %} vs No.{{ '%04d' % enemy.serial }} {{ enemy.monster }}{% else %} vs コンピューター{% endif %}</span>

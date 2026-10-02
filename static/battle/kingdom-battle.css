@@ -1,0 +1,105 @@
+/* バトル画面を「どうぶつ王国」の見た目に合わせる（2026-10-02 ゆーしん「本アプリと合うように、ボタンに動き、PCとスマホどちらでも」）
+   メンバーの battle.js・quiz.js・battle.css には手を入れず、ここで上から重ねる */
+:root { --cream: #fffaf0; --paper: #fdf6e6; --ink: #4a3826; --muted: #8a765a; --leaf: #5c9a3c; --leaf-dark: #3f7429;
+  --pine: #1d4632; --gold: #e4c47e; --accent: #f2a541; --line: #e6d8b4;
+  --paw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='%235c9a3c'%3E%3Cellipse cx='20' cy='27' rx='9' ry='7.5'/%3E%3Cellipse cx='9' cy='16' rx='3.6' ry='4.4'/%3E%3Cellipse cx='16' cy='10' rx='3.6' ry='4.6'/%3E%3Cellipse cx='24' cy='10' rx='3.6' ry='4.6'/%3E%3Cellipse cx='31' cy='16' rx='3.6' ry='4.4'/%3E%3C/g%3E%3C/svg%3E"); }
+
+/* 背景：サバンナの写真をうすく敷く。真ん中に紙のような面を置く */
+html { background: linear-gradient(rgba(30,20,8,.3), rgba(30,20,8,.55)), url("/static/habitat-savanna.webp") center / cover no-repeat fixed, #2a1d0f; min-height: 100%; }
+body { background: transparent !important; font-family: "M PLUS Rounded 1c", "Hiragino Sans", sans-serif; color: var(--ink); overflow-x: clip; }
+main { background: rgba(253,246,230,.94); min-height: calc(100dvh - 52px); border-radius: 0; box-shadow: 0 10px 40px rgba(0,0,0,.35);
+  padding-top: .75rem !important; }
+
+/* 上の帯 */
+.topbar { position: sticky; top: 0; z-index: 6; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+.topbar a { flex-shrink: 0; white-space: nowrap; }
+.win .bar-row p { white-space: nowrap; }
+.win .bar-row .trait { white-space: normal; text-align: right; font-size: .75rem; }
+.topbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* ラウンドの表示：小さな木の札 */
+.phase { align-self: center; background: linear-gradient(#b98048, #a5713d); color: #fff8e6; border: 3px solid #7a5028; border-radius: 12px;
+  padding: .35rem 1rem; box-shadow: 0 3px 0 #7a5028; animation: bpop .35s ease-out; }
+
+/* 自分と相手の札 */
+.win { background: var(--cream); border: 2px solid var(--line); border-radius: 18px; box-shadow: 0 4px 0 #e0d2ad; }
+.win h2 { color: var(--leaf-dark); font-size: .85rem; }
+#card-enemy { border-color: #e9c3b0; box-shadow: 0 4px 0 #dfb39c; }
+#card-player { border-color: #cfe3b4; box-shadow: 0 4px 0 #b9d39a; }
+/* 札の右上に、その動物の絵（パスポートの絵） */
+#card-player, #card-enemy { padding-right: 3.9rem; }
+#card-player::after, #card-enemy::after { content: ""; position: absolute; top: .5rem; right: .55rem; width: 2.9rem; height: 2.9rem; border-radius: 50%;
+  border: 3px solid #fff; box-shadow: 0 3px 8px rgba(0,0,0,.2); background: var(--paper) var(--paw) center / 60% no-repeat; }
+#card-player::after { background: var(--me-img, var(--paper) var(--paw) center / 60% no-repeat); animation: bob 2.4s ease-in-out infinite; }
+#card-enemy::after { background: var(--foe-img, #f3e6d3 var(--paw) center / 60% no-repeat); animation: bob 2.4s ease-in-out -1.2s infinite; }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+/* HPのバー：つやのある緑、少ないと赤 */
+.hp { height: 16px; background: #eadfc7; border: 2px solid #e2d5b2; }
+.hp > span { background: linear-gradient(#7fc25b, var(--leaf)); box-shadow: inset 0 2px 0 rgba(255,255,255,.35); }
+.hp.low > span { background: linear-gradient(#f08a5d, #c8442f); animation: lowpulse 1s ease-in-out infinite; }
+@keyframes lowpulse { 50% { filter: brightness(1.25); } }
+
+/* ログの行 */
+.logline { background: var(--cream); border-color: var(--line); border-radius: 14px; }
+.logline p { animation: bfade .3s ease-out; }
+.logline button, .textbtn { color: var(--leaf-dark); }
+
+/* 技のボタン：肉球つき、さわると浮く、押すとへこむ。出てくるときにぽんと出る */
+.choice { position: relative; background: var(--cream); border: 2px solid #cfe3b4; border-radius: 16px; box-shadow: 0 4px 0 #b9d39a;
+  transition: transform .15s, box-shadow .15s, border-color .15s; -webkit-tap-highlight-color: transparent; color: var(--ink); }
+.skill-grid .choice { padding-left: 2.6rem; animation: bpop .3s ease-out both; }
+.skill-grid .choice:nth-child(2) { animation-delay: .04s; } .skill-grid .choice:nth-child(3) { animation-delay: .08s; }
+.skill-grid .choice:nth-child(4) { animation-delay: .12s; } .skill-grid .choice:nth-child(5) { animation-delay: .16s; }
+.skill-grid .choice:nth-child(6) { animation-delay: .2s; }
+.skill-grid .choice::before { content: ""; position: absolute; left: .8rem; top: 50%; width: 1.2rem; height: 1.2rem; margin-top: -.6rem;
+  background: var(--paw) center / contain no-repeat; opacity: .5; transition: transform .15s, opacity .15s; }
+.choice .detail { color: var(--muted); }
+.choice:active { transform: translateY(3px) scale(.98); box-shadow: 0 1px 0 #b9d39a; }
+.choice:active::before { transform: scale(1.35); opacity: 1; }
+@media (hover: hover) {
+  .choice:hover { transform: translateY(-2px); border-color: var(--leaf); box-shadow: 0 6px 0 #b9d39a; }
+  .choice:hover::before { transform: rotate(-12deg); opacity: .9; }
+}
+.choice:disabled { box-shadow: none; }
+
+/* 大きいボタン：アプリと同じオレンジ、押すとぽよん */
+.primary { background: var(--accent); color: #4a2a00; border-radius: 18px; box-shadow: 0 4px 0 #c47f22; transition: transform .12s, box-shadow .12s; }
+.primary:active { transform: translateY(3px); box-shadow: 0 1px 0 #c47f22; animation: boing .45s; }
+.ghost { background: var(--cream); border-color: var(--line); border-radius: 18px; box-shadow: 0 3px 0 #e0d2ad; color: var(--ink); }
+.ghost:active { transform: translateY(2px); box-shadow: 0 1px 0 #e0d2ad; }
+#qte-stop { font-size: 1.25rem; animation: breathe 1s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scale(1.04); } }
+@keyframes boing { 30% { transform: scale(1.06, .94); } 60% { transform: scale(.97, 1.03); } 100% { transform: none; } }
+
+/* タイミングバー */
+.qte { background: #eadfc7; border: 2px solid #e2d5b2; overflow: hidden; }
+.qte .good { background: #cfe3b4; } .qte .perfect { background: var(--leaf); }
+.qte .marker { background: var(--pine); border-radius: 3px; box-shadow: 0 0 0 2px #fff; }
+
+/* 状態のバッジ・下から出る説明 */
+.badge { border-radius: 12px; }
+.sheet { background: var(--cream); border-radius: 22px 22px 0 0; animation: sheetup .25s ease-out; }
+.sheet h2 { color: var(--leaf-dark); }
+
+@keyframes sheetup { from { transform: translate(-50%, 30px); } to { transform: translate(-50%, 0); } }
+
+@keyframes bpop { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes bfade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ===== PC（広い画面）：自分と相手を横に並べ、技は3列 ===== */
+@media (min-width: 760px) {
+  .topbar, main { max-width: 760px !important; }
+  main { border-radius: 0 0 24px 24px; min-height: auto; margin-bottom: 32px; padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
+  .stage { display: grid !important; grid-template-columns: 1fr 1fr; gap: .8rem; align-content: start; }
+  .stage > * { grid-column: 1 / -1; }
+  .stage > .phase { grid-row: 1; justify-self: center; }
+  #card-player { grid-column: 1; grid-row: 2; }
+  #card-enemy { grid-column: 2; grid-row: 2; }
+  .skill-grid { grid-template-columns: repeat(3, 1fr); }
+  .dock { max-width: 640px; width: 100%; justify-self: center; }
+  .sheet { width: min(32rem, 100%); border-radius: 22px; bottom: 50%; transform: translate(-50%, 50%); }
+  @keyframes sheetup { from { transform: translate(-50%, 56%); } to { transform: translate(-50%, 50%); } }
+}
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

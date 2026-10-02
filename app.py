@@ -873,7 +873,8 @@ def battle_page(token: str):
         found = store.find_by_serial(int(vs))
         if found and found[1].get("battle") and found[1]["serial"] != r["serial"]:
             e = found[1]
-            enemy = {"result": e["battle"], "month": e["month"], "serial": e["serial"], "monster": e.get("monster", "")}
+            enemy = {"result": e["battle"], "month": e["month"], "serial": e["serial"], "monster": e.get("monster", ""),
+                     "image_file": e.get("image_file", "")}
         else:
             return render_template("battle.html", r=r, token=token, enemy=None,
                                    error="その番号のパスポートは見つからないか、バトルできないよ"), 404
