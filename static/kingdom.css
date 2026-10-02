@@ -309,3 +309,22 @@ button, a.btn, .examples button, .styles button { touch-action: manipulation; -w
 body.has-back .sign { margin-top: 44px; }
 /* ダミーモードの印は、どの画面でも右上に小さく固定（戻るボタンと重ならないように） */
 .mockbadge { position: fixed !important; top: 10px; right: 10px; z-index: 30; margin: 0 !important; font-size: .68rem !important; padding: 3px 10px !important; }
+
+/* ===== はじめの画面：写真を画面いっぱいの背景に（2026-10-02 ゆーしん「背景をもっといい感じに」） =====
+   前は写真が上半分で切れて、下は無地のクリーム色だった。写真を画面全体に敷き、表紙と手続きをその上に乗せる。
+   縦長の画面（スマホ）には縦の写真、横長（PC）には横の写真を使う */
+.gate { position: fixed !important; inset: 0; width: auto !important; height: auto !important; margin: 0 !important; min-height: 0; z-index: 0; }
+.gate picture, .gate img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.gate img { object-fit: cover; object-position: 50% 35%; -webkit-mask-image: none; mask-image: none; animation: gatezoom 24s ease-in-out infinite alternate; }
+/* 下ほど暗くして、上に乗せた文字と紙を読みやすく。四隅も少し落とす */
+.gate::after { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(rgba(20,12,4,.05) 0%, rgba(20,12,4,0) 30%, rgba(20,12,4,.35) 62%, rgba(20,12,4,.72) 100%),
+              radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(0,0,0,.28) 100%); }
+.start { position: relative; z-index: 1; }
+.start-space { flex: 1 1 auto; min-height: 90px; }       /* 写真の上のほう（門）を見せる余白。画面が低いと縮む */
+.cover { margin-top: 0 !important; }
+.flow li { color: #fff6e2 !important; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.flow li + li::before { border-top-color: rgba(255,240,210,.6); }
+.entry { background: rgba(255,250,240,.93); border-color: rgba(255,255,255,.6); box-shadow: 0 14px 34px rgba(0,0,0,.35);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+body.at-start { background: #2a1d0f !important; }       /* 写真が読み込まれるまでの色 */
