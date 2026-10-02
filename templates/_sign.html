@@ -1,0 +1,9 @@
+{# どうぶつ王国の木の看板（お客さんのページの一番上）。sub に小さい文字、main に大きい文字 #}
+<div class="sign">
+  <div class="board">
+    <svg class="leaf l" viewBox="0 0 30 30" aria-hidden="true"><path d="M3 27C3 12 13 3 27 3c0 14-9 24-24 24z" fill="#6fae47"/><path d="M5 25L22 8" stroke="#3f7429" stroke-width="2" fill="none"/></svg>
+    <svg class="leaf r" viewBox="0 0 30 30" aria-hidden="true"><path d="M3 27C3 12 13 3 27 3c0 14-9 24-24 24z" fill="#86c25a"/><path d="M5 25L22 8" stroke="#3f7429" stroke-width="2" fill="none"/></svg>
+    <small>{{ sub or 'どうぶつ王国' }}</small><b>{{ main or '観光パスポート' }}</b>
+  </div>
+  <div class="posts"><i></i><i></i></div>
+</div>

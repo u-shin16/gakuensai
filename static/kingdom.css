@@ -1,0 +1,173 @@
+/* どうぶつ王国の見た目（2026-10-02 ゆーしん「動物王国に観光するためのパスポートを発行する」）
+   各ページの色の決まり（--bg など）を上書きして、草原・木の看板・足あと模様にする。
+   質問や文章の中身は変えない。お客さんが見るページだけで読み込む（管理者画面は今のまま）。 */
+:root {
+  --bg: #f4ecd4; --panel: #fffaf0; --panel2: #eaf4d8; --text: #4a3826; --muted: #8a765a; --accent: #f2a541;
+  --leaf: #5c9a3c; --leaf-dark: #3f7429; --wood: #a5713d; --wood-dark: #7a5028; --sky: #cfeaf6;
+}
+
+/* 空 → 草原、その上にうすい足あと */
+body {
+  color: var(--text) !important;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%237a5028' fill-opacity='.07'%3E%3Cellipse cx='30' cy='38' rx='9' ry='8'/%3E%3Ccircle cx='19' cy='26' r='3.6'/%3E%3Ccircle cx='27' cy='21' r='3.6'/%3E%3Ccircle cx='36' cy='22' r='3.6'/%3E%3Ccircle cx='42' cy='29' r='3.6'/%3E%3Cellipse cx='88' cy='94' rx='9' ry='8'/%3E%3Ccircle cx='77' cy='82' r='3.6'/%3E%3Ccircle cx='85' cy='77' r='3.6'/%3E%3Ccircle cx='94' cy='78' r='3.6'/%3E%3Ccircle cx='100' cy='85' r='3.6'/%3E%3C/g%3E%3C/svg%3E"),
+    linear-gradient(var(--sky) 0, #eaf6ee 180px, var(--bg) 420px, #e7dcb9 100%) !important;
+  background-attachment: fixed !important;
+}
+
+/* 木の看板（ページの一番上の題名） */
+.sign { display: flex; flex-direction: column; align-items: center; margin: 4px 0 18px; }
+.sign .board {
+  position: relative; background: linear-gradient(#b98048, var(--wood)); color: #fff8e6; border: 4px solid var(--wood-dark);
+  border-radius: 14px; padding: 10px 26px 12px; text-align: center; box-shadow: 0 6px 0 var(--wood-dark), 0 10px 18px rgba(80,50,20,.25);
+}
+.sign .board small { display: block; font-size: .78rem; letter-spacing: .3em; color: #ffe2a8; font-weight: 800; }
+.sign .board b { display: block; font-size: 1.55rem; letter-spacing: .08em; text-shadow: 0 2px 0 rgba(0,0,0,.2); }
+.sign .posts { display: flex; gap: 90px; height: 16px; }
+.sign .posts i { width: 10px; background: var(--wood-dark); border-radius: 0 0 4px 4px; }
+.sign .leaf { position: absolute; top: -14px; width: 30px; height: 30px; }
+.sign .leaf.l { left: -12px; transform: rotate(-30deg); }
+.sign .leaf.r { right: -12px; transform: scaleX(-1) rotate(-30deg); }
+
+/* 文字と部品の色 */
+h1, h2, .qtext, label.h, .tname { color: var(--text); }
+.lead, .qnum, .kicker, .kana, .mname, .panel .lead, footer { color: var(--muted) !important; }
+button, a.btn { background: var(--accent); color: #4a2a00; box-shadow: 0 4px 0 #c47f22; }
+button:active, a.btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #c47f22; }
+.sub { background: var(--panel) !important; color: var(--text) !important; box-shadow: 0 4px 0 #d9ccaa !important; border: 2px solid #e2d5b2 !important; }
+.back { background: var(--panel) !important; color: var(--text) !important; border: 2px solid #e2d5b2; box-shadow: 0 3px 0 #d9ccaa; }
+
+/* 質問 */
+.progress { background: #e4d9bb !important; }
+.progress i { background: var(--leaf) !important; }
+.choices button { background: var(--panel) !important; color: var(--text) !important; border: 3px solid #cfe3b4; box-shadow: 0 4px 0 #b9d39a; }
+.choices button:active { background: var(--panel2) !important; border-color: var(--leaf); }
+
+/* 入力・絵柄 */
+input[type=text], input { border-color: #cdb88f !important; background: #fff !important; color: var(--text) !important; }
+input:focus { outline: none; border-color: var(--leaf) !important; }
+.examples button { background: var(--panel) !important; color: var(--muted) !important; box-shadow: none; border: 1px solid #e2d5b2; }
+.styles button { background: var(--panel) !important; color: var(--text) !important; box-shadow: 0 4px 0 #d9ccaa; }
+.styles button.on { border-color: var(--leaf) !important; background: var(--panel2) !important; }
+.styles small { color: var(--muted) !important; }
+#status { color: var(--muted) !important; }
+#status.error, .err { color: #c8442f !important; }
+.spinner { border-color: #e4d9bb !important; border-top-color: var(--leaf) !important; }
+
+/* チケット・受け取り */
+.ticketno, .no { background: var(--panel) !important; color: var(--leaf-dark) !important; border: 2px dashed var(--leaf); }
+.pickup { background: var(--panel) !important; color: var(--text) !important; border: 3px solid var(--leaf); box-shadow: 0 5px 0 #b9d39a; }
+.pickup b { color: var(--leaf-dark); }
+
+/* 結果ページ */
+.axes span { background: var(--panel2) !important; color: var(--leaf-dark); font-weight: 800; }
+.panel { background: var(--panel) !important; border: 2px solid #e8dcbc; box-shadow: 0 4px 0 #e0d2ad; }
+.panel h2 { color: var(--leaf-dark); }
+dt { color: var(--wood) !important; }
+.save, footer a { color: var(--leaf-dark) !important; }
+.matchres .score { color: var(--accent) !important; }
+.inplaza { background: var(--panel2) !important; }
+.inplaza b { color: var(--leaf-dark) !important; }
+.art { box-shadow: 0 8px 20px rgba(80,50,20,.18); }
+
+/* カード：観光パスポート風（上に王国の帯） */
+.card { box-shadow: 0 12px 30px rgba(80,50,20,.3) !important; }
+.top .pp { letter-spacing: .12em; }
+
+/* 入り口の絵（はじめの画面）。下は地の色へなじませる */
+.hero { width: 100%; margin: -6px 0 12px; display: block; border-radius: 20px 20px 0 0;
+  -webkit-mask-image: linear-gradient(#000 80%, transparent); mask-image: linear-gradient(#000 80%, transparent); }
+
+/* チケットのページ（中の色が直接書いてあるのを上書き） */
+.box p { color: var(--muted) !important; }
+.box h1 { color: var(--text); }
+
+/* 広場（店の大きい画面）：上の帯を木の看板に */
+body.plaza header { background: linear-gradient(#b98048, var(--wood)) !important; color: #fff8e6; border-bottom: 6px solid var(--wood-dark);
+  box-shadow: 0 6px 18px rgba(80,50,20,.25); }
+body.plaza h1 { color: #fff8e6; text-shadow: 0 2px 0 rgba(0,0,0,.2); }
+body.plaza h1 small { display: block; font-size: .9rem; letter-spacing: .3em; color: #ffe2a8; }
+body.plaza .count { color: #ffe2a8 !important; }
+body.plaza .code { color: #fff8e6; }
+body.plaza .code small { color: #f3dcb6 !important; }
+body.plaza .code b { color: #fff !important; background: var(--leaf); border-radius: 12px; padding: 0 12px; }
+body.plaza #empty { color: var(--wood-dark) !important; }
+body.plaza .staff { background: #f3dcb6; }
+body.plaza #world { background: url("/static/kingdom-meadow.webp") center 65% / cover no-repeat, #a9d37a !important; }
+body.plaza .cloud { display: none; }   /* 雲は背景の絵にあるので、CSSで描いた雲は出さない */
+
+/* ===== 動物っぽい部品と動き（2026-10-02 ゆーしん「ボタンとか動物っぽい感じに、動きがあればいい」） ===== */
+:root {
+  --paw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='%234a2a00'%3E%3Cellipse cx='20' cy='27' rx='9' ry='7.5'/%3E%3Cellipse cx='9' cy='16' rx='3.6' ry='4.4'/%3E%3Cellipse cx='16' cy='10' rx='3.6' ry='4.6'/%3E%3Cellipse cx='24' cy='10' rx='3.6' ry='4.6'/%3E%3Cellipse cx='31' cy='16' rx='3.6' ry='4.4'/%3E%3C/g%3E%3C/svg%3E");
+  --paw-green: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='%235c9a3c'%3E%3Cellipse cx='20' cy='27' rx='9' ry='7.5'/%3E%3Cellipse cx='9' cy='16' rx='3.6' ry='4.4'/%3E%3Cellipse cx='16' cy='10' rx='3.6' ry='4.6'/%3E%3Cellipse cx='24' cy='10' rx='3.6' ry='4.6'/%3E%3Cellipse cx='31' cy='16' rx='3.6' ry='4.4'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* 看板はゆらゆら、葉っぱはそよそよ */
+.sign .board { animation: sway 4s ease-in-out infinite; transform-origin: 50% 120%; }
+.sign .leaf { animation: leafy 2.6s ease-in-out infinite; }
+.sign .leaf.r { animation-delay: -1.3s; }
+@keyframes sway { 0%, 100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
+@keyframes leafy { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+
+/* 入り口の絵はふわっと */
+.hero { animation: floaty 5s ease-in-out infinite; }
+@keyframes floaty { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+
+/* 大きいボタン：くまの耳と肉球。押すとぽよんとはずむ */
+button.big { position: relative; overflow: visible; padding-left: 52px; padding-right: 30px;
+  background-image: var(--paw); background-repeat: no-repeat; background-size: 24px; background-position: 18px 50%;
+  background-color: var(--accent); border-radius: 26px; animation: breathe 2.4s ease-in-out infinite; }
+button.big::before, button.big::after { content: ""; position: absolute; top: -11px; width: 26px; height: 26px; border-radius: 50%;
+  background: radial-gradient(circle at 50% 55%, #f7c6a3 0 36%, var(--accent) 38%); box-shadow: 0 -1px 0 #c47f22 inset; z-index: -1; }
+button.big::before { left: 20px; }
+button.big::after { right: 20px; }
+button.big:hover { animation: boing .6s; }
+button.big:active { animation: none; transform: scale(.94, .9); }
+button.big:disabled { animation: none; }
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+@keyframes boing { 0% { transform: scale(1); } 30% { transform: scale(1.1, .9); } 55% { transform: scale(.95, 1.06); } 80% { transform: scale(1.03, .98); } 100% { transform: scale(1); } }
+
+/* ふつうのボタンも押すとぽよん */
+button:not(.big):active, a.btn:active { transform: scale(.95); }
+.actions button, .actions a.btn { border-radius: 22px; }
+#saveBtn { padding-left: 42px; background-image: var(--paw); background-repeat: no-repeat; background-size: 18px; background-position: 16px 50%; }
+
+/* 質問の選択肢：左に肉球。さわると少し傾いて、押すと肉球がぽんと押される */
+.choices button { position: relative; padding-left: 54px !important; text-align: left; border-radius: 22px;
+  transition: transform .15s, border-color .15s; }
+.choices button::before { content: ""; position: absolute; left: 16px; top: 50%; width: 24px; height: 24px; margin-top: -12px;
+  background: var(--paw-green) center / contain no-repeat; opacity: .35; transition: opacity .15s, transform .15s; }
+.choices button:hover { transform: rotate(-1deg) translateY(-2px); border-color: var(--leaf); }
+.choices button:hover::before { opacity: .8; transform: rotate(-12deg); }
+.choices button:active::before { opacity: 1; transform: scale(1.4); }
+.qtext { animation: popin .35s ease-out; }
+@keyframes popin { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+
+/* 進み具合のバー：足あとが並んでいく */
+.progress { height: 16px !important; border: 2px solid #e2d5b2; }
+.progress i { background: var(--paw-green) 0 50% / 14px repeat-x, var(--panel2) !important; transition: width .4s cubic-bezier(.3,1.4,.5,1) !important; }
+
+/* 絵柄の選択：選ぶとぽよん */
+.styles button.on { animation: boing .5s; }
+
+/* 待っている間：くるくるの代わりに肉球がてくてく */
+.spinner { border: 0 !important; width: 120px !important; height: 40px !important; border-radius: 0 !important; animation: none !important;
+  background: none !important; position: relative; }
+.spinner::before, .spinner::after, #loading::after { content: ""; }
+.spinner::before { position: absolute; inset: 0; background: var(--paw-green) 0 50% / 26px no-repeat, var(--paw-green) 50% 50% / 26px no-repeat, var(--paw-green) 100% 50% / 26px no-repeat;
+  animation: steps 1.2s steps(1) infinite; }
+@keyframes steps {
+  0% { clip-path: inset(0 100% 0 0); } 25% { clip-path: inset(0 66% 0 0); } 50% { clip-path: inset(0 33% 0 0); } 75% { clip-path: inset(0 0 0 0); }
+}
+
+/* 受け取り時間：スタンプがぽんと押される */
+.pickup { position: relative; animation: stamp .55s cubic-bezier(.2,1.6,.4,1); }
+.pickup::after { content: ""; position: absolute; right: 12px; top: 10px; width: 34px; height: 34px; background: var(--paw-green) center / contain no-repeat;
+  transform: rotate(18deg); opacity: .8; }
+@keyframes stamp { from { transform: scale(1.6) rotate(-6deg); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* 戻るボタンにも肉球 */
+.back { padding-left: 34px !important; background-image: var(--paw-green) !important; background-repeat: no-repeat !important; background-size: 16px !important; background-position: 12px 50% !important; }
+
+/* 動きが苦手な人の設定では止める */
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

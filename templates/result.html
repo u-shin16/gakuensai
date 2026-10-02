@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>{{ r.type_name }}｜守り神診断</title>
+<title>{{ r.type_name }}｜どうぶつ王国 観光パスポート</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <style>
@@ -45,9 +45,11 @@
   footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: .8rem; line-height: 1.8; }
   footer a { color: var(--accent); }
 </style>
+<link rel="stylesheet" href="/static/kingdom.css">
 </head>
 <body>
 <main>
+  {% include "_sign.html" %}
   <div class="kicker">No.{{ '%04d' % r.serial }}　あなたは</div>
   <div class="kana">{{ r.type_kana }}</div>
   <h1>{{ r.type_name }}</h1>
@@ -105,7 +107,7 @@
   </div>
 
   <footer>
-    2026.11.21 学園祭の模擬店「守り神診断」<br>
+    2026.11.21 学園祭の模擬店「どうぶつ王国 観光パスポート」<br>
     つくった人のほかのアプリ → <a href="https://webtool-labs.com/" target="_blank" rel="noopener">RakuYade</a>
   </footer>
 </main>

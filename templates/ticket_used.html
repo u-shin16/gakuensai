@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>守り神診断</title>
+<title>どうぶつ王国 観光パスポート</title>
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <style>
   body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
@@ -16,9 +16,11 @@
   p { color: #b9b0d9; line-height: 1.8; }
   a { display: inline-block; margin-top: 8px; padding: 14px 24px; border-radius: 99px; background: #2a2150; color: #fff; font-weight: 800; text-decoration: none; }
 </style>
+<link rel="stylesheet" href="/static/kingdom.css">
 </head>
 <body>
 <div class="box">
+  {% include "_sign.html" %}
   <span class="no">チケット No.{{ t.number }}</span>
   <p>このチケットの質問はもう終わっています。</p>
   {% if pickup %}<div class="pickup">カードの受け取り時間<b>{{ pickup }}</b></div>{% endif %}
