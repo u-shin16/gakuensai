@@ -67,6 +67,53 @@ button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   .ghost:hover { border-color: var(--k-leaf); }
 }
 
+/* ===== 色合いをアプリ（どうぶつ王国）と同じにする（2026-10-02 ゆーしん「ゲーム画面になると急にアプリが変わったみたいになる」）=====
+   配置・大きさはメンバーのまま。背景・文字・枠・HPバー・帯の色と字体だけ合わせる */
+html { background: #e7dcb9; }
+body { font-family: "M PLUS Rounded 1c", "Hiragino Sans", sans-serif !important; color: var(--k-ink) !important;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%237a5028' fill-opacity='.07'%3E%3Cellipse cx='30' cy='38' rx='9' ry='8'/%3E%3Ccircle cx='19' cy='26' r='3.6'/%3E%3Ccircle cx='27' cy='21' r='3.6'/%3E%3Ccircle cx='36' cy='22' r='3.6'/%3E%3Ccircle cx='42' cy='29' r='3.6'/%3E%3Cellipse cx='88' cy='94' rx='9' ry='8'/%3E%3Ccircle cx='77' cy='82' r='3.6'/%3E%3Ccircle cx='85' cy='77' r='3.6'/%3E%3Ccircle cx='94' cy='78' r='3.6'/%3E%3Ccircle cx='100' cy='85' r='3.6'/%3E%3C/g%3E%3C/svg%3E"),
+    linear-gradient(#cfeaf6 0, #eaf6ee 180px, #f4ecd4 420px, #e7dcb9 100%) !important;
+  background-attachment: fixed !important; }
+main { background: transparent !important; }
+/* 上の帯：アプリの木の看板の色 */
+.topbar { background: linear-gradient(#b98048, #a5713d) !important; border-bottom: 3px solid #7a5028; color: #fff8e6 !important; }
+.topbar a { color: #fff8e6 !important; }
+.topbar span { color: #ffe2a8 !important; }
+/* ラウンドの表示：木の札 */
+.phase { color: #5a3a18; }
+.arena-stage > .phase, .stage > .phase, .waitbox > .phase { align-self: center; background: linear-gradient(#b98048, #a5713d); color: #fff8e6;
+  border: 2px solid #7a5028; border-radius: 12px; padding: .25rem .9rem; box-shadow: 0 3px 0 #7a5028; }
+/* 札・HPの帯・ログ：クリーム色と砂色の枠 */
+.win, .hud { background: var(--k-cream) !important; border-color: #e6d8b4 !important; box-shadow: 0 3px 0 #e0d2ad; }
+.win h2, .hud h2 { color: #3f7429 !important; }
+.trait, .detail, .lead { color: var(--k-muted) !important; }
+.logline p { color: var(--k-ink); }
+.logline button, .textbtn { color: #3f7429 !important; }
+/* HPのバー：アプリの緑、少ないと赤 */
+.hp { background: #eadfc7 !important; }
+.hp > span { background: linear-gradient(#7fc25b, var(--k-leaf)) !important; }
+.hp.low > span { background: linear-gradient(#f08a5d, #c8442f) !important; }
+/* キャラの欄と地面 */
+.portrait { border-color: #cdb88f !important; color: var(--k-muted) !important;
+  background: linear-gradient(#fdf6e6, #fdf6e6) padding-box, repeating-linear-gradient(45deg, #fdf6e6, #fdf6e6 6px, #f3e8cc 6px, #f3e8cc 12px) !important; }
+.ground { background: radial-gradient(ellipse at center, rgba(92,154,60,.25), rgba(92,154,60,0) 72%) !important; }
+/* タイミングバー */
+.qte { background: #eadfc7 !important; }
+.qte .good { background: #cfe3b4 !important; }
+.qte .perfect { background: var(--k-leaf) !important; }
+.qte .marker { background: #4a3826 !important; }
+/* 下から出る説明・状態のバッジ・結果の色 */
+.sheet { background: var(--k-cream) !important; color: var(--k-ink); }
+.sheet h2 { color: #3f7429; }
+.backdrop { background: rgba(74,56,38,.45) !important; }
+.badge { background: var(--k-cream); }
+.up { color: #c47f22 !important; }
+/* 友人戦の待ち合わせ */
+.wait-card h2 { color: #3f7429 !important; }
+.myno { background: linear-gradient(#b98048, #a5713d) !important; color: #fff8e6 !important; border: 2px solid #7a5028; }
+.dots i { background: var(--k-leaf) !important; }
+
 /* ===== PC（横に広い画面）：並びはそのまま、全体を広く大きく ===== */
 @media (min-width: 760px) {
   .topbar, main { max-width: 44rem !important; }
