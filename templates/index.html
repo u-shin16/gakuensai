@@ -103,10 +103,13 @@
 
   <!-- 1. はじめ（入り口）：2026-10-02 作り直し。絵は画面の幅いっぱい、題名はパスポートの表紙 -->
   <section id="s-start" class="start">
-    <div class="gate" aria-hidden="true"><picture>
-      <source media="(max-aspect-ratio: 4/5)" srcset="/static/kingdom-entrance-tall.webp">
-      <img src="/static/kingdom-entrance-wide.webp" alt="">
-    </picture></div>
+    <!-- 背景：4つの生息地を、ドローンで飛んでいるようにゆっくり動かしながら順番につなぐ（2026-10-02。Higgsfieldの動画は使わず、ブラウザで動かす） -->
+    <div class="gate drone" aria-hidden="true">
+      <img src="/static/habitat-savanna.webp" alt="">
+      <img src="/static/habitat-rainforest.webp" alt="">
+      <img src="/static/habitat-antarctica.webp" alt="">
+      <img src="/static/habitat-flamingo.webp" alt="">
+    </div>
     <div class="start-space"></div>
 
     <div class="cover">
