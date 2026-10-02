@@ -252,7 +252,7 @@ body.at-start { padding-top: 0 !important; padding-bottom: 0 !important; }
 .entry label.h small { display: inline; margin-left: 4px; }
 .entry #shopCode { font-size: 1.35rem; padding: 7px 0 7px .5em; margin-bottom: 14px; }
 .entry .ticketno { margin-bottom: 12px; }
-.entry button.big { margin-top: 6px; padding-top: 14px; padding-bottom: 14px; }
+.entry button.big { margin-top: 18px; padding-top: 14px; padding-bottom: 14px; }
 #shopStatus { margin-top: 4px; }
 
 /* 背の高い画面（PCなど）は表紙を大きく */
