@@ -903,9 +903,56 @@ def battle_wait():
         return jsonify({"ok": True})
     store.battle_wait(r["serial"], vs)
     ready = store.battle_waiting_for(vs) == r["serial"]
-    if ready:
-        write_log({"event": "battle", "serial": r["serial"], "vs": vs})
-    return jsonify({"ok": True, "ready": ready})
+    if not ready:
+        return jsonify({"ok": True, "ready": False})
+    m = store.pvp_start(r["serial"], vs)
+    write_log({"event": "battle", "serial": r["serial"], "vs": vs, "match": m["id"]})
+    return jsonify({"ok": True, "ready": True, "match": m["id"], "seed": m["seed"],
+                    "side": "lo" if r["serial"] == m["lo"] else "hi"})
+
+
+def _pvp_side(body_or_args) -> tuple[str, str] | None:
+    """試合IDとトークンから、その人が lo と hi のどちらかを返す（その試合の2人だけが書きこめる）。"""
+    mid, token = str(body_or_args.get("match", "")), str(body_or_args.get("token", ""))
+    r = store.get_result(token) if TOKEN_RE.match(token) else None
+    m = store.pvp_get(mid) if re.match(r"^[0-9a-f]{16}$", mid) else None
+    if not r or not m or r["serial"] not in (m["lo"], m["hi"]):
+        return None
+    return mid, ("lo" if r["serial"] == m["lo"] else "hi")
+
+
+@app.post("/api/pvp/act")
+def pvp_act():
+    """友人戦：選んだ技（pick）・タイミングの結果（qte）・終わり（done）を送る。"""
+    body = request.get_json(silent=True) or {}
+    who = _pvp_side(body)
+    if not who:
+        return jsonify({"ok": False}), 403
+    mid, side = who
+    kind = body.get("kind")
+    try:
+        rnd = int(body.get("round", 0))
+        if kind == "pick":
+            store.pvp_set(mid, {"picks": {str(rnd): {side: int(body["value"])}}})
+        elif kind == "qte":
+            store.pvp_set(mid, {"qte": {f"{rnd}-{int(body['step'])}": float(body["value"])}})
+        elif kind == "done":
+            store.pvp_set(mid, {"done": True})
+        else:
+            return jsonify({"ok": False}), 400
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"ok": False}), 400
+    return jsonify({"ok": True})
+
+
+@app.get("/api/pvp/state")
+def pvp_state():
+    """友人戦：いまの試合の状態（2人の技・タイミングの結果）。画面から短い間隔で呼ばれる。"""
+    who = _pvp_side(request.args)
+    if not who:
+        return jsonify({"ok": False}), 403
+    m = store.pvp_get(who[0])
+    return jsonify({"ok": True, "picks": m.get("picks", {}), "qte": m.get("qte", {}), "done": m.get("done", False)})
 
 
 @app.get("/api/stats")

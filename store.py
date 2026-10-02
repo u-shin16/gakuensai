@@ -329,3 +329,40 @@ def battle_waiting_for(serial: int, max_age: float = 12.0) -> int | None:
 
 def battle_leave(serial: int) -> None:
     col("battle_wait").document(str(serial)).delete()
+
+
+# ===== 友人戦の対戦（2026-10-02 ゆーしん「ポケモンバトルみたいに、相手と自分のやってることが合うように」） =====
+# pvp/{試合ID} = {lo, hi（番号の小さい方・大きい方）, seed（乱数のたね）, created, done, picks: {"1": {"lo": 技, "hi": 技}}, qte: {"1-0": 倍率}}
+# pvp_current/{lo}-{hi} = いまの試合ID。2人が同時に待ち合わせに成功しても、同じ試合に入るようにする。
+
+def pvp_start(a: int, b: int, fresh: float = 120.0) -> dict:
+    """2人の試合を始める（もう始まっていれば同じ試合を返す）。"""
+    import time
+    lo, hi = sorted((a, b))
+    cur = col("pvp_current").document(f"{lo}-{hi}")
+
+    @firestore.transactional
+    def run(tx):
+        snap = cur.get(transaction=tx)
+        d = snap.to_dict() if snap.exists else None
+        if d:
+            m = col("pvp").document(d["id"]).get(transaction=tx).to_dict()
+            if m and not m.get("done") and time.time() - m.get("created", 0) < fresh:
+                return {**m, "id": d["id"]}
+        mid = secrets.token_hex(8)
+        m = {"lo": lo, "hi": hi, "seed": secrets.randbelow(2**31), "created": time.time(), "done": False, "picks": {}, "qte": {}}
+        tx.set(col("pvp").document(mid), m)
+        tx.set(cur, {"id": mid})
+        return {**m, "id": mid}
+
+    return run(db().transaction())
+
+
+def pvp_get(mid: str) -> dict | None:
+    snap = col("pvp").document(mid).get()
+    return snap.to_dict() if snap.exists else None
+
+
+def pvp_set(mid: str, data: dict) -> None:
+    """入れ子のまま足しこむ（キーに数字や「-」が入るので、"a.b" の形の更新は使わない）。"""
+    col("pvp").document(mid).set(data, merge=True)

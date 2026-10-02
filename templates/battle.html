@@ -35,11 +35,12 @@
 </div>
 {% if error %}
 <main id="app"><div class="waitbox"><p class="phase">友人戦</p><div class="win wait-card"><h2>{{ error }}</h2></div>
-  <div class="dock"><a class="primary" href="/r/{{ token }}" style="display:block;text-align:center;text-decoration:none;line-height:1.5">パスポートに戻る</a></div></div></main>
+  </div></main>
 {% else %}
 <main id="app"></main>
 <script src="/static/battle/quiz.js"></script>
 <script src="/static/battle/battle.js"></script>
+<script src="/static/battle/pvp.js"></script>
 <script>
 // パスポートに保存してある診断結果で戦う（2026-10-02）
 const ME = {{ r.battle | tojson }}, MONTH = {{ r.month | tojson }}, ENEMY = {{ (enemy or None) | tojson }};
@@ -48,7 +49,7 @@ const PASSPORT = '/r/' + TOKEN;
 const no4 = (n) => 'No.' + String(n).padStart(4, '0');
 const app = document.getElementById('app');
 
-// 終わったときのボタン：「もう一回」と「パスポートに戻る」（2026-10-02 ゆーしん）
+// 終わったときのボタン：「もう一回」だけ（2026-10-02 ゆーしん）
 // battle.js がボタンを作った直後に、文字と動きをこちらで上書きする
 new MutationObserver(() => {
   const again = document.getElementById('rematch'), back = document.getElementById('restart');
@@ -57,10 +58,7 @@ new MutationObserver(() => {
     // コンピューター戦は新しい相手で、友人戦はもう一度2人で待ち合わせてから
     again.onclick = () => { location.href = ENEMY ? location.pathname + '?vs=' + ENEMY.serial : location.pathname; };
   }
-  if (back && !back.dataset.kd) {
-    back.dataset.kd = '1'; back.textContent = 'パスポートに戻る';
-    back.onclick = () => { location.href = PASSPORT; };
-  }
+  if (back) back.remove();   // 「パスポートに戻る」は左上にあるので、下には出さない（2026-10-02 ゆーしん）
 }).observe(app, { childList: true, subtree: true });
 
 if (!ENEMY) {
@@ -78,11 +76,9 @@ if (!ENEMY) {
           <h2>${no4(ENEMY.serial)} ${ENEMY.monster ? '（' + ENEMY.monster + '）' : ''}の人を待っています</h2>
           <p>相手の人も、自分のパスポートの「この人と戦う」に<br>あなたの番号を入れてね</p>
           <div class="myno">${no4(MYNO)}</div>
-          <p class="detail">2人とも番号を入れると、自動でバトルが始まります</p>
+          <p class="detail">2人とも番号を入れると、自動でバトルが始まります。<br>2人で交代に技を選んで戦います</p>
         </div>
-        <div class="dock"><button class="ghost" id="cancel" type="button">やめてパスポートに戻る</button></div>
       </div>`;
-    document.getElementById('cancel').onclick = leave;
   }
   function timeoutView() {
     app.innerHTML = `
@@ -90,24 +86,24 @@ if (!ENEMY) {
         <p class="phase">友人戦の待ち合わせ</p>
         <div class="win wait-card"><h2>相手の人が来ませんでした</h2>
           <p>相手の人が ${no4(MYNO)} を入れているか、たしかめてね</p></div>
-        <div class="dock"><button class="primary" id="retry" type="button">もう一度待つ</button>
-          <button class="ghost" id="cancel" type="button">パスポートに戻る</button></div>
+        <div class="dock"><button class="primary" id="retry" type="button">もう一度待つ</button></div>
       </div>`;
     document.getElementById('retry').onclick = () => location.reload();
-    document.getElementById('cancel').onclick = leave;
   }
-  async function leave() {
-    stop = true;
-    try { await fetch('/api/battle/wait', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: TOKEN, vs: ENEMY.serial, leave: true }) }); } catch (e) {}
-    location.href = PASSPORT;
-  }
+  // 左上の「パスポートに戻る」で出ていったら、待ち合わせをやめたことにする
+  window.addEventListener('pagehide', () => {
+    if (stop) return;
+    navigator.sendBeacon('/api/battle/wait', new Blob([JSON.stringify({ token: TOKEN, vs: ENEMY.serial, leave: true })], { type: 'application/json' }));
+  });
   async function poll() {
     if (stop) return;
     if (Date.now() - started > LIMIT) { stop = true; timeoutView(); return; }
     try {
       const r = await (await fetch('/api/battle/wait', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: TOKEN, vs: ENEMY.serial }) })).json();
-      if (r.ready) { stop = true; playBattle(ME, MONTH, ENEMY.result, ENEMY.month); return; }
+      // 2人そろったら、交代で技を選ぶ対戦を始める（pvp.js）
+      if (r.ready) { stop = true; window.playPvp({ id: r.match, token: TOKEN, seed: r.seed, side: r.side,
+        me: ME, meMonth: MONTH, foe: ENEMY.result, foeMonth: ENEMY.month }); return; }
     } catch (e) {}
     setTimeout(poll, 2000);
   }
