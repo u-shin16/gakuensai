@@ -45,16 +45,16 @@
       <button id="newCode">あいことばを変える</button>
       <a class="btn" href="/plaza" target="_blank">広場を開く</a>
     </div>
-    <p class="note">あいことばを変えても、いま広場にいる守り神はそのまま残ります。</p>
+    <p class="note">あいことばを変えても、いま広場にいる案内アニマルはそのまま残ります。</p>
   </div>
 
   <div class="panel">
     <div class="row" style="justify-content: space-between; margin-bottom: 12px">
-      <div class="count" id="count">広場にいる守り神：0体</div>
+      <div class="count" id="count">広場にいる案内アニマル：0体</div>
       <button class="danger" id="kickAll">全員を広場から出す（空にする）</button>
     </div>
     <div class="list" id="list"></div>
-    <p class="empty" id="empty">広場には、まだ守り神がいません。</p>
+    <p class="empty" id="empty">広場には、まだ案内アニマルがいません。</p>
   </div>
 </main>
 
@@ -64,7 +64,7 @@ const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Typ
 
 async function load() {
   const r = await (await fetch('/api/plaza', { cache: 'no-store' })).json();
-  document.getElementById('count').textContent = `広場にいる守り神：${r.members.length}体`;
+  document.getElementById('count').textContent = `広場にいる案内アニマル：${r.members.length}体`;
   if (r.code) document.getElementById('code').textContent = r.code;
   document.getElementById('empty').style.display = r.members.length ? 'none' : '';
   // 新しく入った順に上から
@@ -78,7 +78,7 @@ async function load() {
       <button data-id="${m.id}">広場から出す</button>
     </div>`).join('');
   document.querySelectorAll('#list button').forEach((b) => b.onclick = async () => {
-    if (!confirm('この守り神を広場から出しますか？')) return;
+    if (!confirm('この案内アニマルを広場から出しますか？')) return;
     await post('/api/plaza/kick', { token: b.dataset.id }); load();
   });
 }
@@ -89,7 +89,7 @@ document.getElementById('newCode').onclick = async () => {
   document.getElementById('code').textContent = r.code;
 };
 document.getElementById('kickAll').onclick = async () => {
-  if (!confirm('広場にいる守り神を全員出して、広場を空にしますか？（カードや結果ページは消えません）')) return;
+  if (!confirm('広場にいる案内アニマルを全員出して、広場を空にしますか？（カードや結果ページは消えません）')) return;
   await post('/api/plaza/kick', { all: true }); load();
 };
 

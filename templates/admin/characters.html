@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>これまでの守り神</title>
+<title>これまでの案内アニマル</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <style>
@@ -53,7 +53,7 @@
 </head>
 <body>
 <header>
-  <h1>これまでの守り神</h1>
+  <h1>これまでの案内アニマル</h1>
   <span class="count" id="count">{{ rows|length }}体</span>
   <div class="tools">
     <select id="type"><option value="">すべてのタイプ</option></select>
@@ -98,7 +98,7 @@
   </div>
 </div>
 {% else %}
-<p class="empty">まだ守り神はいません。</p>
+<p class="empty">まだ案内アニマルはいません。</p>
 {% endif %}
 
 <script>
@@ -137,7 +137,7 @@ function ask(req, text) {
   $('modal').hidden = false; $('pw').focus();
 }
 $('delSel').onclick = () => { const t = picked(); ask({ tokens: t }, `選んだ ${t.length}体のカードを削除します。絵・結果ページ・広場からも消え、元に戻せません。`); };
-$('delAll').onclick = () => ask({ all: true }, `すべてのカード（${boxes().length}体）を削除します。絵・結果ページ・広場からも消え、元に戻せません。`);
+$('delAll').onclick = () => ask({ all: true }, `すべてのカード（${boxes().length}体）を削除します。絵・結果ページ・広場からも消え、元に戻せません。次に作るカードは No.0001 からになります。`);
 $('mCancel').onclick = () => { $('modal').hidden = true; pending = null; };
 $('pw').onkeydown = (e) => { if (e.key === 'Enter') $('mOk').click(); };
 $('mOk').onclick = async () => {

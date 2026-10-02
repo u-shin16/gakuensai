@@ -58,10 +58,10 @@
   <h1>{{ r.type_name }}</h1>
   <div class="axes">{% for a in r.axes %}<span>{{ a }}</span>{% endfor %}</div>
 
-  <div class="art"><img src="{{ r.image }}" alt="守り神 {{ r.monster }}"></div>
-  <div class="mname">あなたの守り神 <b>{{ r.monster }}</b></div>
+  <div class="art"><img src="{{ r.image }}" alt="案内アニマル {{ r.monster }}"></div>
+  <div class="mname">あなたの案内アニマル <b>{{ r.monster }}</b></div>
   {% if r.message %}<p class="msg">「{{ r.message }}」</p>{% endif %}
-  <a class="save" href="{{ r.image }}" download>守り神の絵を保存する</a>
+  <a class="save" href="{{ r.image }}" download>案内アニマルの絵を保存する</a>
 
   <div class="panel">
     <h2>どんな人？</h2>
@@ -75,8 +75,8 @@
   </div>
 
   <div class="panel">
-    <h2>守り神 {{ r.monster }} が占う、あなたの運勢</h2>
-    <p class="lead">あなたの性格をよく知る守り神が、これからの運勢を占いました。</p>
+    <h2>案内アニマル {{ r.monster }} が占う、あなたの運勢</h2>
+    <p class="lead">あなたの性格をよく知る案内アニマルが、これからの運勢を占いました。</p>
     <dl>
       <dt>恋愛</dt><dd>{{ r.love }}</dd>
       <dt>友情</dt><dd>{{ r.friend }}</dd>
@@ -86,14 +86,14 @@
   </div>
 
   <div class="panel">
-    <h2>守り神を広場に出す</h2>
+    <h2>案内アニマルを広場に出す</h2>
     <div id="joinForm" {% if in_plaza %}hidden{% endif %}>
-      <p>お店の画面の「守り神の広場」に、あなたの守り神を出せます。広場の画面に出ている4けたの「あいことば」を入れてね。</p>
+      <p>お店の画面の「みんなの広場」に、あなたの案内アニマルを出せます。広場の画面に出ている4けたの「あいことば」を入れてね。</p>
       <div class="row"><input id="code" type="text" inputmode="numeric" maxlength="4" placeholder="あいことば"><button id="joinBtn">広場に出す</button></div>
       <div class="matchres" id="joinRes"></div>
     </div>
     <div id="inPlaza" class="inplaza" {% if not in_plaza %}hidden{% endif %}>
-      <b>あなたの守り神は、広場にいるよ！</b><br>お店の画面の「守り神の広場」で確認してね
+      <b>あなたの案内アニマルは、広場にいるよ！</b><br>お店の画面の「みんなの広場」で確認してね
       <div><button id="leaveBtn" class="leave">広場から出る</button></div>
     </div>
   </div>
@@ -146,7 +146,7 @@ document.getElementById('joinBtn').onclick = async () => {
   }
 };
 document.getElementById('leaveBtn').onclick = async () => {
-  if (!confirm('守り神を広場から出しますか？（あいことばを入れれば、また広場に出せます）')) return;
+  if (!confirm('案内アニマルを広場から出しますか？（あいことばを入れれば、また広場に出せます）')) return;
   const res = await fetch('/api/plaza/leave', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: {{ r.token | tojson }} }) });
   if ((await res.json()).ok) {

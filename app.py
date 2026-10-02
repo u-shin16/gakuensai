@@ -3,7 +3,7 @@
 流れ：
   1. 2択の質問8問に答える → オリジナルの16タイプのどれかに決まる
   2. 好きなものを1つと、絵柄（かわいい／かっこいい）を選ぶ
-  3. Geminiが、タイプと好きなものを混ぜた守り神モンスターの名前・あるある・恋愛や金運などの言葉を作り、絵を描く
+  3. Geminiが、タイプと好きなものを混ぜた案内アニマルの名前・あるある・恋愛や金運などの言葉を作り、絵を描く
   5. カードのQRコードから、その人だけの結果ページ（/r/<ランダムな文字列>）で詳しい占いと相性を見られる
      URLは連番にしない（番号を変えるだけで他人の結果が見えないようにするため）
   6. 2人のカード番号から相性を出せる
@@ -81,7 +81,7 @@ def load_drawer():
 DRAW = load_drawer()
 
 DATA_DIR = Path(__file__).parent / "data"
-RESULT_DIR = DATA_DIR / "results"   # 守り神の絵の置き場所（結果などのデータは Firestore。store.py）
+RESULT_DIR = DATA_DIR / "results"   # 案内アニマルの絵の置き場所（結果などのデータは Firestore。store.py）
 # QRコードに入れるURLの頭。未設定なら開いているアドレスを使う（スマホで試すときはLANのアドレスで開く）
 PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{16}$")
@@ -113,7 +113,7 @@ CARD_SCHEMA = {
 }
 
 CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診断の結果と好きなものから、
-その人だけの診断カードを書く係です。カードには、その人を守るオリジナルモンスター（守り神）が描かれます。
+その人だけの診断カードを書く係です。カードには、動物王国でその人を案内するオリジナルの動物（案内アニマル）が描かれます。
 お客さんは小学生から大人まで。
 
 
@@ -133,9 +133,9 @@ CARD_PROMPT = """あなたは学園祭の模擬店で、お客さんの性格診
 それ以外は allowed=true で reason は空文字。
 
 allowed=true のとき：
-- monster：性格と好きなものを混ぜた、この人の守り神モンスターの名前。カタカナ中心で8文字以内。
+- monster：性格と好きなものを混ぜた、この人の案内アニマルの名前。カタカナ中心で8文字以内。
   次の名前はもう使われているので、同じ名前・よく似た名前にしない：{used_names}
-- message：守り神からこの人への「ひとこと」。カードに大きく載る。次の決まりを必ず守る。
+- message：案内アニマルからこの人への「ひとこと」。カードに大きく載る。次の決まりを必ず守る。
   - 2文で書く。1文目でこの人のいいところを1つほめ、2文目では、そのいいところが好きなもの「{favorite}」の場面でどう活きるかを言う。
     1文目と2文目は必ず意味がつながること。2文目だけ別の話（「〜を見に行こう」「一緒に〜しよう」など）にしない
   - 形の例（中身は写さない）：「〇〇できるところが、きみのいいところだね。その力があれば、△△でもきっと〇〇できるよ。」
@@ -152,7 +152,7 @@ allowed=true のとき：
   - 好きなものは入れない。項目の話題から外れない（勉強・仕事は勉強か仕事の場面のまま）
   - 下はこのタイプの傾向の例。そのまま写さない
     恋愛「{love}」／友情「{friend}」／勉強・仕事「{study}」／お金「{money}」
-- image_prompt：絵を描くための英語の説明。守り神のもとになる動物は「{creature}」。だれが見てもその動物だと分かる姿をはっきり残したまま、性格の雰囲気「{motif}」と、好きなもの「{favorite}」の要素を、模様・色・身につけた物・まわりの小物として目に見える形で混ぜたオリジナルの守り神1体。
+- image_prompt：絵を描くための英語の説明。案内アニマルのもとになる動物は「{creature}」。だれが見てもその動物だと分かる姿をはっきり残したまま、性格の雰囲気「{motif}」と、好きなもの「{favorite}」の要素を、模様・色・身につけた物・まわりの小物として目に見える形で混ぜたオリジナルの案内アニマル1体。
   ふつうの人間の姿にはしない。ドラゴンの姿にはしない。既存キャラに似せない。文字は入れない
   絵柄が「かっこいい」なら、強くて凛々しい姿（ちびキャラ・赤ちゃんっぽい姿にしない）として書く。「かわいい」なら、まるっこくて愛らしい姿として書く
 """
@@ -224,7 +224,7 @@ def ai_card(code: str, favorite: str, style: str, profile: list[str], used_names
     return json.loads(resp.text)
 
 
-MESSAGE_PROMPT = """あなたは、ある人を守る守り神です。その人にカードで渡す「ひとこと」を書きます。
+MESSAGE_PROMPT = """あなたは、動物王国でお客さんを案内する案内アニマルです。その人にカードで渡す「ひとこと」を書きます。
 読むのは小学生から大人まで。
 
 その人の性格：{type_name}（{type_desc}）
@@ -245,7 +245,7 @@ MESSAGE_PROMPT = """あなたは、ある人を守る守り神です。その人
 ひとことの文だけを答える（かぎかっこは付けない）。"""
 
 
-PROOF_PROMPT = """次の文は、守り神が小学生から大人までの人に渡すカードに書く「ひとこと」です。
+PROOF_PROMPT = """次の文は、案内アニマルが小学生から大人までの人に渡すカードに書く「ひとこと」です。
 好きなもの：「{favorite}」
 文：「{text}」
 
@@ -288,7 +288,7 @@ def proofread(text: str, favorite: str) -> str:
 
 
 def ai_message(code: str, favorite: str, profile: list[str]) -> str:
-    """守り神のひとことだけを、考える時間つきで作る。1文目と2文目のつながりを良くするため（2026-09-30）。"""
+    """案内アニマルのひとことだけを、考える時間つきで作る。1文目と2文目のつながりを良くするため（2026-09-30）。"""
     from google import genai
     from google.genai import types
 
@@ -420,7 +420,7 @@ def make_card():
     creature = random.choice(t["animals"])
     used = list(reversed(store.recent_monster_names(150)))
     pool = ThreadPoolExecutor(max_workers=2)
-    # 守り神のひとこと（作る→チェックして直す、で約10秒）は、ほかに頼らないので最初に始めておく。
+    # 案内アニマルのひとこと（作る→チェックして直す、で約10秒）は、ほかに頼らないので最初に始めておく。
     # 文章→絵（合わせて約10秒）と並行して進むので、待ち時間は増えない。
     f_msg = None if mock else pool.submit(ai_message, code, favorite, profile)
     try:
@@ -429,7 +429,7 @@ def make_card():
                 card = mock_card(code, favorite)
             else:
                 card = ai_card(code, favorite, style, profile, used[-150:], creature)
-                # 守り神の名前がほかの人とかぶったら、1回だけ作り直す（人とかぶらないことを一番大事にする）
+                # 案内アニマルの名前がほかの人とかぶったら、1回だけ作り直す（人とかぶらないことを一番大事にする）
                 if card.get("allowed") and card.get("monster") in used:
                     card = ai_card(code, favorite, style, profile, used[-150:] + [card["monster"]], creature)
         except Exception as e:
@@ -593,9 +593,9 @@ def tickets_create():
     return jsonify({"ok": True, "from": made[0]["number"], "to": made[-1]["number"]})
 
 
-# ===== 守り神の広場（2026-10-01） =====
-# 店の画面に広場を映し、結果ページで「あいことば」を入れた人の守り神が現れて歩き回る。
-# 入った守り神は全員ずっと広場に残る（ゆーしん「1つの大きい広場に全員がたまる」）。数が増えたら画面のほうで小さくする。
+# ===== 案内アニマルの広場（2026-10-01） =====
+# 店の画面に広場を映し、結果ページで「あいことば」を入れた人の案内アニマルが現れて歩き回る。
+# 入った案内アニマルは全員ずっと広場に残る（ゆーしん「1つの大きい広場に全員がたまる」）。数が増えたら画面のほうで小さくする。
 
 @app.get("/plaza")
 def plaza_page():
@@ -648,7 +648,7 @@ def staff_only() -> None:
 def admin_home():
     staff_only()
     return render_template("admin/home.html", code=store.plaza_code(), plaza=len(store.plaza_members()),
-                           cards=store.count_results(), shop=shop_code(), email=session.get("admin_email", ""),
+                           cards=store.count_cards(), shop=shop_code(), email=session.get("admin_email", ""),
                            mock=is_mock(), has_key=bool(API_KEY), forced=os.environ.get("MOCK") == "1")
 
 
@@ -705,14 +705,14 @@ def admin_logout():
 
 @app.get("/admin/plaza")
 def plaza_admin():
-    """広場の管理画面。あいことば・広場にいる守り神の一覧・広場から出す。"""
+    """広場の管理画面。あいことば・広場にいる案内アニマルの一覧・広場から出す。"""
     staff_only()
     return render_template("admin/plaza.html", code=store.plaza_code())
 
 
 @app.post("/api/plaza/kick")
 def plaza_kick():
-    """管理画面から、守り神を広場から出す。all=true なら全員。"""
+    """管理画面から、案内アニマルを広場から出す。all=true なら全員。"""
     staff_only()
     body = request.get_json(silent=True) or {}
     if body.get("all"):
@@ -723,7 +723,7 @@ def plaza_kick():
 
 @app.post("/api/plaza/leave")
 def plaza_leave():
-    """結果ページから、自分の守り神を広場から出す。トークンは推測できないので、本人だけが出せる。"""
+    """結果ページから、自分の案内アニマルを広場から出す。トークンは推測できないので、本人だけが出せる。"""
     token = str((request.get_json(silent=True) or {}).get("token", ""))
     load_result(token)  # 無いトークンは404
     store.plaza_leave(token)
@@ -752,7 +752,7 @@ def plaza_join():
 
 @app.get("/api/plaza")
 def plaza_members():
-    """広場にいる守り神（入った全員）。映すのは絵・名前・番号・タイプだけ。"""
+    """広場にいる案内アニマル（入った全員）。映すのは絵・名前・番号・タイプだけ。"""
     out = []
     for token, joined_at in store.plaza_members():
         r = store.get_result(token)
@@ -767,7 +767,7 @@ def plaza_members():
 
 @app.get("/admin/characters")
 def characters():
-    """これまでに作った守り神の一覧（スタッフ用。好きなものも出る）。"""
+    """これまでに作った案内アニマルの一覧（スタッフ用。好きなものも出る）。"""
     staff_only()
     rows = []
     for token, r in store.list_results():
@@ -790,7 +790,7 @@ def characters():
 
 
 # ===== カードの削除（2026-10-02） =====
-# 管理者画面の「これまでの守り神」から、選んだカード・すべてのカードを消せる。
+# 管理者画面の「これまでの案内アニマル」から、選んだカード・すべてのカードを消せる。
 # 消すときは削除用のパスワードが要る（DELETE_PASSWORD。上の設定のところで読む）。
 
 
@@ -818,6 +818,8 @@ def cards_delete():
         if img.parent == RESULT_DIR and img.exists():
             img.unlink()
         n += 1
+    if body.get("all"):
+        store.reset_serial()   # すべて消したら、次のカードは No.0001 から（2026-10-02 ゆーしん）
     write_log({"event": "delete", "count": n, "all": bool(body.get("all")), "by": session.get("admin_email", "local")})
     return jsonify({"ok": True, "deleted": n})
 

@@ -1,11 +1,11 @@
 """データの保存先（Firestore）。2026-10-01にファイル保存からFirebaseへ切り替えた（ゆーしん「データベースはfirebaseで」）。
 
-守り神の絵だけは、今までどおりサーバーの data/results/ に保存する
+案内アニマルの絵だけは、今までどおりサーバーの data/results/ に保存する
 （Firebase Storageは新しいプロジェクトだと従量課金プランが必要なため）。
 
 コレクション（FIRESTORE_PREFIX を頭に付ける。手元で試すときは "dev_" にして本番と混ぜない）
-  results/{token}        カード1枚ごとの結果（タイプ・守り神・ひとこと・運勢・絵のファイル名など）
-  plaza_members/{token}  広場にいる守り神（入った時刻）
+  results/{token}        カード1枚ごとの結果（タイプ・案内アニマル・ひとこと・運勢・絵のファイル名など）
+  plaza_members/{token}  広場にいる案内アニマル（入った時刻）
   settings/plaza         広場のあいことば
   settings/shop          お店のあいことば
   counters/cards         カードの通し番号
@@ -297,3 +297,13 @@ def reset_tickets(numbers: list[int]) -> int:
             {"status": "unused", "token": DELETE_FIELD, "serial": DELETE_FIELD, "slot": DELETE_FIELD, "used_at": DELETE_FIELD})
     _release_slots(used)
     return len(used)
+
+
+def count_cards() -> int:
+    """いま残っているカードの数（消したカードは数えない）。"""
+    return sum(1 for _ in col("results").select([]).stream())
+
+
+def reset_serial() -> None:
+    """カードの通し番号を0に戻す（すべてのカードを消したとき。次のカードは No.0001 から）。"""
+    col("counters").document("cards").delete()

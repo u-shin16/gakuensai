@@ -141,7 +141,7 @@
 
     <ol class="flow">
       <li><i>1</i><span>誕生月と6つの<br>質問に答える</span></li>
-      <li><i>2</i><span>AIがあなただけの<br>守り神を描く</span></li>
+      <li><i>2</i><span>AIがあなただけの<br>案内アニマルを描く</span></li>
       <li><i>3</i><span>パスポートを<br>受け取る</span></li>
     </ol>
 
@@ -169,13 +169,13 @@
 
   <!-- 3. 好きなもの・絵柄 -->
   <section id="s-fav" class="wrap hidden">
-    <label class="h" for="favorite">さいごに、あなたの好きなものは？<br><small>守り神の姿に入ります</small></label>
+    <label class="h" for="favorite">さいごに、あなたの好きなものは？<br><small>案内アニマルの姿に入ります</small></label>
     <input id="favorite" type="text" maxlength="20" placeholder="例：ラーメン" autocomplete="off">
     <div class="examples">
       <button type="button">ラーメン</button><button type="button">ねこ</button><button type="button">サッカー</button>
       <button type="button">コーヒー</button><button type="button">昼寝</button><button type="button">宇宙</button>
     </div>
-    <label class="h">守り神の絵柄をえらんでね</label>
+    <label class="h">案内アニマルの絵柄をえらんでね</label>
     <div class="styles" id="styles">
       <button type="button" data-v="cute" class="on">かわいい<small>まるっこくて、やさしい</small></button>
       <button type="button" data-v="cool">かっこいい<small>勇ましくて、たのもしい</small></button>
@@ -207,7 +207,7 @@
 
 <script>
 const QUESTIONS = {{ questions | tojson }};
-const LOADING_MSGS = ['性格を読みといています…', '守り神をよび出しています…', 'AIが絵を描いています…', 'あるあるを考えています…', 'もうすぐです…'];
+const LOADING_MSGS = ['性格を読みといています…', '案内アニマルをよび出しています…', 'AIが絵を描いています…', 'あるあるを考えています…', 'もうすぐです…'];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -339,7 +339,7 @@ function renderResult(c) {
         <span class="tn"><span class="kana">${esc(c.type_kana)}</span><span class="tname">${esc(c.type_name)}</span></span>
       </div>
       <div class="art" ${c.art_bg ? `style="background:${c.art_bg}"` : ''}><img src="${c.image}" alt=""></div>
-      <div class="mname">守り神 <b>${esc(c.monster)}</b></div>
+      <div class="mname">案内アニマル <b>${esc(c.monster)}</b></div>
       <div class="bottom">
         <div class="catch">「${esc(c.message)}」</div>
         <div class="qr"><img src="${c.qr}" alt="">詳しい結果<br>相性はこちら</div>
