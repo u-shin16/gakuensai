@@ -45,6 +45,7 @@
     return s.ok ? s : null;
   }
 
+  let onLeave = null;   // 「対戦から抜ける」を押したときにすること（試合ごとに playPvp が決める）
   // 「相手が切断中です」の表示（バトルの画面の上に重ねる）
   function goneOverlay(left) {
     let el = document.getElementById("pvp-gone");
@@ -53,8 +54,11 @@
       el = document.createElement("div");
       el.id = "pvp-gone";
       el.innerHTML = `<div class="gone-box"><div class="dots"><i></i><i></i><i></i></div><h2>相手が切断中です</h2>
-        <p>相手が戻ってくるのを待っています。<br>戻ってきたら、続きから再開します。</p><p class="gone-left"></p></div>`;
+        <p>相手が戻ってくるのを待っています。<br>戻ってきたら、続きから再開します。</p><p class="gone-left"></p>
+        <button class="ghost gone-leave" type="button">対戦から抜ける</button></div>`;
       document.body.appendChild(el);
+      // 待たずに抜ける（2026-10-02 ゆーしん）。抜けた側が先に切断したので、記録上はこちらの不戦勝にしてパスポートへ戻る
+      el.querySelector(".gone-leave").onclick = () => { if (onLeave) onLeave(); };
     }
     el.querySelector(".gone-left").textContent = `あと ${Math.max(0, Math.ceil(left))} 秒で、あなたの不戦勝になります`;
   }
@@ -121,6 +125,11 @@
     let endNow = () => {};
     const ended = new Promise((resolve) => { endNow = resolve; });
     const unwatch = watch(m, () => endNow(m.ended));
+    onLeave = async () => {
+      m.ended = FORFEIT_WIN; finished = true;
+      await send(m, { kind: "forfeit" });
+      location.href = "/r/" + m.token;
+    };
     const realWait = window.wait;
     const fastWait = () => Promise.resolve();
     shownHp = null;
