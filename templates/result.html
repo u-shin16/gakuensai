@@ -107,7 +107,7 @@
       {% for k in r.battle_skills %}<dt>{{ k.slot }}</dt><dd><b>{{ k.name }}</b><br><small>{{ k.note }}</small></dd>{% endfor %}
     </dl>
     <a class="btn battlebtn" href="/battle/{{ r.token }}">コンピューターと戦う</a>
-    <p style="margin-top:14px">友だちのパスポート番号（左上の No.）を入れると、その人と戦えます。</p>
+    <p style="margin-top:14px">友だちと、おたがいのパスポート番号（左上の No.）を入れると対戦が始まります。あなたの番号は <b>No.{{ '%04d' % r.serial }}</b>。</p>
     <div class="row"><input id="vs" type="number" min="1" inputmode="numeric" placeholder="相手の No."><button id="vsBtn">この人と戦う</button></div>
   </div>
   {% else %}

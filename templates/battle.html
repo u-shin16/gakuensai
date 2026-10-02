@@ -15,16 +15,27 @@
     background: #1d4632; color: #e4c47e; font-weight: 700; }
   .topbar a { color: #e4c47e; text-decoration: none; font-size: .9rem; }
   .topbar span { margin-left: auto; font-size: .8rem; color: #f3e6c4; }
-  .err { max-width: 32rem; margin: 0 auto; background: #f4f1ea; padding: 24px 16px; }
+  .err { max-width: 32rem; margin: 0 auto; background: #fdf6e6; padding: 24px 16px; }
+  .waitbox { display: flex; flex-direction: column; gap: .8rem; flex: 1; }
+  .wait-card { text-align: center; padding: 1.4rem 1rem 1.1rem !important; }
+  .wait-card h2 { font-size: 1.05rem !important; color: #3f7429 !important; }
+  .wait-card p { line-height: 1.7; }
+  .myno { display: inline-block; margin: .6rem auto; padding: .3rem 1.2rem; border-radius: 14px; background: #1d4632; color: #e4c47e;
+    font-size: 2rem; font-weight: 800; letter-spacing: .08em; }
+  .dots { display: flex; gap: 8px; justify-content: center; margin-bottom: .6rem; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: #5c9a3c; animation: dot 1.2s ease-in-out infinite; }
+  .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
+  @keyframes dot { 0%, 80%, 100% { transform: scale(.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
 </style>
 </head>
 <body style="--me-img: url('/img/{{ r.image_file }}') center / cover no-repeat;{% if enemy and enemy.image_file %} --foe-img: url('/img/{{ enemy.image_file }}') center / cover no-repeat;{% endif %}">
 <div class="topbar">
   <a href="/r/{{ token }}">← パスポートに戻る</a>
-  <span>No.{{ '%04d' % r.serial }} {{ r.monster }}{% if enemy %} vs No.{{ '%04d' % enemy.serial }} {{ enemy.monster }}{% else %} vs コンピューター{% endif %}</span>
+  <span>No.{{ '%04d' % r.serial }} {{ r.monster }}{% if enemy %} vs No.{{ '%04d' % enemy.serial }} {{ enemy.monster }}{% elif error %} 友人戦{% else %} vs コンピューター{% endif %}</span>
 </div>
 {% if error %}
-<div class="err"><p>{{ error }}</p><p><a href="/r/{{ token }}">パスポートに戻る</a></p></div>
+<main id="app"><div class="waitbox"><p class="phase">友人戦</p><div class="win wait-card"><h2>{{ error }}</h2></div>
+  <div class="dock"><a class="primary" href="/r/{{ token }}" style="display:block;text-align:center;text-decoration:none;line-height:1.5">パスポートに戻る</a></div></div></main>
 {% else %}
 <main id="app"></main>
 <script src="/static/battle/quiz.js"></script>
@@ -32,13 +43,77 @@
 <script>
 // パスポートに保存してある診断結果で戦う（2026-10-02）
 const ME = {{ r.battle | tojson }}, MONTH = {{ r.month | tojson }}, ENEMY = {{ (enemy or None) | tojson }};
-if (ENEMY) playBattle(ME, MONTH, ENEMY.result, ENEMY.month);   // 友だちのパスポートと
-else window.AnimalBattle.start(ME, MONTH);                       // コンピューター（ランダム）と
-// 終わったときの「診断からやり直す」は、ここでは「もう一度（新しい相手と）」になる（ページを読み直すため）
+const TOKEN = {{ token | tojson }}, MYNO = {{ r.serial | tojson }};
+const PASSPORT = '/r/' + TOKEN;
+const no4 = (n) => 'No.' + String(n).padStart(4, '0');
+const app = document.getElementById('app');
+
+// 終わったときのボタン：「もう一回」と「パスポートに戻る」（2026-10-02 ゆーしん）
+// battle.js がボタンを作った直後に、文字と動きをこちらで上書きする
 new MutationObserver(() => {
-  const b = document.getElementById('restart');
-  if (b && !b.dataset.relabeled) { b.dataset.relabeled = '1'; b.textContent = ENEMY ? 'もう一度戦う' : '新しい相手と戦う'; }
-}).observe(document.getElementById('app'), { childList: true, subtree: true });
+  const again = document.getElementById('rematch'), back = document.getElementById('restart');
+  if (again && !again.dataset.kd) {
+    again.dataset.kd = '1'; again.textContent = 'もう一回';
+    // コンピューター戦は新しい相手で、友人戦はもう一度2人で待ち合わせてから
+    again.onclick = () => { location.href = ENEMY ? location.pathname + '?vs=' + ENEMY.serial : location.pathname; };
+  }
+  if (back && !back.dataset.kd) {
+    back.dataset.kd = '1'; back.textContent = 'パスポートに戻る';
+    back.onclick = () => { location.href = PASSPORT; };
+  }
+}).observe(app, { childList: true, subtree: true });
+
+if (!ENEMY) {
+  window.AnimalBattle.start(ME, MONTH);   // コンピューター（ランダム）と
+} else {
+  // 友人戦：2人ともおたがいの番号を入れているときだけ始まる。それまでは「待っています」を出す
+  let stop = false, started = Date.now();
+  const LIMIT = 3 * 60 * 1000;   // 3分待っても来なければ、いったん止める
+  function waitingView() {
+    app.innerHTML = `
+      <div class="waitbox">
+        <p class="phase">友人戦の待ち合わせ</p>
+        <div class="win wait-card">
+          <div class="dots"><i></i><i></i><i></i></div>
+          <h2>${no4(ENEMY.serial)} ${ENEMY.monster ? '（' + ENEMY.monster + '）' : ''}の人を待っています</h2>
+          <p>相手の人も、自分のパスポートの「この人と戦う」に<br>あなたの番号を入れてね</p>
+          <div class="myno">${no4(MYNO)}</div>
+          <p class="detail">2人とも番号を入れると、自動でバトルが始まります</p>
+        </div>
+        <div class="dock"><button class="ghost" id="cancel" type="button">やめてパスポートに戻る</button></div>
+      </div>`;
+    document.getElementById('cancel').onclick = leave;
+  }
+  function timeoutView() {
+    app.innerHTML = `
+      <div class="waitbox">
+        <p class="phase">友人戦の待ち合わせ</p>
+        <div class="win wait-card"><h2>相手の人が来ませんでした</h2>
+          <p>相手の人が ${no4(MYNO)} を入れているか、たしかめてね</p></div>
+        <div class="dock"><button class="primary" id="retry" type="button">もう一度待つ</button>
+          <button class="ghost" id="cancel" type="button">パスポートに戻る</button></div>
+      </div>`;
+    document.getElementById('retry').onclick = () => location.reload();
+    document.getElementById('cancel').onclick = leave;
+  }
+  async function leave() {
+    stop = true;
+    try { await fetch('/api/battle/wait', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: TOKEN, vs: ENEMY.serial, leave: true }) }); } catch (e) {}
+    location.href = PASSPORT;
+  }
+  async function poll() {
+    if (stop) return;
+    if (Date.now() - started > LIMIT) { stop = true; timeoutView(); return; }
+    try {
+      const r = await (await fetch('/api/battle/wait', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: TOKEN, vs: ENEMY.serial }) })).json();
+      if (r.ready) { stop = true; playBattle(ME, MONTH, ENEMY.result, ENEMY.month); return; }
+    } catch (e) {}
+    setTimeout(poll, 2000);
+  }
+  waitingView();
+  poll();
+}
 </script>
 {% endif %}
 </body>

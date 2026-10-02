@@ -869,17 +869,43 @@ def battle_page(token: str):
         abort(404)
     enemy = None
     vs = request.args.get("vs", "")
-    if vs.isdigit():
-        found = store.find_by_serial(int(vs))
-        if found and found[1].get("battle") and found[1]["serial"] != r["serial"]:
-            e = found[1]
-            enemy = {"result": e["battle"], "month": e["month"], "serial": e["serial"], "monster": e.get("monster", ""),
-                     "image_file": e.get("image_file", "")}
-        else:
+    if vs:
+        found = store.find_by_serial(int(vs)) if vs.isdigit() else None
+        if not found or not found[1].get("battle"):
             return render_template("battle.html", r=r, token=token, enemy=None,
-                                   error="その番号のパスポートは見つからないか、バトルできないよ"), 404
-    write_log({"event": "battle", "serial": r["serial"], "vs": enemy["serial"] if enemy else "cpu"})
+                                   error=f"No.{vs} のパスポートは見つからないよ。番号をたしかめてね"), 404
+        e = found[1]
+        if e["serial"] == r["serial"]:
+            return render_template("battle.html", r=r, token=token, enemy=None,
+                                   error="自分の番号が入っているよ。友だちのパスポートの番号を入れてね"), 400
+        enemy = {"result": e["battle"], "month": e["month"], "serial": e["serial"], "monster": e.get("monster", ""),
+                 "image_file": e.get("image_file", "")}
+    else:
+        write_log({"event": "battle", "serial": r["serial"], "vs": "cpu"})
     return render_template("battle.html", r=r, token=token, enemy=enemy, error="")
+
+
+@app.post("/api/battle/wait")
+def battle_wait():
+    """友人戦の待ち合わせ（2026-10-02 ゆーしん「お互い正しいときだけマッチが始まる」）。
+    2人とも相手の番号を入れて待っているときだけ ready=true。待っている間、画面から2秒ごとに呼ばれる。"""
+    body = request.get_json(silent=True) or {}
+    token = str(body.get("token", ""))
+    r = store.get_result(token) if TOKEN_RE.match(token) else None
+    try:
+        vs = int(body.get("vs"))
+    except (TypeError, ValueError):
+        vs = 0
+    if not r or not vs or vs == r["serial"]:
+        return jsonify({"ok": False}), 400
+    if body.get("leave"):
+        store.battle_leave(r["serial"])
+        return jsonify({"ok": True})
+    store.battle_wait(r["serial"], vs)
+    ready = store.battle_waiting_for(vs) == r["serial"]
+    if ready:
+        write_log({"event": "battle", "serial": r["serial"], "vs": vs})
+    return jsonify({"ok": True, "ready": ready})
 
 
 @app.get("/api/stats")

@@ -307,3 +307,25 @@ def count_cards() -> int:
 def reset_serial() -> None:
     """カードの通し番号を0に戻す（すべてのカードを消したとき。次のカードは No.0001 から）。"""
     col("counters").document("cards").delete()
+
+
+# ===== 友人戦の待ち合わせ（2026-10-02） =====
+# battle_wait/{自分の番号} = {vs: 相手の番号, at: 最後に待っていた時刻（秒）}。待っている間は2秒ごとに時刻を更新する。
+
+def battle_wait(serial: int, vs: int) -> None:
+    import time
+    col("battle_wait").document(str(serial)).set({"vs": vs, "at": time.time()})
+
+
+def battle_waiting_for(serial: int, max_age: float = 12.0) -> int | None:
+    """その番号の人が、いま（max_age秒以内）だれを待っているか。待っていなければ None。"""
+    import time
+    snap = col("battle_wait").document(str(serial)).get()
+    d = snap.to_dict() if snap.exists else None
+    if not d or time.time() - d.get("at", 0) > max_age:
+        return None
+    return d.get("vs")
+
+
+def battle_leave(serial: int) -> None:
+    col("battle_wait").document(str(serial)).delete()
