@@ -166,37 +166,37 @@ const SKILLS = {
   急所狙い: { power: 0.9, hits: 1, qte: false, uses: 3, crit: 0.4, miss: 0.25, note: "ハイリスク型" },
   吸収: { power: 0.8, hits: 1, qte: false, uses: 3, crit: 0.1, miss: 0.1, note: "与ダメージの3割を回復" },
   貫通: { power: 0.9, hits: 1, qte: false, uses: 3, crit: 0.1, miss: 0.1, note: "相手の守備を半分無視して計算" },
-  ガード: { uses: 2, note: "次に受けるダメージを50%軽減" },
-  気合: { uses: 2, note: "2ターン、威力+30%" },
-  硬化: { uses: 2, note: "3ターン、守備+30%" },
+  ガード: { uses: 2, note: "次に受けるダメージを65%軽減" },
+  気合: { uses: 2, note: "2ターン、威力+45%" },
+  硬化: { uses: 2, note: "3ターン、守備+70%" },
   毒: { uses: 3, note: "3ターン継続ダメージ（攻撃×0.2/ターン）" },
   弱体: { uses: 3, note: "2ターン、相手の攻撃−20%" },
-  反撃: { uses: 2, note: "次に受けるダメージの40%を相手に返す" },
+  反撃: { uses: 2, note: "次に受けるダメージの55%を相手に返す" },
 };
 
 const TYPE_SKILLS = {
   ネコ科: {
     name: "身かわし",
     uses: 1,
-    main: "次に受けるダメージを70%軽減",
+    main: "次に受けるダメージを80%軽減",
     sub: "次の自分の攻撃が会心必中",
   },
   イヌ科: {
     name: "遠吠え",
     uses: 2,
-    main: "2ラウンド、攻撃・守備を各+20%",
-    sub: "最大HPの15%を回復",
+    main: "2ラウンド、攻撃+30%・守備+50%",
+    sub: "最大HPの20%を回復",
   },
   大型: {
     name: "根を張る",
     uses: 1,
-    main: "持続回復3ラウンド（最大HPの5%/ラウンド）",
-    sub: "2ラウンド、守備+15%",
+    main: "持続回復3ラウンド（最大HPの8%/ラウンド）",
+    sub: "2ラウンド、守備+40%",
   },
   鳥類: {
     name: "追い風",
     uses: 2,
-    main: "1ラウンド、回避40%（相手の攻撃が確率で外れる）",
+    main: "1ラウンド、回避55%（相手の攻撃が確率で外れる）",
     sub: "1ラウンド、QTEバーが遅くなる",
   },
   爬虫類: {
@@ -208,18 +208,18 @@ const TYPE_SKILLS = {
 };
 
 const MONTH_SKILLS = [
-  { name: "初日の出", uses: 2, main: "2ラウンド、会心率+30%", sub: "次の攻撃が必中" },
-  { name: "雪化粧", uses: 2, main: "2ラウンド、被ダメージ25%軽減", sub: "最大HPの5%回復" },
-  { name: "桜吹雪", uses: 2, main: "2ラウンド、相手の守備−25%", sub: "2ラウンド、会心率+10%" },
-  { name: "春風", uses: 2, main: "2ラウンド、回避30%", sub: "1ラウンド、QTEバーが遅くなる" },
-  { name: "新緑", uses: 1, main: "持続回復3ラウンド（最大HPの4%/ラウンド）", sub: "2ラウンド、守備+10%" },
-  { name: "梅雨", uses: 2, main: "2ラウンド、相手の攻撃−20%", sub: "2ラウンド、回避15%" },
-  { name: "夏祭り", uses: 1, main: "次の攻撃の威力+50%", sub: "2ラウンド、会心率+10%" },
-  { name: "入道雲", uses: 2, main: "2ラウンド、攻撃+25%", sub: "次の攻撃が必中" },
-  { name: "月見", uses: 1, main: "最大HPの15%回復", sub: "1ラウンド、守備+10%" },
+  { name: "初日の出", uses: 2, main: "2ラウンド、会心率+45%", sub: "次の攻撃が必中" },
+  { name: "雪化粧", uses: 2, main: "2ラウンド、被ダメージ40%軽減", sub: "最大HPの8%回復" },
+  { name: "桜吹雪", uses: 2, main: "2ラウンド、相手の守備−25%", sub: "2ラウンド、会心率+15%" },
+  { name: "春風", uses: 2, main: "2ラウンド、回避45%", sub: "1ラウンド、QTEバーが遅くなる" },
+  { name: "新緑", uses: 1, main: "持続回復3ラウンド（最大HPの6%/ラウンド）", sub: "2ラウンド、守備+30%" },
+  { name: "梅雨", uses: 2, main: "2ラウンド、相手の攻撃−20%", sub: "2ラウンド、回避25%" },
+  { name: "夏祭り", uses: 1, main: "次の攻撃の威力+70%", sub: "2ラウンド、会心率+15%" },
+  { name: "入道雲", uses: 2, main: "2ラウンド、攻撃+40%", sub: "次の攻撃が必中" },
+  { name: "月見", uses: 1, main: "最大HPの20%回復", sub: "1ラウンド、守備+30%" },
   { name: "紅葉", uses: 2, main: "2ラウンド、相手の守備−15%", sub: "2ラウンド、相手の攻撃−10%" },
-  { name: "木枯らし", uses: 2, main: "2ラウンド、会心率+20%", sub: "2ラウンド、回避15%" },
-  { name: "冬至", uses: 1, main: "最大HPの10%回復", sub: "2ラウンド、被ダメージ15%軽減" },
+  { name: "木枯らし", uses: 2, main: "2ラウンド、会心率+30%", sub: "2ラウンド、回避25%" },
+  { name: "冬至", uses: 1, main: "最大HPの15%回復", sub: "2ラウンド、被ダメージ25%軽減" },
 ];
 
 function percent(value) {
@@ -287,6 +287,18 @@ if (typeof document !== "undefined") {
     return close;
   }
 
+  const PORTRAITS = {
+    ネコ科: "art/neko.png",
+    イヌ科: "art/inu.png",
+    大型: "art/oogata.png",
+    鳥類: "art/tori.png",
+    爬虫類: "art/hachuu.png",
+  };
+
+  function portraitHtml(type, large) {
+    return `<div class="portrait${large ? " lg" : ""}"><img src="${PORTRAITS[type] || ""}" alt="" onerror="this.hidden=true"><span>イラスト<br>${escapeHtml(type)}</span></div>`;
+  }
+
   function resultHtml(result) {
     const statLine = STAT_ORDER.map((stat) => {
       if (stat === result.statUp) return `<span class="up">${stat} +10%</span>`;
@@ -303,10 +315,13 @@ if (typeof document !== "undefined") {
     ].join("");
     return `
       <div class="stage">
-        <section class="win">
-          <h2>診断結果</h2>
-          <p class="type">${escapeHtml(result.type)}</p>
-          <p>${statLine}</p>
+        <section class="win result-head">
+          ${portraitHtml(result.type, true)}
+          <div class="result-body">
+            <h2>診断結果</h2>
+            <p class="type">${escapeHtml(result.type)}</p>
+            <p>${statLine}</p>
+          </div>
         </section>
         <section class="win">
           <h2>技（タップで詳細）</h2>

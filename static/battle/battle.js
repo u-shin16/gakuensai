@@ -2,15 +2,15 @@
 // 通常攻撃の威力は表にないので 1.0。会心は 5%。QTEあり。
 // 鳥類のQTEは判定幅を1.5倍にしている（表には「広い」とだけある）。
 const BASE_STATS = {
-  ネコ科: { hp: 150, atk: 65, def: 35, spd: 80 },
+  ネコ科: { hp: 130, atk: 50, def: 28, spd: 80 },
   イヌ科: { hp: 200, atk: 50, def: 50, spd: 50 },
   大型: { hp: 240, atk: 40, def: 60, spd: 25 },
-  鳥類: { hp: 180, atk: 55, def: 40, spd: 70 },
-  爬虫類: { hp: 190, atk: 45, def: 55, spd: 45 },
+  鳥類: { hp: 210, atk: 65, def: 50, spd: 70 },
+  爬虫類: { hp: 220, atk: 55, def: 68, spd: 45 },
 };
 
 const TRAITS = {
-  ネコ科: "会心率+15%",
+  ネコ科: "会心率+8%",
   イヌ科: "",
   大型: "先攻を取れない",
   鳥類: "QTE判定が広い",
@@ -18,34 +18,34 @@ const TRAITS = {
 };
 
 const CRIT_MULT = 1.5;
-const CAP = { up: 0.6, down: 0.5, cut: 0.8, evasion: 0.6, crit: 1 };
+const CAP = { up: 0.6, defUp: 1, down: 0.5, cut: 0.8, evasion: 0.6, crit: 1 };
 
 const EXTRA = {
   吸収: { absorb: 0.3 },
   貫通: { pierce: true },
-  ガード: { charges: [{ kind: "guard", value: 0.5 }] },
-  気合: { buff: true, auras: [{ kind: "power", value: 0.3, rounds: 2 }] },
-  硬化: { buff: true, auras: [{ kind: "defUp", value: 0.3, rounds: 3 }] },
+  ガード: { charges: [{ kind: "guard", value: 0.65 }] },
+  気合: { buff: true, auras: [{ kind: "power", value: 0.45, rounds: 2 }] },
+  硬化: { buff: true, auras: [{ kind: "defUp", value: 0.7, rounds: 3 }] },
   毒: { foeAuras: [{ kind: "poison", value: 0.2, rounds: 3 }] },
   弱体: { foeAuras: [{ kind: "atkDown", value: 0.2, rounds: 2 }] },
-  反撃: { charges: [{ kind: "counter", value: 0.4 }] },
-  身かわし: { charges: [{ kind: "guard", value: 0.7 }, { kind: "sureCrit", value: 1 }] },
-  遠吠え: { buff: true, heal: 0.15, auras: [{ kind: "atkUp", value: 0.2, rounds: 2 }, { kind: "defUp", value: 0.2, rounds: 2 }] },
-  根を張る: { buff: true, auras: [{ kind: "regen", value: 0.05, rounds: 3 }, { kind: "defUp", value: 0.15, rounds: 2 }] },
-  追い風: { buff: true, auras: [{ kind: "evasion", value: 0.4, rounds: 1 }, { kind: "qteSlow", value: 1, rounds: 1 }] },
+  反撃: { charges: [{ kind: "counter", value: 0.55 }] },
+  身かわし: { charges: [{ kind: "guard", value: 0.8 }, { kind: "sureCrit", value: 1 }] },
+  遠吠え: { buff: true, heal: 0.2, auras: [{ kind: "atkUp", value: 0.3, rounds: 2 }, { kind: "defUp", value: 0.5, rounds: 2 }] },
+  根を張る: { buff: true, auras: [{ kind: "regen", value: 0.08, rounds: 3 }, { kind: "defUp", value: 0.4, rounds: 2 }] },
+  追い風: { buff: true, auras: [{ kind: "evasion", value: 0.55, rounds: 1 }, { kind: "qteSlow", value: 1, rounds: 1 }] },
   封じ: { seal: true, foeAuras: [{ kind: "poison", value: 0.1, rounds: 3 }, { kind: "defDown", value: 0.15, rounds: 2 }] },
-  初日の出: { buff: true, auras: [{ kind: "critUp", value: 0.3, rounds: 2 }], charges: [{ kind: "sureHit", value: 1 }] },
-  雪化粧: { heal: 0.05, auras: [{ kind: "cut", value: 0.25, rounds: 2 }] },
-  桜吹雪: { buff: true, auras: [{ kind: "critUp", value: 0.1, rounds: 2 }], foeAuras: [{ kind: "defDown", value: 0.25, rounds: 2 }] },
-  春風: { buff: true, auras: [{ kind: "evasion", value: 0.3, rounds: 2 }, { kind: "qteSlow", value: 1, rounds: 1 }] },
-  新緑: { buff: true, auras: [{ kind: "regen", value: 0.04, rounds: 3 }, { kind: "defUp", value: 0.1, rounds: 2 }] },
-  梅雨: { auras: [{ kind: "evasion", value: 0.15, rounds: 2 }], foeAuras: [{ kind: "atkDown", value: 0.2, rounds: 2 }] },
-  夏祭り: { buff: true, auras: [{ kind: "critUp", value: 0.1, rounds: 2 }], charges: [{ kind: "nextPower", value: 0.5 }] },
-  入道雲: { buff: true, auras: [{ kind: "atkUp", value: 0.25, rounds: 2 }], charges: [{ kind: "sureHit", value: 1 }] },
-  月見: { heal: 0.15, auras: [{ kind: "defUp", value: 0.1, rounds: 1 }] },
+  初日の出: { buff: true, auras: [{ kind: "critUp", value: 0.45, rounds: 2 }], charges: [{ kind: "sureHit", value: 1 }] },
+  雪化粧: { heal: 0.08, auras: [{ kind: "cut", value: 0.4, rounds: 2 }] },
+  桜吹雪: { buff: true, auras: [{ kind: "critUp", value: 0.15, rounds: 2 }], foeAuras: [{ kind: "defDown", value: 0.25, rounds: 2 }] },
+  春風: { buff: true, auras: [{ kind: "evasion", value: 0.45, rounds: 2 }, { kind: "qteSlow", value: 1, rounds: 1 }] },
+  新緑: { buff: true, auras: [{ kind: "regen", value: 0.06, rounds: 3 }, { kind: "defUp", value: 0.3, rounds: 2 }] },
+  梅雨: { auras: [{ kind: "evasion", value: 0.25, rounds: 2 }], foeAuras: [{ kind: "atkDown", value: 0.2, rounds: 2 }] },
+  夏祭り: { buff: true, auras: [{ kind: "critUp", value: 0.15, rounds: 2 }], charges: [{ kind: "nextPower", value: 0.7 }] },
+  入道雲: { buff: true, auras: [{ kind: "atkUp", value: 0.4, rounds: 2 }], charges: [{ kind: "sureHit", value: 1 }] },
+  月見: { heal: 0.2, auras: [{ kind: "defUp", value: 0.3, rounds: 1 }] },
   紅葉: { foeAuras: [{ kind: "defDown", value: 0.15, rounds: 2 }, { kind: "atkDown", value: 0.1, rounds: 2 }] },
-  木枯らし: { buff: true, auras: [{ kind: "critUp", value: 0.2, rounds: 2 }, { kind: "evasion", value: 0.15, rounds: 2 }] },
-  冬至: { heal: 0.1, auras: [{ kind: "cut", value: 0.15, rounds: 2 }] },
+  木枯らし: { buff: true, auras: [{ kind: "critUp", value: 0.3, rounds: 2 }, { kind: "evasion", value: 0.25, rounds: 2 }] },
+  冬至: { heal: 0.15, auras: [{ kind: "cut", value: 0.25, rounds: 2 }] },
 };
 
 function quizApi() {
@@ -175,18 +175,21 @@ function currentAtk(fighter) {
 }
 
 function currentDef(fighter) {
-  const up = Math.min(CAP.up, auraSum(fighter, "defUp"));
+  const up = Math.min(CAP.defUp, auraSum(fighter, "defUp"));
   const down = Math.min(CAP.down, auraSum(fighter, "defDown"));
   return fighter.def * (1 + up - down);
 }
 
+const BUFF_KINDS = new Set(["atkUp", "defUp", "power", "critUp", "cut", "evasion", "regen", "qteSlow"]);
+
 function putAura(fighter, source, spec, actor) {
   const list = fighter.auras[spec.kind] || (fighter.auras[spec.kind] = []);
-  const entry = { source, value: spec.value, rounds: spec.rounds };
+  const entry = { source, value: spec.value, rounds: spec.rounds, fresh: BUFF_KINDS.has(spec.kind) };
   if (spec.kind === "poison") entry.dot = Math.max(1, Math.round(currentAtk(actor) * spec.value));
   const prev = list.find((item) => item.source === source);
   if (prev) {
     prev.rounds = spec.rounds;
+    prev.fresh = entry.fresh;
     if (entry.dot) prev.dot = entry.dot;
   } else {
     list.push(entry);
@@ -251,47 +254,54 @@ function applySupport(actor, target, skill, log) {
   }
 }
 
-function resolveAttack(actor, target, skill, qte, rng, log) {
-  const sureHit = actor.charges.sureHit > 0;
-  const sureCrit = actor.charges.sureCrit > 0;
-  const evasion = Math.min(CAP.evasion, auraSum(target, "evasion"));
-  let dealt = 0;
-  if (!sureHit && rng() < evasion) {
-    log.push(`${target.side}は${skill.name}を回避した`);
-  } else {
-    const powerAura = auraSum(actor, "power") + actor.charges.nextPower;
-    const traitCrit = actor.type === "ネコ科" ? 0.15 : 0;
-    const critBonus = Math.min(CAP.crit, skill.crit + auraSum(actor, "critUp") + traitCrit);
-    for (let hit = 0; hit < skill.hits; hit += 1) {
-      if (!sureHit && !skill.qte && rng() < skill.miss) {
-        log.push(`${skill.name}は外れた`);
-        continue;
-      }
-      let atk = currentAtk(actor);
-      let def = currentDef(target);
-      if (skill.pierce) def *= 0.5;
-      const power = skill.power * (1 + powerAura);
-      const crit = sureCrit || rng() < critBonus;
-      const roll = 0.9 + rng() * 0.2;
-      const raw = atk * power * (100 / (100 + def)) * qte * (crit ? CRIT_MULT : 1) * roll;
-      const guard = actor === target ? 0 : Math.min(CAP.cut, target.charges.guard.reduce((sum, item) => sum + item.value, 0) + auraSum(target, "cut"));
-      const damage = Math.max(1, Math.round(raw * (1 - guard)));
-      target.hp -= damage;
-      dealt += damage;
-      log.push(`${target.side}に ${damage} ダメージ${crit ? "（会心）" : ""}`);
-    }
-    if (dealt > 0 && skill.absorb) {
-      const heal = Math.max(1, Math.round(dealt * skill.absorb));
-      actor.hp = Math.min(actor.maxHp, actor.hp + heal);
-      log.push(`${actor.side}は ${heal} 吸収した`);
-    }
-    if (dealt > 0 && target.charges.counter.length) {
-      const ratio = target.charges.counter.reduce((sum, item) => sum + item.value, 0);
-      const back = Math.max(1, Math.round(dealt * ratio));
-      actor.hp -= back;
-      log.push(`${actor.side}に反撃 ${back}`);
-    }
+function attackContext(actor, target, skill, qte) {
+  const traitCrit = actor.type === "ネコ科" ? 0.08 : 0;
+  return {
+    sureHit: actor.charges.sureHit > 0,
+    sureCrit: actor.charges.sureCrit > 0,
+    evasion: Math.min(CAP.evasion, auraSum(target, "evasion")),
+    powerAura: auraSum(actor, "power") + actor.charges.nextPower,
+    critBonus: Math.min(CAP.crit, skill.crit + auraSum(actor, "critUp") + traitCrit),
+    qte,
+    dealt: 0,
+  };
+}
+
+function landHit(actor, target, skill, ctx, rng, log) {
+  if (!ctx.sureHit && !skill.qte && rng() < skill.miss) {
+    log.push(`${skill.name}は外れた`);
+    return { miss: true, damage: 0, crit: false, reduced: false };
   }
+  let atk = currentAtk(actor);
+  let def = currentDef(target);
+  if (skill.pierce) def *= 0.5;
+  const power = skill.power * (1 + ctx.powerAura);
+  const crit = ctx.sureCrit || rng() < ctx.critBonus;
+  const roll = 0.9 + rng() * 0.2;
+  const raw = atk * power * (100 / (100 + def)) * ctx.qte * (crit ? CRIT_MULT : 1) * roll;
+  const guard = actor === target ? 0 : Math.min(CAP.cut, target.charges.guard.reduce((sum, item) => sum + item.value, 0) + auraSum(target, "cut"));
+  const damage = Math.max(1, Math.round(raw * (1 - guard)));
+  target.hp -= damage;
+  const reduced = guard > 0;
+  log.push(`${target.side}に ${damage} ダメージ${crit ? "（会心）" : ""}${reduced ? "（軽減）" : ""}`);
+  return { miss: false, damage, crit, reduced };
+}
+
+function applyAttackFollowup(actor, target, skill, dealt, log) {
+  if (dealt > 0 && skill.absorb) {
+    const heal = Math.max(1, Math.round(dealt * skill.absorb));
+    actor.hp = Math.min(actor.maxHp, actor.hp + heal);
+    log.push(`${actor.side}は ${heal} 吸収した`);
+  }
+  if (dealt > 0 && target.charges.counter.length) {
+    const ratio = target.charges.counter.reduce((sum, item) => sum + item.value, 0);
+    const back = Math.max(1, Math.round(dealt * ratio));
+    actor.hp -= back;
+    log.push(`${actor.side}に反撃 ${back}`);
+  }
+}
+
+function closeAttack(actor, target, dealt) {
   actor.charges.sureHit = 0;
   actor.charges.sureCrit = 0;
   actor.charges.nextPower = 0;
@@ -299,6 +309,20 @@ function resolveAttack(actor, target, skill, qte, rng, log) {
     target.charges.guard = [];
     target.charges.counter = [];
   }
+}
+
+function resolveAttack(actor, target, skill, qte, rng, log) {
+  const ctx = attackContext(actor, target, skill, qte);
+  if (!ctx.sureHit && rng() < ctx.evasion) {
+    log.push(`${target.side}は${skill.name}を回避した`);
+  } else {
+    for (let hit = 0; hit < skill.hits; hit += 1) {
+      const blow = landHit(actor, target, skill, ctx, rng, log);
+      ctx.dealt += blow.damage;
+    }
+    applyAttackFollowup(actor, target, skill, ctx.dealt, log);
+  }
+  closeAttack(actor, target, ctx.dealt);
 }
 
 function spendUse(skill) {
@@ -316,16 +340,56 @@ function skillToAct(actor, skill, log) {
   return null;
 }
 
-function act(actor, target, skill, qte, rng, log) {
-  if (skill.power) {
-    log.push(`${actor.side}の${skill.name}`);
-    resolveAttack(actor, target, skill, qte, rng, log);
+async function playCombo(actor, target, skill, qte, log, view) {
+  log.push(`${actor.side}の${skill.name}`);
+  const ctx = attackContext(actor, target, skill, qte);
+  const rng = Math.random;
+  if (!ctx.sureHit && rng() < ctx.evasion) {
+    log.push(`${target.side}は${skill.name}を回避した`);
+    renderBattle(view({ phaseText: `${skill.name} 回避`, actor: actor.side, whiff: target.side }));
+    await wait(520);
+  } else {
+    for (let hit = 0; hit < skill.hits; hit += 1) {
+      const blow = landHit(actor, target, skill, ctx, rng, log);
+      ctx.dealt += blow.damage;
+      const key = target.side === "あなた" ? "player" : "enemy";
+      renderBattle(view({
+        phaseText: `${skill.name} ${hit + 1}/${skill.hits}`,
+        actor: actor.side,
+        whiff: blow.miss ? target.side : "",
+        fxCrit: blow.crit ? { [key]: true } : {},
+        fxCut: blow.reduced ? { [key]: true } : {},
+      }));
+      await wait(640);
+    }
+    const mark = log.length;
+    applyAttackFollowup(actor, target, skill, ctx.dealt, log);
+    if (log.length > mark) {
+      renderBattle(view({
+        phaseText: skill.name,
+        actor: actor.side,
+        fxCrit: fxCrit(log.slice(mark)),
+      }));
+      await wait(520);
+    }
   }
+  closeAttack(actor, target, ctx.dealt);
+}
+
+function finishAct(actor, target, skill, log) {
   applySupport(actor, target, skill, log);
   spendUse(skill);
   actor.lastSkill = skill.name;
   actor.turns += 1;
   if (actor.seal && actor.seal.name) actor.seal = null;
+}
+
+function act(actor, target, skill, qte, rng, log) {
+  if (skill.power) {
+    log.push(`${actor.side}の${skill.name}`);
+    resolveAttack(actor, target, skill, qte, rng, log);
+  }
+  finishAct(actor, target, skill, log);
 }
 
 function endRound(player, enemy, log) {
@@ -343,6 +407,10 @@ function endRound(player, enemy, log) {
     });
     Object.keys(fighter.auras).forEach((kind) => {
       fighter.auras[kind] = fighter.auras[kind].filter((entry) => {
+        if (entry.fresh) {
+          entry.fresh = false;
+          return true;
+        }
         entry.rounds -= 1;
         return entry.rounds > 0;
       });
@@ -367,7 +435,7 @@ function simulateBattle(playerResult, playerMonth, enemyResult, enemyMonth, rng)
   const enemy = makeFighter("相手", enemyResult, enemyMonth);
   const log = [];
   let round = 1;
-  while (alive(player) && alive(enemy) && round <= 12) {
+  while (alive(player) && alive(enemy)) {
     log.push(`-- ラウンド ${round}`);
     const chosen = {
       player: aiPick(player),
@@ -442,6 +510,9 @@ const Sfx = {
     } else {
       this.beep(170, 0.09, "square", 0.045, 80);
     }
+  },
+  guard() {
+    this.beep(310, 0.12, "triangle", 0.05, 180);
   },
   heal() {
     this.beep(480, 0.14, "sine", 0.045, 720);
@@ -550,22 +621,35 @@ function showSheet(html) {
   return close;
 }
 
+const PORTRAITS = {
+  ネコ科: "art/neko.png",
+  イヌ科: "art/inu.png",
+  大型: "art/oogata.png",
+  鳥類: "art/tori.png",
+  爬虫類: "art/hachuu.png",
+};
+
+function portraitHtml(type, extraClass) {
+  const cls = extraClass ? ` ${extraClass}` : "";
+  return `<div class="portrait${cls}"><img src="${PORTRAITS[type] || ""}" alt="" onerror="this.hidden=true"><span>イラスト<br>${escapeHtml(type)}</span></div>`;
+}
+
 function renderBattle(view) {
   const app = document.getElementById("app");
   const prev = shownHp || { player: view.player.hp, enemy: view.enemy.hp };
   const latest = view.log[view.log.length - 1] || "";
-  const card = (fighter, key) => {
+  const hud = (fighter, key) => {
     const from = Math.max(0, prev[key]) / fighter.maxHp;
     return `
-      <section class="win" id="card-${key}">
-        <div class="bar-row">
-          <h2>${escapeHtml(fighter.side)}・${escapeHtml(fighter.type)}（${fighter.month}月）</h2>
+      <section class="hud">
+        <div class="hud-top">
+          <h2>${escapeHtml(fighter.side)}・${escapeHtml(fighter.type)}</h2>
+          <p>HP ${Math.max(0, fighter.hp)} / ${fighter.maxHp}</p>
         </div>
         <div class="hp ${fighter.hp / fighter.maxHp <= 0.3 ? "low" : ""}" id="hp-${key}"><span id="fill-${key}" style="width:${Math.max(0, Math.min(1, from)) * 100}%"></span></div>
-        ${statusIcons(fighter, key)}
-        <div class="bar-row">
-          <p>HP ${Math.max(0, fighter.hp)} / ${fighter.maxHp}</p>
+        <div class="hud-top">
           <p class="trait">素早さ ${fighter.spd}${fighter.trait ? `／${escapeHtml(fighter.trait)}` : ""}</p>
+          ${statusIcons(fighter, key)}
         </div>
       </section>`;
   };
@@ -576,7 +660,7 @@ function renderBattle(view) {
     }).join("")}</div>`
     : "";
   const qte = view.qte
-    ? `<div class="qte ${view.player.type === "鳥類" ? "wide" : ""}" id="qte"><div class="good"></div><div class="perfect"></div><div class="marker" id="marker"></div></div><button class="primary" id="qte-stop" type="button">今だ！</button>`
+    ? `<div class="qte ${view.player.type === "鳥類" ? "wide" : ""}" id="qte"><div class="good" style="${qteBandStyle(view.qteLayout, "good")}"></div><div class="perfect" style="${qteBandStyle(view.qteLayout, "perfect")}"></div><div class="marker" id="marker"></div></div><button class="primary" id="qte-stop" type="button">今だ！</button>`
     : "";
   const end = view.finished
     ? `<button class="primary" id="rematch" type="button">同じカードでもう一戦</button><button class="ghost" id="restart" type="button">診断からやり直す</button>`
@@ -585,11 +669,16 @@ function renderBattle(view) {
     ? `<section class="win"><h2>このラウンドの行動</h2><p>あなた　<strong>${escapeHtml(view.picks.player)}</strong></p><p>相手　<strong>${escapeHtml(view.picks.enemy)}</strong></p></section>`
     : "";
   app.innerHTML = `
-    <div class="stage${view.command ? " command" : ""}">
+    <div class="stage arena-stage${view.command ? " command" : ""}">
       <p class="phase">ラウンド ${view.round}　${escapeHtml(view.phaseText)}</p>
-      ${card(view.enemy, "enemy")}
-      ${view.command ? "" : `<div class="logline"><p>${escapeHtml(latest)}</p><button type="button" id="open-log">ログ</button></div>`}
-      ${card(view.player, "player")}
+      ${hud(view.enemy, "enemy")}
+      <div class="logline"><p>${escapeHtml(latest)}</p><button type="button" id="open-log">ログ</button></div>
+      <div class="field">
+        <div class="ground"></div>
+        <div class="actor enemy" id="card-enemy">${portraitHtml(view.enemy.type, "field-art")}</div>
+        <div class="actor player" id="card-player">${portraitHtml(view.player.type, "field-art")}</div>
+      </div>
+      ${hud(view.player, "player")}
       ${picks}
       <div class="dock">
         ${qte || skills}
@@ -607,6 +696,8 @@ function renderBattle(view) {
         <div class="log">${view.log.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>
         <button class="primary" data-close type="button">閉じる</button>
       `);
+      const box = document.querySelector("#sheet .log");
+      if (box) box.scrollTop = box.scrollHeight;
     };
   }
   document.querySelectorAll("[data-badge]").forEach((button) => {
@@ -638,18 +729,31 @@ function renderBattle(view) {
     if (delta === 0) return;
     const cardEl = document.getElementById(`card-${key}`);
     const crit = delta < 0 && (view.fxCrit || {})[key];
+    const cut = delta < 0 && (view.fxCut || {})[key];
     cardEl.classList.add(delta < 0 ? "hurt" : "heal");
     const floater = document.createElement("div");
     floater.className = `floater ${delta < 0 ? (crit ? "crit" : "dmg") : "heal"}`;
     floater.textContent = `${delta < 0 ? "" : "+"}${delta}`;
     cardEl.appendChild(floater);
+    if (crit) stampImpact(cardEl, "crit", "会心");
+    if (cut) stampImpact(cardEl, crit ? "cut low" : "cut", "軽減");
     Sfx[delta < 0 ? "hit" : "heal"](crit);
+    if (cut) Sfx.guard();
     if (delta < 0) {
       app.classList.remove("shake");
       app.getBoundingClientRect();
       app.classList.add("shake");
     }
   });
+  if (view.whiff) {
+    const cardEl = document.getElementById(view.whiff === "あなた" ? "card-player" : "card-enemy");
+    if (cardEl) {
+      const floater = document.createElement("div");
+      floater.className = "floater miss";
+      floater.textContent = "ミス";
+      cardEl.appendChild(floater);
+    }
+  }
   if (view.actor) {
     const actorCard = document.getElementById(view.actor === "あなた" ? "card-player" : "card-enemy");
     if (actorCard) actorCard.classList.add("swing");
@@ -667,7 +771,25 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function askQte(slow, wide) {
+function qteWindow(wide) {
+  const perfectHalf = wide ? 0.075 : 0.05;
+  const goodHalf = wide ? 0.225 : 0.15;
+  const min = Math.max(0.3, goodHalf);
+  const max = Math.min(0.7, 1 - goodHalf);
+  return {
+    center: min + Math.random() * (max - min),
+    perfectHalf,
+    goodHalf,
+  };
+}
+
+function qteBandStyle(layout, band) {
+  if (!layout) return "";
+  const half = band === "perfect" ? layout.perfectHalf : layout.goodHalf;
+  return `left:${(layout.center - half) * 100}%;width:${half * 200}%`;
+}
+
+function askQte(slow, layout) {
   return new Promise((resolve) => {
     const marker = document.getElementById("marker");
     const button = document.getElementById("qte-stop");
@@ -687,11 +809,9 @@ function askQte(slow, wide) {
       if (stopped) return;
       stopped = true;
       document.removeEventListener("keydown", onKey);
-      const dist = Math.abs(pos - 0.5);
-      const perfect = wide ? 0.075 : 0.05;
-      const good = wide ? 0.225 : 0.15;
-      if (dist <= perfect) resolve({ mult: 1.5, label: "PERFECT" });
-      else if (dist <= good) resolve({ mult: 1, label: "成功" });
+      const dist = Math.abs(pos - layout.center);
+      if (dist <= layout.perfectHalf) resolve({ mult: 1.5, label: "PERFECT" });
+      else if (dist <= layout.goodHalf) resolve({ mult: 1, label: "成功" });
       else resolve({ mult: 0.5, label: "失敗" });
     }
     function onKey(event) {
@@ -712,6 +832,22 @@ function fxCrit(lines) {
   };
 }
 
+function fxCut(lines) {
+  return {
+    player: lines.some((line) => line.includes("あなたに") && line.includes("軽減")),
+    enemy: lines.some((line) => line.includes("相手に") && line.includes("軽減")),
+  };
+}
+
+function stampImpact(cardEl, kind, label) {
+  const portrait = cardEl.querySelector(".portrait");
+  if (!portrait) return;
+  const stamp = document.createElement("div");
+  stamp.className = `impact ${kind}`;
+  stamp.textContent = label;
+  portrait.appendChild(stamp);
+}
+
 async function playBattle(playerResult, playerMonth, enemyResult, enemyMonth) {
   const player = makeFighter("あなた", playerResult, playerMonth);
   const enemy = makeFighter("相手", enemyResult, enemyMonth);
@@ -725,7 +861,7 @@ async function playBattle(playerResult, playerMonth, enemyResult, enemyMonth) {
     return {
       player,
       enemy,
-      log: log.slice(-12),
+      log: log.slice(),
       round,
       waiting: false,
       qte: false,
@@ -735,7 +871,7 @@ async function playBattle(playerResult, playerMonth, enemyResult, enemyMonth) {
     };
   }
 
-  while (alive(player) && alive(enemy) && round <= 12) {
+  while (alive(player) && alive(enemy)) {
     renderBattle(view({ command: true, waiting: true, phaseText: "行動を選ぶ" }));
     const playerSkill = await new Promise((resolve) => {
       document.querySelectorAll("[data-skill]").forEach((button) => {
@@ -779,8 +915,9 @@ async function playBattle(playerResult, playerMonth, enemyResult, enemyMonth) {
       }
       let qte = 1;
       if (actor === player && skill.qte) {
-        renderBattle(view({ qte: true, phaseText: `${skill.name}：緑の帯で止める` }));
-        const result = await askQte(auraSum(player, "qteSlow") > 0, player.type === "鳥類");
+        const qteLayout = qteWindow(player.type === "鳥類");
+        renderBattle(view({ qte: true, qteLayout, phaseText: `${skill.name}：緑の帯で止める` }));
+        const result = await askQte(auraSum(player, "qteSlow") > 0, qteLayout);
         qte = result.mult;
         Sfx.qte(result.label);
         const stop = document.getElementById("qte-stop");
@@ -791,14 +928,20 @@ async function playBattle(playerResult, playerMonth, enemyResult, enemyMonth) {
         renderBattle(view({ phaseText: "相手の行動" }));
         await wait(450);
       }
-      const mark = log.length;
-      act(actor, target, skill, qte, Math.random, log);
-      renderBattle(view({
-        phaseText: `${actor.side}の${skill.name}`,
-        actor: actor.side,
-        fxCrit: fxCrit(log.slice(mark)),
-      }));
-      await wait(700);
+      if (skill.power && skill.hits > 1) {
+        await playCombo(actor, target, skill, qte, log, view);
+        finishAct(actor, target, skill, log);
+      } else {
+        const mark = log.length;
+        act(actor, target, skill, qte, Math.random, log);
+        renderBattle(view({
+          phaseText: `${actor.side}の${skill.name}`,
+          actor: actor.side,
+          fxCrit: fxCrit(log.slice(mark)),
+          fxCut: fxCut(log.slice(mark)),
+        }));
+        await wait(900);
+      }
     }
     if (alive(player) && alive(enemy)) {
       const mark = log.length;
@@ -815,7 +958,6 @@ async function playBattle(playerResult, playerMonth, enemyResult, enemyMonth) {
   let phaseText = "引き分け";
   if (player.hp > 0 && enemy.hp <= 0) phaseText = "勝ち";
   else if (enemy.hp > 0 && player.hp <= 0) phaseText = "負け";
-  else if (round > 12) phaseText = player.hp === enemy.hp ? "時間切れで引き分け" : (player.hp > enemy.hp ? "時間切れで勝ち" : "時間切れで負け");
   player.hp = Math.max(0, player.hp);
   enemy.hp = Math.max(0, enemy.hp);
   shownHp = { player: player.hp, enemy: enemy.hp };

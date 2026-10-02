@@ -1,44 +1,79 @@
-/* バトル画面に足すもの（2026-10-02 ゆーしん「見た目と配置はメンバーのままで、ボタンの動きだけ。PCとスマホで分けて」）
-   色・並び・背景は battle.css（メンバーの見た目）のまま。ここではボタンの動きと、PC・スマホの大きさの違いだけを足す。
+/* バトル画面に足すもの（2026-10-02 ゆーしん「配置は元のリポジトリのまま、ボタン自体はこのアプリと合うように、動物みたいな動きのあるものに」）
+   並び・大きさ・位置・背景・キャラの欄は battle.css（メンバーの見た目）のまま。ここではボタンの見た目と動きと、PC・スマホの大きさだけ。
    battle.js・quiz.js・battle.css には手を入れていない */
+:root { --k-cream: #fffaf0; --k-ink: #4a3826; --k-muted: #8a765a; --k-leaf: #5c9a3c; --k-accent: #f2a541;
+  --k-paw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='%235c9a3c'%3E%3Cellipse cx='20' cy='27' rx='9' ry='7.5'/%3E%3Cellipse cx='9' cy='16' rx='3.6' ry='4.4'/%3E%3Cellipse cx='16' cy='10' rx='3.6' ry='4.6'/%3E%3Cellipse cx='24' cy='10' rx='3.6' ry='4.6'/%3E%3Cellipse cx='31' cy='16' rx='3.6' ry='4.4'/%3E%3C/g%3E%3C/svg%3E");
+  --k-paw-dark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='%234a2a00'%3E%3Cellipse cx='20' cy='27' rx='9' ry='7.5'/%3E%3Cellipse cx='9' cy='16' rx='3.6' ry='4.4'/%3E%3Cellipse cx='16' cy='10' rx='3.6' ry='4.6'/%3E%3Cellipse cx='24' cy='10' rx='3.6' ry='4.6'/%3E%3Cellipse cx='31' cy='16' rx='3.6' ry='4.4'/%3E%3C/g%3E%3C/svg%3E"); }
 
 /* 上の帯（パスポートに戻る）だけはサイトのもの */
 .topbar { position: sticky; top: 0; z-index: 6; }
 .topbar a { flex-shrink: 0; white-space: nowrap; }
 .topbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
-/* ===== ボタンの動き ===== */
 button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-.choice, .primary, .ghost, .badge { transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
-/* 押すと、ぐっとへこむ */
-.choice:active, .ghost:active { transform: scale(.97); }
-.primary:active { transform: scale(.96); animation: boing .45s; }
-@keyframes boing { 30% { transform: scale(1.05, .95); } 60% { transform: scale(.98, 1.02); } 100% { transform: none; } }
-/* 技のボタンは、出てくるときに順番にぽんと出る */
-.skill-grid .choice { animation: bpop .28s ease-out both; }
-.skill-grid .choice:nth-child(2) { animation-delay: .04s; } .skill-grid .choice:nth-child(3) { animation-delay: .08s; }
-.skill-grid .choice:nth-child(4) { animation-delay: .12s; } .skill-grid .choice:nth-child(5) { animation-delay: .16s; }
-.skill-grid .choice:nth-child(6) { animation-delay: .2s; }  .skill-grid .choice:nth-child(7) { animation-delay: .24s; }
-@keyframes bpop { from { transform: scale(.9); } to { transform: none; } }
-/* 「今だ！」はゆっくりふくらんで、押したくなるように */
+
+/* ===== 技・選択肢のボタン：クリーム色・緑のふち・左に肉球 =====
+   出てくるときは動物が跳ねて出てくるように、順番にぴょんと出る。押すと肉球を押しつけたようにへこむ */
+.choice { position: relative; background: var(--k-cream); color: var(--k-ink); border: 3px solid #cfe3b4; border-radius: 18px;
+  box-shadow: 0 4px 0 #b9d39a; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.choice .detail { color: var(--k-muted); }
+.skill-grid .choice { padding-left: 2.5rem; animation: hopin .42s cubic-bezier(.3,1.6,.5,1) both; }
+.skill-grid .choice:nth-child(2) { animation-delay: .05s; } .skill-grid .choice:nth-child(3) { animation-delay: .1s; }
+.skill-grid .choice:nth-child(4) { animation-delay: .15s; } .skill-grid .choice:nth-child(5) { animation-delay: .2s; }
+.skill-grid .choice:nth-child(6) { animation-delay: .25s; } .skill-grid .choice:nth-child(7) { animation-delay: .3s; }
+@keyframes hopin { 0% { transform: translateY(14px) scale(.92); } 60% { transform: translateY(-4px) scale(1.02); } 100% { transform: none; } }
+.skill-grid .choice::before { content: ""; position: absolute; left: .75rem; top: 50%; width: 1.15rem; height: 1.15rem; margin-top: -.58rem;
+  background: var(--k-paw) center / contain no-repeat; opacity: .45; transition: transform .2s, opacity .2s; }
+.choice:active { transform: translateY(3px) scale(.97); box-shadow: 0 1px 0 #b9d39a; }
+.skill-grid .choice:active::before { transform: scale(1.45) rotate(-10deg); opacity: 1; }
+.choice:disabled { box-shadow: none; }
+
+/* ===== 大きいボタン（これに決める・今だ！・もう一回）：アプリと同じオレンジ・肉球・上にくまの耳 =====
+   ふだんは耳がぴくぴく動き、押すとぽよんとはずむ */
+.primary { position: relative; z-index: 0; overflow: visible; background: var(--k-accent) var(--k-paw-dark) no-repeat 1.1rem 50% / 1.3rem;
+  color: #4a2a00; border-radius: 22px; box-shadow: 0 4px 0 #c47f22; margin-top: .75rem; transition: transform .12s, box-shadow .12s; isolation: isolate; }
+/* くまの耳：ボタンの上のふちから半分だけ出す（ボタンの中に作って、どの背景の上でも隠れないようにする） */
+.primary::before, .primary::after { content: ""; position: absolute; top: -11px; width: 24px; height: 24px; border-radius: 50%; z-index: -1;
+  clip-path: inset(0 0 45% 0);
+  background: radial-gradient(circle at 50% 55%, #f7c6a3 0 36%, var(--k-accent) 38%); box-shadow: 0 -1px 0 #c47f22 inset;
+  transform-origin: 50% 100%; animation: ear 3.2s ease-in-out infinite; }
+.primary::before { left: 1.2rem; }
+.primary::after { right: 1.2rem; animation-delay: -1.6s; }
+@keyframes ear { 0%, 86%, 100% { transform: rotate(0); } 90% { transform: rotate(-14deg); } 94% { transform: rotate(10deg); } }
+.primary:active { transform: translateY(3px); box-shadow: 0 1px 0 #c47f22; animation: boing .45s; }
+@keyframes boing { 30% { transform: scale(1.06, .94); } 60% { transform: scale(.97, 1.03); } 100% { transform: none; } }
+/* 「今だ！」は、獲物をねらうように、ゆっくりふくらむ */
 #qte-stop { animation: breathe 1s ease-in-out infinite; }
-@keyframes breathe { 50% { transform: scale(1.03); } }
-/* ラウンドの表示が変わるたびに、少しはずむ */
-.phase { animation: bpop .3s ease-out; }
+@keyframes breathe { 50% { transform: scale(1.04); } }
+
+/* ===== 控えめなボタン（戻る など）：クリーム色 ===== */
+.ghost { background: var(--k-cream); color: var(--k-ink); border: 2px solid #e2d5b2; border-radius: 18px; box-shadow: 0 3px 0 #d9ccaa;
+  transition: transform .12s, box-shadow .12s; }
+.ghost:active { transform: translateY(2px); box-shadow: 0 1px 0 #d9ccaa; }
+
+/* 状態のバッジは、押すと少し跳ねる */
+.badge { transition: transform .15s; }
+.badge:active { transform: scale(.9); }
+
 /* 下から出る説明は、すっと上がってくる */
 .sheet { animation: sheetup .22s ease-out; }
 @keyframes sheetup { from { transform: translate(-50%, 24px); } to { transform: translate(-50%, 0); } }
-/* マウスで使うPCだけ、乗せると少し浮く（スマホだとタップのあと浮いたまま残るため） */
+
+/* マウスで使うPCだけ、乗せたときの動き（スマホだとタップのあと残るため） */
 @media (hover: hover) {
-  .choice:hover { transform: translateY(-2px); border-color: #2f6f4e; box-shadow: 0 4px 10px rgba(0,0,0,.08); }
-  .primary:hover { filter: brightness(1.08); }
-  .ghost:hover { border-color: #2f6f4e; }
+  .choice:hover { transform: translateY(-2px); border-color: var(--k-leaf); box-shadow: 0 6px 0 #b9d39a; }
+  .skill-grid .choice:hover::before { transform: rotate(-14deg) scale(1.1); opacity: .9; }
+  .primary:hover { filter: brightness(1.05); }
+  .ghost:hover { border-color: var(--k-leaf); }
 }
 
-/* ===== PC（横に広い画面）：並びはそのまま、全体を大きく見やすく ===== */
+/* ===== PC（横に広い画面）：並びはそのまま、全体を広く大きく ===== */
 @media (min-width: 760px) {
   .topbar, main { max-width: 44rem !important; }
-  main { font-size: 17px; border-radius: 0 0 18px 18px; min-height: auto; margin-bottom: 32px; padding-left: 1.4rem; padding-right: 1.4rem; }
+  main { font-size: 17px; border-radius: 0 0 18px 18px; margin-bottom: 32px; padding-left: 1.4rem; padding-right: 1.4rem; }
+  .field { min-height: 19rem; }
+  .actor .portrait.field-art { width: 9.4rem; height: 9.4rem; }
+  .actor.player .portrait.field-art { width: 11.4rem; height: 11.4rem; }
   .skill-grid .choice { min-height: 4.2rem; }
   .primary, .ghost { min-height: 3.4rem; }
   /* 説明は、下からではなく画面の真ん中に出す */

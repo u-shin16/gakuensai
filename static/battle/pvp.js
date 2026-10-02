@@ -6,6 +6,8 @@
 // - 乱数は、サーバーが決めた同じ「たね」から作る（Math.random は使わない）
 // - 行動の順番・ダメージの計算は、番号の小さい方（lo）→大きい方（hi）の決まった並びで呼ぶ
 // - タイミングバー（QTE）は、その技を出す人のスマホだけで押し、結果の倍率を相手にも送る
+// - 連続攻撃のアニメ（battle.js の playCombo）は中で Math.random を使うので、その間だけ同じたねの乱数に差しかえる
+// 2026-10-02 battle.js ef25461 に合わせた（ラウンドの上限なし・連続攻撃のアニメ・タイミングの帯の位置）
 (function () {
   function seeded(seed) {   // mulberry32：同じたねなら、どの端末でも同じ数が同じ順で出る
     let a = seed >>> 0;
@@ -55,14 +57,14 @@
     Sfx.ensure();
     const log = [`相手は${enemy.type}（${enemy.month}月）`];
     let round = 1, finished = false;
-    const view = (extra) => ({ player, enemy, log: log.slice(-12), round, waiting: false, qte: false, finished, phaseText: "", ...extra });
+    const view = (extra) => ({ player, enemy, log: log.slice(), round, waiting: false, qte: false, finished, phaseText: "", ...extra });
 
     function lost(text) {   // 相手の通信が切れたとき
       finished = true;
       renderBattle(view({ phaseText: text, finished: true }));
     }
 
-    while (alive(player) && alive(enemy) && round <= 12) {
+    while (alive(player) && alive(enemy)) {
       // 1. 自分の技を選ぶ（選び方は battle.js と同じ）
       renderBattle(view({ command: true, waiting: true, phaseText: "行動を選ぶ" }));
       const picked = await new Promise((resolve) => {
@@ -108,8 +110,9 @@
         }
         let qte = 1;
         if (skill.qte && actor === player) {
-          renderBattle(view({ qte: true, phaseText: `${skill.name}：緑の帯で止める` }));
-          const result = await askQte(auraSum(player, "qteSlow") > 0, player.type === "鳥類");
+          const qteLayout = qteWindow(player.type === "鳥類");   // 帯の位置は自分の画面だけのこと（結果の倍率だけ相手に送る）
+          renderBattle(view({ qte: true, qteLayout, phaseText: `${skill.name}：緑の帯で止める` }));
+          const result = await askQte(auraSum(player, "qteSlow") > 0, qteLayout);
           qte = result.mult;
           Sfx.qte(result.label);
           const stop = document.getElementById("qte-stop");
@@ -126,10 +129,19 @@
           renderBattle(view({ phaseText: "相手の行動" }));
           await wait(450);
         }
-        const mark = log.length;
-        act(actor, target, skill, qte, rng, log);
-        renderBattle(view({ phaseText: `${actor.side}の${skill.name}`, actor: actor.side, fxCrit: fxCrit(log.slice(mark)) }));
-        await wait(800);
+        if (skill.power && skill.hits > 1) {
+          // 連続攻撃：1発ずつアニメで見せる。中の乱数を同じたねのものにする
+          const original = Math.random;
+          Math.random = rng;
+          try { await playCombo(actor, target, skill, qte, log, view); } finally { Math.random = original; }
+          finishAct(actor, target, skill, log);
+        } else {
+          const mark = log.length;
+          act(actor, target, skill, qte, rng, log);
+          renderBattle(view({ phaseText: `${actor.side}の${skill.name}`, actor: actor.side,
+            fxCrit: fxCrit(log.slice(mark)), fxCut: fxCut(log.slice(mark)) }));
+          await wait(900);
+        }
       }
       if (broken) { lost("相手の通信が切れました"); break; }
       if (alive(player) && alive(enemy)) {
@@ -148,7 +160,6 @@
       let phaseText = "引き分け";
       if (player.hp > 0 && enemy.hp <= 0) phaseText = "勝ち！";
       else if (enemy.hp > 0 && player.hp <= 0) phaseText = "負け…";
-      else if (round > 12) phaseText = player.hp === enemy.hp ? "時間切れで引き分け" : (player.hp > enemy.hp ? "時間切れで勝ち！" : "時間切れで負け…");
       player.hp = Math.max(0, player.hp);
       enemy.hp = Math.max(0, enemy.hp);
       shownHp = { player: player.hp, enemy: enemy.hp };

@@ -885,6 +885,14 @@ def battle_page(token: str):
     return render_template("battle.html", r=r, token=token, enemy=enemy, error="")
 
 
+@app.get("/battle/art/<name>")
+def battle_art(name: str):
+    """battle.js のキャラの絵（art/neko.png など）。メンバーから絵が届いたら static/battle/art/ に置く。"""
+    if not re.match(r"^[a-z0-9_-]+\.(png|webp|jpg)$", name):
+        abort(404)
+    return send_from_directory(Path(__file__).parent / "static" / "battle" / "art", name)
+
+
 @app.post("/api/battle/wait")
 def battle_wait():
     """友人戦の待ち合わせ（2026-10-02 ゆーしん「お互い正しいときだけマッチが始まる」）。
