@@ -98,7 +98,7 @@
 </head>
 <body class="at-start">
 <div class="wrap">
-  {% if mock %}<div class="mockbadge">ダミーモード（AIを使わない・お試し用）</div>{% endif %}
+  {% if mock %}<div class="mockbadge">ダミーモード（AIなし）</div>{% endif %}
   {% include "_sign.html" %}
 
   <!-- 1. はじめ（入り口）：2026-10-02 作り直し。絵は画面の幅いっぱい、題名はパスポートの表紙 -->
@@ -141,7 +141,7 @@
       <label class="h" for="shopCode">お店のあいことば<small>お店の人に聞いてね</small></label>
       <input id="shopCode" type="text" inputmode="numeric" maxlength="4" placeholder="・・・・" autocomplete="off" value="">
       {% endif %}
-      <button class="big" id="startBtn">入国審査をはじめる</button>
+      <div class="pbtn"><img class="peek" src="/static/peek-redpanda.webp" alt="" width="96" height="96"><button class="big" id="startBtn">入国審査をはじめる</button></div>
       <div id="shopStatus"></div>
     </div>
   </section>
@@ -169,7 +169,7 @@
       <button type="button" data-v="cute" class="on">かわいい<small>まるっこくて、やさしい</small></button>
       <button type="button" data-v="cool">かっこいい<small>勇ましくて、たのもしい</small></button>
     </div>
-    <button class="big" id="makeBtn">カードを作る！</button>
+    <div class="pbtn"><img class="peek" src="/static/peek-fennec.webp" alt="" width="96" height="96"><button class="big" id="makeBtn">カードを作る！</button></div>
     <div id="loading" class="hidden"><div class="spinner"></div></div>
     <div id="status"></div>
   </section>
@@ -205,17 +205,19 @@ let answers = [], style = 'cute', current = null;
 function show(id) {
   ['s-start', 's-quiz', 's-fav', 's-result', 's-done'].forEach((s) => $(s).classList.toggle('hidden', s !== id));
   document.body.classList.toggle('at-start', id === 's-start');
+  document.body.classList.toggle('has-back', id === 's-quiz' || id === 's-fav');
   $('backBtn').classList.toggle('hidden', id !== 's-quiz' && id !== 's-fav');
   window.scrollTo({ top: 0 });
 }
 
 function renderQuestion() {
   const i = answers.length;
-  if (i >= QUESTIONS.length) { show('s-fav'); $('favorite').focus(); return; }
+  if (i >= QUESTIONS.length) { show('s-fav'); if (matchMedia('(hover: hover)').matches) $('favorite').focus(); return; }
   const q = QUESTIONS[i];
   $('bar').style.width = (i / QUESTIONS.length * 100) + '%';
   $('qnum').textContent = `質問 ${i + 1} / ${QUESTIONS.length}`;
   $('qtext').textContent = q.q;
+  $('qtext').classList.remove('anim'); void $('qtext').offsetWidth; $('qtext').classList.add('anim');
   $('optA').textContent = q.a[0];
   $('optB').textContent = q.b[0];
 }
@@ -234,8 +236,15 @@ $('startBtn').onclick = async () => {
   shop = code; $('shopStatus').textContent = '';
   answers = []; show('s-quiz'); renderQuestion();
 };
-$('optA').onclick = () => { answers.push(QUESTIONS[answers.length].a[1]); renderQuestion(); };
-$('optB').onclick = () => { answers.push(QUESTIONS[answers.length].b[1]); renderQuestion(); };
+// 2回続けて押されても1問ずつしか進まないよう、押したあと少しだけ受け付けない（スマホで指が2回当たったとき）
+let answering = false;
+function answer(key) {
+  if (answering || answers.length >= QUESTIONS.length) return;
+  answering = true; setTimeout(() => { answering = false; }, 350);
+  answers.push(QUESTIONS[answers.length][key][1]); renderQuestion();
+}
+$('optA').onclick = () => answer('a');
+$('optB').onclick = () => answer('b');
 // 左上の「戻る」：質問なら1つ前へ（1問目なら最初の画面へ）、好きなものの画面なら最後の質問へ
 $('backBtn').onclick = () => {
   if (!$('s-fav').classList.contains('hidden')) { answers.pop(); show('s-quiz'); renderQuestion(); return; }

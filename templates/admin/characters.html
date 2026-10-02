@@ -28,6 +28,27 @@
   .msg { font-size: .78rem; line-height: 1.5; color: #e6e1f7; }
   .dummy { font-size: .7rem; background: #ff5577; border-radius: 99px; padding: 1px 8px; color: #fff; }
   .empty { text-align: center; color: var(--muted); margin-top: 60px; }
+  /* 削除（2026-10-02）：カードの左上にチェック、下に操作の帯、消す前にパスワード */
+  .cell { position: relative; display: flex; }
+  .cell .item { flex: 1; }
+  .cell.on .item { outline: 3px solid #ff5577; outline-offset: -3px; }
+  .pick { position: absolute; top: 12px; left: 8px; z-index: 2; width: 34px; height: 34px; border-radius: 10px; background: rgba(20,14,40,.75);
+    display: grid; place-items: center; cursor: pointer; }
+  .pick input { width: 20px; height: 20px; accent-color: #ff5577; cursor: pointer; margin: 0; }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: rgba(27,20,51,.96); border-top: 1px solid var(--panel2);
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); justify-content: center; }
+  .bar .sel { color: var(--muted); font-size: .9rem; margin-right: 6px; }
+  .bar button, .modal button { font: inherit; font-weight: 800; border: 0; border-radius: 12px; padding: 10px 14px; cursor: pointer; background: var(--panel2); color: var(--text); }
+  .bar button.danger, .modal button.danger { background: #e0445f; color: #fff; }
+  .bar button:disabled { opacity: .4; cursor: default; }
+  .modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal[hidden] { display: none; }
+  .modal .box { background: var(--panel); border-radius: 16px; padding: 22px; width: 100%; max-width: 360px; }
+  .modal h2 { margin: 0 0 8px; font-size: 1.15rem; }
+  .modal p { margin: 0 0 14px; color: var(--muted); font-size: .88rem; line-height: 1.6; }
+  .modal input { width: 100%; font: inherit; font-size: 1.3rem; letter-spacing: .3em; text-align: center; padding: 10px; border-radius: 10px; border: 2px solid var(--panel2); margin-bottom: 8px; }
+  .modal .err { color: #ff8fa3; min-height: 1.4em; font-size: .85rem; font-weight: 800; }
+  .modal .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -44,7 +65,9 @@
 {% if rows %}
 <div class="grid" id="grid">
   {% for r in rows %}
-  <a class="item" href="/r/{{ r.token }}" target="_blank" data-type="{{ r.type_name }}" data-style="{{ r.style }}" style="--c: {{ r.color }}; --c2: {{ r.color }}">
+  <div class="cell" data-type="{{ r.type_name }}" data-style="{{ r.style }}">
+  <label class="pick" title="選ぶ"><input type="checkbox" value="{{ r.token }}"></label>
+  <a class="item" href="/r/{{ r.token }}" target="_blank" style="--c: {{ r.color }}; --c2: {{ r.color }}">
     <img src="{{ r.image }}" alt="{{ r.monster }}" loading="lazy">
     <div class="body">
       <div class="no"><span>No.{{ '%04d' % r.serial }}</span><span>{{ r.created_at }}</span></div>
@@ -54,14 +77,32 @@
       {% if r.message %}<div class="msg">「{{ r.message }}」</div>{% endif %}
     </div>
   </a>
+  </div>
   {% endfor %}
+</div>
+<div style="height:80px"></div>
+<div class="bar">
+  <span class="sel" id="sel">0体を選択中</span>
+  <button type="button" id="selAll">表示中をすべて選ぶ</button>
+  <button type="button" id="selNone">選択を外す</button>
+  <button type="button" class="danger" id="delSel" disabled>選んだカードを削除</button>
+  <button type="button" class="danger" id="delAll">すべてのカードを削除</button>
+</div>
+<div class="modal" id="modal" hidden>
+  <div class="box">
+    <h2 id="mTitle">カードを削除</h2>
+    <p id="mText"></p>
+    <input id="pw" type="password" inputmode="numeric" autocomplete="off" placeholder="パスワード">
+    <div class="err" id="mErr"></div>
+    <div class="row"><button type="button" id="mCancel">やめる</button><button type="button" class="danger" id="mOk">削除する</button></div>
+  </div>
 </div>
 {% else %}
 <p class="empty">まだ守り神はいません。</p>
 {% endif %}
 
 <script>
-const items = [...document.querySelectorAll('.item')];
+const items = [...document.querySelectorAll('.cell')];
 const typeSel = document.getElementById('type'), styleSel = document.getElementById('style');
 [...new Set(items.map((i) => i.dataset.type))].sort().forEach((t) => {
   const o = document.createElement('option'); o.textContent = t; typeSel.appendChild(o);
@@ -75,6 +116,43 @@ function apply() {
   document.getElementById('count').textContent = n + '体';
 }
 typeSel.onchange = apply; styleSel.onchange = apply;
+
+// ===== 削除 =====
+const $ = (id) => document.getElementById(id);
+const boxes = () => [...document.querySelectorAll('.pick input')];
+function picked() { return boxes().filter((b) => b.checked).map((b) => b.value); }
+function refresh() {
+  boxes().forEach((b) => b.closest('.cell').classList.toggle('on', b.checked));
+  const n = picked().length;
+  $('sel').textContent = n + '体を選択中';
+  $('delSel').disabled = n === 0;
+}
+document.addEventListener('change', (e) => { if (e.target.matches('.pick input')) refresh(); });
+$('selAll').onclick = () => { items.forEach((c) => { if (c.style.display !== 'none') c.querySelector('input').checked = true; }); refresh(); };
+$('selNone').onclick = () => { boxes().forEach((b) => { b.checked = false; }); refresh(); };
+
+let pending = null;   // { all: true } か { tokens: [...] }
+function ask(req, text) {
+  pending = req; $('mText').textContent = text; $('pw').value = ''; $('mErr').textContent = '';
+  $('modal').hidden = false; $('pw').focus();
+}
+$('delSel').onclick = () => { const t = picked(); ask({ tokens: t }, `選んだ ${t.length}体のカードを削除します。絵・結果ページ・広場からも消え、元に戻せません。`); };
+$('delAll').onclick = () => ask({ all: true }, `すべてのカード（${boxes().length}体）を削除します。絵・結果ページ・広場からも消え、元に戻せません。`);
+$('mCancel').onclick = () => { $('modal').hidden = true; pending = null; };
+$('pw').onkeydown = (e) => { if (e.key === 'Enter') $('mOk').click(); };
+$('mOk').onclick = async () => {
+  if (!pending) return;
+  const password = $('pw').value;
+  if (!password) { $('mErr').textContent = 'パスワードを入れてください'; return; }
+  $('mOk').disabled = true;
+  try {
+    const r = await (await fetch('/api/cards/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...pending, password }) })).json();
+    if (!r.ok) { $('mErr').textContent = r.reason || '削除できませんでした'; return; }
+    location.reload();
+  } catch (e) { $('mErr').textContent = '通信に失敗しました'; }
+  finally { $('mOk').disabled = false; }
+};
 </script>
 </body>
 </html>

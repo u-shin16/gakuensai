@@ -238,3 +238,16 @@ def ai_mode() -> str:
 
 def set_ai_mode(mode: str) -> None:
     col("settings").document("mode").set({"mode": mode, "updated_at": now()})
+
+
+# ===== カードの削除（2026-10-02） =====
+
+def delete_result(token: str) -> dict | None:
+    """カード1枚の記録を消す（広場にいれば広場からも出す）。消した記録を返す（絵のファイル名を知るため）。"""
+    ref = col("results").document(token)
+    snap = ref.get()
+    if not snap.exists:
+        return None
+    ref.delete()
+    col("plaza_members").document(token).delete()
+    return snap.to_dict()

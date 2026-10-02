@@ -263,3 +263,49 @@ body.at-start { padding-top: 0 !important; padding-bottom: 0 !important; }
   .cover .pp { font-size: 1.05rem; }
   .flow { margin: 22px 0 16px; }
 }
+
+/* ===== ボタンの上から本物っぽい動物がのぞく（2026-10-02 ゆーしん「動きのあるリアルな動物の感じ」） =====
+   絵はHiggsfieldで描いて背景を抜いたもの。前足がボタンのふちに乗っている */
+.pbtn { position: relative; display: inline-flex; flex-direction: column; align-items: center; margin-top: 52px; }
+.entry .pbtn { margin-top: 46px; }
+.pbtn .peek { position: absolute; z-index: 3; bottom: calc(100% - 14px); left: 50%; width: 96px; height: 96px; margin-left: -48px;
+  pointer-events: none; transform-origin: 50% 100%; filter: drop-shadow(0 3px 3px rgba(60,35,10,.25));
+  animation: peekin .9s cubic-bezier(.2,1.4,.4,1) both, peekidle 4.5s ease-in-out 1.2s infinite; }
+@keyframes peekin { from { transform: translateY(30px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+/* ときどき首をかしげて、少し引っこんでまた出てくる */
+@keyframes peekidle {
+  0%, 52%, 100% { transform: none; }
+  58% { transform: rotate(-7deg); }
+  66% { transform: rotate(5deg); }
+  72% { transform: rotate(0) translateY(6px) scaleY(.96); }
+  80% { transform: translateY(-3px); }
+  86% { transform: none; }
+}
+/* 押した瞬間はぴょんと跳ねる */
+.pbtn:active .peek { animation: peekjump .35s ease-out; }
+@keyframes peekjump { 0% { transform: none; } 40% { transform: translateY(-12px) scale(1.04); } 100% { transform: none; } }
+/* カードを作っている間は、待ちながら左右にゆれる */
+.pbtn:has(button:disabled) .peek { animation: peekwait 1.2s ease-in-out infinite; }
+@keyframes peekwait { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+
+/* 動物を乗せたので、くまの耳と肉球の印はやめる */
+button.big { padding-left: 34px !important; padding-right: 34px !important; background-image: none !important; }
+button.big::before, button.big::after { content: none !important; }
+
+/* ===== スマホで安定させる（2026-10-02 ゆーしん「UIについて不安定なところはないように」） ===== */
+html, body { overflow-x: clip; }                         /* 横にずれない（幅いっぱいの絵が原因でスクロールしない） */
+button, a.btn, .examples button, .styles button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+                                                        /* 2回タップで拡大しない・タップしたときの灰色の四角を出さない */
+/* さわれる画面（マウス）のときだけ、上に乗せたときの動きを出す。スマホだとタップのあと傾いたまま残るため */
+@media (hover: none) {
+  .choices button:hover { transform: none; border-color: #cfe3b4; }
+  .choices button:hover::before { opacity: .35; transform: none; }
+  button.big:hover { animation: breathe 2.4s ease-in-out infinite; }
+}
+/* 質問の文は出るたびにふわっと */
+.qtext { animation: none; }
+.qtext.anim { animation: popin .35s ease-out; }
+/* 戻るボタンが看板に重ならないよう、戻るボタンがある画面では看板を下げる */
+body.has-back .sign { margin-top: 44px; }
+/* ダミーモードの印は、どの画面でも右上に小さく固定（戻るボタンと重ならないように） */
+.mockbadge { position: fixed !important; top: 10px; right: 10px; z-index: 30; margin: 0 !important; font-size: .68rem !important; padding: 3px 10px !important; }

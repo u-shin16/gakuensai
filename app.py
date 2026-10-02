@@ -738,6 +738,40 @@ def characters():
     return render_template("admin/characters.html", rows=rows, show_dummy=False)
 
 
+# ===== カードの削除（2026-10-02） =====
+# 管理者画面の「これまでの守り神」から、選んだカード・すべてのカードを消せる。
+# 消すときは削除用のパスワードが要る（.env の DELETE_PASSWORD。値はコードにもGitHubにも書かない）。
+DELETE_PASSWORD = os.environ.get("DELETE_PASSWORD", "")
+
+
+@app.post("/api/cards/delete")
+def cards_delete():
+    staff_only()
+    body = request.get_json(silent=True) or {}
+    if not DELETE_PASSWORD:
+        return jsonify({"ok": False, "reason": "削除用のパスワードが設定されていません（.env の DELETE_PASSWORD）"}), 500
+    if not secrets.compare_digest(str(body.get("password", "")), DELETE_PASSWORD):
+        write_log({"event": "delete_refused", "by": session.get("admin_email", "local")})
+        return jsonify({"ok": False, "reason": "パスワードがちがいます"}), 403
+    if body.get("all"):
+        tokens = [t for t, _ in store.list_results()]
+    else:
+        tokens = [t for t in (body.get("tokens") or []) if isinstance(t, str) and TOKEN_RE.match(t)]
+    if not tokens:
+        return jsonify({"ok": False, "reason": "消すカードが選ばれていません"}), 400
+    n = 0
+    for token in tokens:
+        r = store.delete_result(token)
+        if r is None:
+            continue
+        img = RESULT_DIR / r.get("image_file", f"{token}.png")
+        if img.parent == RESULT_DIR and img.exists():
+            img.unlink()
+        n += 1
+    write_log({"event": "delete", "count": n, "all": bool(body.get("all")), "by": session.get("admin_email", "local")})
+    return jsonify({"ok": True, "deleted": n})
+
+
 @app.get("/r/<token>")
 def result_page(token: str):
     """カードのQRコードから開く、その人だけの結果ページ。"""
