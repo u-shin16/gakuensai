@@ -5,30 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>バトル｜どうぶつ王国 観光パスポート</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/battle/battle.css">
 <link rel="stylesheet" href="/static/battle/kingdom-battle.css">
 <style>
   /* どうぶつ王国の色に少し寄せる（元の見た目はそのまま） */
   .topbar { max-width: 32rem; margin: 0 auto; padding: calc(10px + env(safe-area-inset-top)) 12px 6px; display: flex; gap: 10px; align-items: center;
-    background: #1d4632; color: #e4c47e; font-weight: 700; }
-  .topbar a { color: #e4c47e; text-decoration: none; font-size: .9rem; }
-  .topbar span { margin-left: auto; font-size: .8rem; color: #f3e6c4; }
-  .err { max-width: 32rem; margin: 0 auto; background: #fdf6e6; padding: 24px 16px; }
+    background: #2f6f4e; color: #fff; font-weight: 700; }
+  .topbar a { color: #fff; text-decoration: none; font-size: .9rem; }
+  .topbar span { margin-left: auto; font-size: .8rem; color: #d7eadf; }
+  
   .waitbox { display: flex; flex-direction: column; gap: .8rem; flex: 1; }
   .wait-card { text-align: center; padding: 1.4rem 1rem 1.1rem !important; }
-  .wait-card h2 { font-size: 1.05rem !important; color: #3f7429 !important; }
+  .wait-card h2 { font-size: 1.05rem !important; color: #2f6f4e !important; }
   .wait-card p { line-height: 1.7; }
-  .myno { display: inline-block; margin: .6rem auto; padding: .3rem 1.2rem; border-radius: 14px; background: #1d4632; color: #e4c47e;
+  .myno { display: inline-block; margin: .6rem auto; padding: .3rem 1.2rem; border-radius: 14px; background: #2f6f4e; color: #fff;
     font-size: 2rem; font-weight: 800; letter-spacing: .08em; }
   .dots { display: flex; gap: 8px; justify-content: center; margin-bottom: .6rem; }
-  .dots i { width: 12px; height: 12px; border-radius: 50%; background: #5c9a3c; animation: dot 1.2s ease-in-out infinite; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: #2f6f4e; animation: dot 1.2s ease-in-out infinite; }
   .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
   @keyframes dot { 0%, 80%, 100% { transform: scale(.6); opacity: .4; } 40% { transform: scale(1); opacity: 1; } }
 </style>
 </head>
-<body style="--me-img: url('/img/{{ r.image_file }}') center / cover no-repeat;{% if enemy and enemy.image_file %} --foe-img: url('/img/{{ enemy.image_file }}') center / cover no-repeat;{% endif %}">
+<body>
 <div class="topbar">
   <a href="/r/{{ token }}">← パスポートに戻る</a>
   <span>No.{{ '%04d' % r.serial }} {{ r.monster }}{% if enemy %} vs No.{{ '%04d' % enemy.serial }} {{ enemy.monster }}{% elif error %} 友人戦{% else %} vs コンピューター{% endif %}</span>
