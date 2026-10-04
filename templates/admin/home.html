@@ -14,10 +14,15 @@
   main { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
   h1 { margin: 0; font-size: 1.5rem; }
   .note { color: var(--muted); font-size: .85rem; margin: 0; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
   .stat { background: var(--panel); border-radius: 14px; padding: 14px 16px; }
+  a.stat { color: inherit; text-decoration: none; display: block; border: 2px solid transparent; }
+  a.stat:hover { border-color: var(--panel2); }
   .stat .n { font-size: 1.8rem; font-weight: 800; color: var(--accent); letter-spacing: .05em; }
+  .stat .n small { font-size: 1rem; color: var(--muted); font-weight: 500; }
   .stat .l { color: var(--muted); font-size: .85rem; }
+  .group { margin-top: 4px; }
+  .group h2 { margin: 0 0 8px; font-size: .9rem; color: var(--muted); font-weight: 500; }
   .menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
   .menu a { display: block; background: var(--panel); border-radius: 14px; padding: 16px 18px; color: inherit; text-decoration: none; border: 2px solid transparent; }
   .menu a:hover { border-color: var(--panel2); }
@@ -32,7 +37,9 @@
   <p class="note">スタッフ用です。登録されたGoogleアカウントだけが入れます。{% if email %}ログイン中：{{ email }}　<a href="/admin/logout" style="color:var(--muted)">ログアウト</a>{% endif %}</p>
 
   <div class="stats">
-    <div class="stat"><div class="n">{{ cards }}</div><div class="l">いまあるカード（消したカードは数えない）</div></div>
+    <a class="stat" href="/admin/tickets"><div class="n">{{ tickets_unused }}</div><div class="l">未使用チケット（残り配れる数）</div></a>
+    <a class="stat" href="/admin/tickets"><div class="n">{{ tickets_used }}</div><div class="l">使用済みチケット</div></a>
+    <a class="stat" href="/admin/characters"><div class="n">{{ cards }}</div><div class="l">いまあるカード（消したカードは数えない）</div></a>
     <div class="stat"><div class="n">{{ plaza }}</div><div class="l">広場にいる案内アニマル</div></div>
     <div class="stat"><div class="n">{{ code or '----' }}</div><div class="l">広場のあいことば</div></div>
   </div>
@@ -52,12 +59,27 @@
     {% endif %}
   </div>
 
-  <div class="menu">
-    <a href="/admin/plaza"><b>広場の管理</b><span>あいことばを変える・案内アニマルを広場から出す</span></a>
-    <a href="/admin/characters"><b>これまでの案内アニマル</b><span>作ったカードの一覧（好きなものも出る）・選んで削除／すべて削除</span></a>
-    <a href="/plaza" target="_blank"><b>広場を開く</b><span>店の大きい画面に映す広場</span></a>
-    <a href="/" target="_blank"><b>お客さんの画面を開く</b><span>診断してカードを作る画面</span></a>
-    <a href="/admin/tickets"><b>チケット</b><span>作る・印刷する・使われたか／受け取り時間を見る（お試し）</span></a>
+  <div class="group">
+    <h2>当日よく使う</h2>
+    <div class="menu">
+      <a href="/admin/tickets"><b>チケット</b><span>作る・印刷する・使われたか／受け取り時間を見る</span></a>
+      <a href="/admin/characters"><b>これまでの案内アニマル</b><span>作ったカードの一覧（好きなものも出る）・選んで削除／すべて削除</span></a>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>画面を出す（各端末に表示したままにする）</h2>
+    <div class="menu">
+      <a href="/" target="_blank"><b>お客さんの画面を開く</b><span>診断してカードを作る画面</span></a>
+      <a href="/plaza" target="_blank"><b>広場を開く</b><span>店の大きい画面に映す広場</span></a>
+    </div>
+  </div>
+
+  <div class="group">
+    <h2>設定（たまに使う）</h2>
+    <div class="menu">
+      <a href="/admin/plaza"><b>広場の管理</b><span>あいことばを変える・案内アニマルを広場から出す</span></a>
+    </div>
   </div>
 </main>
 <script>

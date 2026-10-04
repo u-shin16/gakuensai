@@ -648,9 +648,12 @@ def staff_only() -> None:
 @app.get("/admin")
 def admin_home():
     staff_only()
+    tickets = store.list_tickets()
+    used = sum(1 for t in tickets if t.get("status") == "used")
     return render_template("admin/home.html", code=store.plaza_code(), plaza=len(store.plaza_members()),
                            cards=store.count_cards(), shop=shop_code(), email=session.get("admin_email", ""),
-                           mock=is_mock(), has_key=bool(API_KEY), forced=os.environ.get("MOCK") == "1")
+                           mock=is_mock(), has_key=bool(API_KEY), forced=os.environ.get("MOCK") == "1",
+                           tickets_unused=len(tickets) - used, tickets_used=used)
 
 
 @app.post("/api/mode")
