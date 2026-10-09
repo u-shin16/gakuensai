@@ -155,3 +155,19 @@ body > main#app { flex: 1 1 auto; min-height: 0 !important; height: auto; width:
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ===== メンバーの新しい対戦画面（ad5eb04）でも1画面に収める（2026-10-09） =====
+   新しい版は、技のボタン・ログ・キャラの欄に固定の高さがあり、小さいスマホでは下の段の技が画面の外に出てタップできなかった。
+   並びはそのまま、高さだけを画面の高さに合わせて縮める（技の欄の高さは固定のままなので、押しても下がずれない） */
+:root { --k-chh: clamp(2.7rem, 8.2vh, 5.125rem); }
+.arena-stage .skill-grid .choice { height: var(--k-chh) !important; padding-top: .3rem !important; padding-bottom: .3rem !important; }
+.arena-stage .dock { height: calc(.35rem + 3 * var(--k-chh) + 1rem) !important; }
+.arena-stage .field { min-height: 5.5rem !important; flex: 1 1 auto !important; }
+.arena-stage .logline { min-height: 0 !important; padding-top: .15rem !important; padding-bottom: .15rem !important; }
+.hud .hud-top.foot { min-height: 0 !important; }
+.hud .badge { width: clamp(1.9rem, 5.5vh, 2.55rem) !important; height: clamp(1.9rem, 5.5vh, 2.55rem) !important;
+  min-width: 0 !important; min-height: 0 !important; max-width: none !important; }
+@media (max-height: 700px) {
+  .feed p:not(.now) { display: none; }        /* 1つ前までのログは「ログ」ボタンから見られる */
+  .arena-stage .choice strong { font-size: .92rem; }
+}

@@ -162,64 +162,64 @@ function judge(answers) {
 // animal_battle_skills.xlsx「質問由来11型」「タイプ専用5技」の数値。
 const SKILLS = {
   強打: { power: 1.2, hits: 1, qte: true, uses: 2, crit: 0.1, miss: 0, note: "QTEで0.6〜1.8倍" },
-  連撃: { power: 0.35, hits: 3, qte: false, uses: 4, crit: 0.05, miss: 0.1, note: "3回ヒット。ミス率はヒットごと" },
-  急所狙い: { power: 0.9, hits: 1, qte: false, uses: 3, crit: 0.4, miss: 0.25, note: "ハイリスク型" },
-  吸収: { power: 0.8, hits: 1, qte: false, uses: 3, crit: 0.1, miss: 0.1, note: "与ダメージの3割を回復" },
-  貫通: { power: 0.9, hits: 1, qte: false, uses: 3, crit: 0.1, miss: 0.1, note: "相手の守備を半分無視して計算" },
-  ガード: { uses: 2, note: "次に受けるダメージを65%軽減" },
+  連撃: { power: 0.35, hits: 3, qte: true, uses: 4, crit: 0.05, miss: 0.1, note: "3回ヒット。ミス率はヒットごと。QTEで0.6〜1.8倍" },
+  急所狙い: { power: 0.9, hits: 1, qte: true, uses: 2, crit: 0.6, miss: 0.4, note: "ハイリスク型。QTEで0.6〜1.8倍。パーフェクトなら必中" },
+  吸収: { power: 0.8, hits: 1, qte: true, uses: 3, crit: 0.1, miss: 0.1, note: "与ダメージの3割を回復。QTEで0.6〜1.8倍" },
+  貫通: { power: 0.8, hits: 1, qte: true, uses: 3, crit: 0.1, miss: 0.1, note: "相手の守備を半分無視。GOOD以上ならガードと軽減も無視。QTEで0.4〜1.2倍" },
+  ガード: { uses: 2, note: "次の攻撃の初撃を90%軽減" },
   気合: { uses: 2, note: "2ターン、威力+45%" },
-  硬化: { uses: 2, note: "3ターン、守備+70%" },
-  毒: { uses: 3, note: "3ターン継続ダメージ（攻撃×0.2/ターン）" },
-  弱体: { uses: 3, note: "2ターン、相手の攻撃−20%" },
-  反撃: { uses: 2, note: "次に受けるダメージの55%を相手に返す" },
+  硬化: { uses: 2, note: "3ターン、守備+100%" },
+  毒: { uses: 3, note: "3ターン継続ダメージ（攻撃×0.45/ターン）" },
+  弱体: { uses: 3, note: "3ターン、相手の攻撃−60%" },
+  反撃: { uses: 2, note: "次の攻撃の初撃の90%を相手に返す" },
 };
 
 const TYPE_SKILLS = {
   ネコ科: {
     name: "身かわし",
     uses: 1,
-    main: "次に受けるダメージを80%軽減",
+    main: "次の攻撃の初撃を80%軽減",
     sub: "次の自分の攻撃が会心必中",
   },
   イヌ科: {
     name: "遠吠え",
     uses: 2,
-    main: "2ラウンド、攻撃+30%・守備+50%",
+    main: "2ラウンド、攻撃+30%・守備+90%",
     sub: "最大HPの20%を回復",
   },
   大型: {
     name: "根を張る",
     uses: 1,
     main: "持続回復3ラウンド（最大HPの8%/ラウンド）",
-    sub: "2ラウンド、守備+40%",
+    sub: "2ラウンド、守備+85%",
   },
   鳥類: {
     name: "追い風",
     uses: 2,
-    main: "1ラウンド、回避55%（相手の攻撃が確率で外れる）",
+    main: "2ラウンド、回避70%（相手の攻撃が確率で外れる）",
     sub: "1ラウンド、QTEバーが遅くなる",
   },
   爬虫類: {
     name: "封じ",
     uses: 1,
-    main: "相手が最後に使った技を1ラウンド封じる（通常攻撃は封じない）",
-    sub: "毒3ラウンド（攻撃×0.1/ラウンド）＋守備−15%（2ラウンド）",
+    main: "相手が最後に使った技を4ラウンド封じる（通常攻撃は封じない）",
+    sub: "回復量−60%（5ラウンド）＋守備−55%（3ラウンド）",
   },
 };
 
 const MONTH_SKILLS = [
   { name: "初日の出", uses: 2, main: "2ラウンド、会心率+45%", sub: "次の攻撃が必中" },
-  { name: "雪化粧", uses: 2, main: "2ラウンド、被ダメージ40%軽減", sub: "最大HPの8%回復" },
-  { name: "桜吹雪", uses: 2, main: "2ラウンド、相手の守備−25%", sub: "2ラウンド、会心率+15%" },
-  { name: "春風", uses: 2, main: "2ラウンド、回避45%", sub: "1ラウンド、QTEバーが遅くなる" },
-  { name: "新緑", uses: 1, main: "持続回復3ラウンド（最大HPの6%/ラウンド）", sub: "2ラウンド、守備+30%" },
-  { name: "梅雨", uses: 2, main: "2ラウンド、相手の攻撃−20%", sub: "2ラウンド、回避25%" },
+  { name: "雪化粧", uses: 2, main: "2ラウンド、被ダメージ75%軽減", sub: "最大HPの8%回復" },
+  { name: "桜吹雪", uses: 2, main: "2ラウンド、相手の守備−60%", sub: "2ラウンド、会心率+15%" },
+  { name: "春風", uses: 2, main: "2ラウンド、回避60%", sub: "1ラウンド、QTEバーが遅くなる" },
+  { name: "新緑", uses: 1, main: "持続回復3ラウンド（最大HPの6%/ラウンド）", sub: "2ラウンド、守備+80%" },
+  { name: "梅雨", uses: 2, main: "2ラウンド、相手の攻撃−55%", sub: "2ラウンド、回避60%" },
   { name: "夏祭り", uses: 1, main: "次の攻撃の威力+70%", sub: "2ラウンド、会心率+15%" },
   { name: "入道雲", uses: 2, main: "2ラウンド、攻撃+40%", sub: "次の攻撃が必中" },
-  { name: "月見", uses: 1, main: "最大HPの20%回復", sub: "1ラウンド、守備+30%" },
-  { name: "紅葉", uses: 2, main: "2ラウンド、相手の守備−15%", sub: "2ラウンド、相手の攻撃−10%" },
-  { name: "木枯らし", uses: 2, main: "2ラウンド、会心率+30%", sub: "2ラウンド、回避25%" },
-  { name: "冬至", uses: 1, main: "最大HPの15%回復", sub: "2ラウンド、被ダメージ25%軽減" },
+  { name: "月見", uses: 1, main: "最大HPの20%回復", sub: "1ラウンド、守備+100%" },
+  { name: "紅葉", uses: 2, main: "2ラウンド、相手の守備−55%", sub: "2ラウンド、相手の攻撃−45%" },
+  { name: "木枯らし", uses: 2, main: "2ラウンド、会心率+30%", sub: "2ラウンド、回避60%" },
+  { name: "冬至", uses: 1, main: "最大HPの15%回復", sub: "2ラウンド、被ダメージ70%軽減" },
 ];
 
 function percent(value) {
@@ -256,7 +256,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = AnimalQuiz
 
 if (typeof document !== "undefined") {
   const MARKS = ["A", "B", "C", "D"];
-  const state = { phase: "month", month: 1, step: 0, answers: [] };
+  const state = { phase: "intro", intro: 0, month: 1, step: 0, answers: [] };
 
   function escapeHtml(text) {
     return String(text)
@@ -264,6 +264,10 @@ if (typeof document !== "undefined") {
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function withMissColor(text) {
+    return escapeHtml(text).replace(/ミス\d+(?:\.\d+)?%/g, (hit) => `<span class="miss-rate">${hit}</span>`);
   }
 
   function skillButton(slot, name) {
@@ -337,6 +341,114 @@ if (typeof document !== "undefined") {
     `;
   }
 
+  function renderIntro() {
+    const pages = [
+      {
+        kicker: "文化祭バトル",
+        title: "動物バトル診断",
+        body: `
+          <p>6問答えると、動物になってその場で戦える。</p>
+          <div class="chips">
+            <span class="chip">ネコ科</span>
+            <span class="chip">イヌ科</span>
+            <span class="chip">大型</span>
+            <span class="chip">鳥類</span>
+            <span class="chip">爬虫類</span>
+          </div>
+          <p class="lead">同じ答えなら、いつも同じ結果になる。</p>
+        `,
+      },
+      {
+        kicker: "遊び方 1",
+        title: "まず診断",
+        body: `
+          <ol class="steps">
+            <li><span class="n">1</span>誕生月を選ぶ。月の技は、質問と関係なく月だけで決まる。</li>
+            <li><span class="n">2</span>質問は6問。だいたい1分。</li>
+            <li><span class="n">3</span>タイプ、ステータス、使える技が決まる。</li>
+          </ol>
+        `,
+      },
+      {
+        kicker: "遊び方 2",
+        title: "1対1で戦う",
+        body: `
+          <ol class="steps">
+            <li><span class="n">1</span>ラウンドごとに、技を1つ選ぶ。</li>
+            <li><span class="n">2</span>速いほうが先に動く。</li>
+            <li><span class="n">3</span>相手のHPを0にしたら勝ち。</li>
+          </ol>
+          <p class="lead">効いている効果は、動物の下のアイコン。タップすると説明が出る。</p>
+        `,
+      },
+      {
+        kicker: "遊び方 3",
+        title: "タイミングで止める",
+        body: `
+          <p>攻撃技はバーが動く。<strong>今だ！</strong>で止める。</p>
+          <div class="qte demo" aria-hidden="true">
+            <div class="good"></div>
+            <div class="perfect"></div>
+            <div class="core" style="left:49.2%;width:1.6%"></div>
+            <div class="marker"></div>
+          </div>
+          <p class="qte-key">
+            <b class="perfect">PERFECT</b> 赤い線<br>
+            <b class="good">GOOD</b> 濃い緑　<b class="ok">success</b> 薄い緑　<b class="miss">miss</b> 外したとき
+          </p>
+          <p class="lead">赤い線が一番強い。細いので、かなりむずい。</p>
+        `,
+      },
+    ];
+    const page = pages[state.intro];
+    const last = state.intro === pages.length - 1;
+    const app = document.getElementById("app");
+    app.innerHTML = `
+      <div class="intro">
+        <article class="intro-card">
+          <p class="intro-kicker">${escapeHtml(page.kicker)}</p>
+          <h1>${escapeHtml(page.title)}</h1>
+          ${page.body}
+        </article>
+        <div class="dots">${pages.map((_, index) => `<i class="${index === state.intro ? "on" : ""}"></i>`).join("")}</div>
+        <div class="dock">
+          <button class="primary" id="intro-next" type="button">${last ? "診断をはじめる" : "つぎへ"}</button>
+          ${state.intro ? `<button class="ghost" id="intro-back" type="button">戻る</button>` : ""}
+          ${last ? "" : `<button class="textbtn skip" id="intro-skip" type="button">スキップ</button>`}
+        </div>
+      </div>
+    `;
+    const blip = () => {
+      if (window.Sfx) window.Sfx.select();
+    };
+    const startQuiz = () => {
+      blip();
+      state.phase = "month";
+      state.step = 0;
+      state.answers = [];
+      render();
+    };
+    document.getElementById("intro-next").onclick = () => {
+      if (last) {
+        startQuiz();
+        return;
+      }
+      blip();
+      state.intro += 1;
+      render();
+    };
+    const back = document.getElementById("intro-back");
+    if (back) {
+      back.onclick = () => {
+        blip();
+        state.intro -= 1;
+        render();
+      };
+    }
+    const skip = document.getElementById("intro-skip");
+    if (skip) skip.onclick = startQuiz;
+  }
+
   function renderMonth() {
     const app = document.getElementById("app");
     app.innerHTML = `
@@ -365,6 +477,10 @@ if (typeof document !== "undefined") {
   function render() {
     const app = document.getElementById("app");
     if (!app) return;
+    if (state.phase === "intro") {
+      renderIntro();
+      return;
+    }
     if (state.phase === "month") {
       renderMonth();
       return;
@@ -390,7 +506,7 @@ if (typeof document !== "undefined") {
           else if (monthSkill.name !== name) body = skillSpec(name);
           showSheet(`
             <h2>${escapeHtml(name)}</h2>
-            <p>${escapeHtml(body)}</p>
+            <p>${withMissColor(body)}</p>
             <button class="primary" data-close type="button">閉じる</button>
           `);
         };

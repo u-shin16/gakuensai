@@ -8,6 +8,7 @@
 // - タイミングバー（QTE）は、その技を出す人のスマホだけで押し、結果の倍率を相手にも送る
 // - 連続攻撃のアニメ（battle.js の playCombo）は中で Math.random を使うので、その間だけ同じたねの乱数に差しかえる
 // 2026-10-02 battle.js ef25461 に合わせた（ラウンドの上限なし・連続攻撃のアニメ・タイミングの帯の位置）
+// 2026-10-09 battle.js ad5eb04（プルリク#1）に合わせた：ラウンドの終わりにも同じたねの乱数を渡す、「○ラウンド」「あなたの番」などの合図、バフの表示
 //
 // 相手が抜けたとき（2026-10-02 ゆーしん「相手が切断中ですみたいな表示を」）：
 // - 2人とも3秒ごとに「生きている合図」を送る。相手の合図が10秒来ないと「相手が切断中です」と残り時間を出す
@@ -100,6 +101,11 @@
     return () => { clearInterval(timer); goneOverlay(null); };
   }
 
+  function cueSupport(skill) {
+    if (skill.foeAuras.length || skill.seal) { if (Sfx.debuff) Sfx.debuff(); }
+    else if (!skill.power && !skill.heal) { if (Sfx.cast) Sfx.cast(); }
+  }
+
   async function playPvp(m) {
     // m = { id, token, seed, side: "lo"|"hi", me, meMonth, foe, foeMonth }
     const rng = seeded(m.seed);
@@ -138,11 +144,16 @@
     let round = 1, finished = false;
     const view = (extra) => ({ player, enemy, log: log.slice(), round, waiting: false, qte: false, finished, phaseText: "", ...extra });
 
+    async function callout(text, ms, side) {
+      renderBattle(view({ banner: text, bannerSide: side || "", phaseText: text }));
+      await wait(ms);
+    }
     function lost(text) {   // 相手の通信が切れたとき
       finished = true;
       renderBattle(view({ phaseText: text, finished: true }));
     }
 
+    if (!hist.picks["1"]) { renderBattle(view({ banner: "バトル開始！", bannerSide: "start", phaseText: "バトル開始！" })); await wait(1300); }
     while (alive(player) && alive(enemy)) {
       // 開き直したときは、2人とも選び終わっているラウンドを一気に再現する（アニメを待たない）
       const known = hist.picks[String(round)] || {};
@@ -183,7 +194,8 @@
       renderBattle(view({ phaseText: "おたがいの技が決まった！", picks: { player: plan[mine].name, enemy: plan[theirs].name } }));
       await wait(1100);
 
-      // 4. 順番に行動する（2人の画面で同じ順・同じ乱数）
+      // 4. 順番に行動する（2人の画面で同じ順・同じ乱数）。見せ方はメンバーの battle.js（ad5eb04）の playBattle に合わせる
+      await callout(`${round}ラウンド`, 1300);
       const order = turnOrder(lo, hi, rng);
       let broken = false;
       for (let i = 0; i < order.length; i += 1) {
@@ -191,9 +203,12 @@
         const target = actor === lo ? hi : lo;
         if (!alive(actor) || !alive(target)) break;
         const skill = skillToAct(actor, plan[actor === lo ? "lo" : "hi"], log);
+        const side = sideOf(actor);
+        await callout(actor === player ? "あなたの番" : "相手の番", 1100, side);
         if (!skill) {
-          renderBattle(view({ phaseText: `${actor.side}は動けなかった` }));
-          await wait(700);
+          renderBattle(view({ banner: "動けない", bannerSide: side, phaseText: `${actor.side}は動けなかった` }));
+          if (Sfx.stuck) Sfx.stuck();
+          await wait(1100);
           continue;
         }
         let qte = 1;
@@ -202,24 +217,25 @@
           qte = Number(savedQte);   // 開き直す前に押していたタイミングの結果
         } else if (skill.qte && actor === player) {
           const qteLayout = qteWindow(player.type === "鳥類");   // 帯の位置は自分の画面だけのこと（結果の倍率だけ相手に送る）
-          renderBattle(view({ qte: true, qteLayout, phaseText: `${skill.name}：緑の帯で止める` }));
+          renderBattle(view({ banner: skill.name, bannerSide: side, qte: true, qteLayout, phaseText: `${skill.name}：赤い線で止める` }));
+          if (Sfx.qteStart) Sfx.qteStart();
           const result = await Promise.race([ended, askQte(auraSum(player, "qteSlow") > 0, qteLayout)]);
           if (result === FORFEIT_WIN || result === FORFEIT_LOSE) { broken = result; break; }
           qte = result.mult;
           Sfx.qte(result.label);
-          const stop = document.getElementById("qte-stop");
-          if (stop) stop.textContent = result.label;
           log.push(`QTE ${result.label}`);
           await send(m, { kind: "qte", round, step: i, value: qte });
-          await wait(380);
+          const bar = document.getElementById("qte");
+          if (bar) {
+            bar.className = "qte result";
+            bar.innerHTML = `<p class="qte-result" data-qte="${escapeHtml(result.label)}">${escapeHtml(result.label)}</p>`;
+          }
+          await wait(800);
         } else if (skill.qte) {
-          renderBattle(view({ phaseText: `相手が${skill.name}のタイミングを合わせています…` }));
+          renderBattle(view({ banner: skill.name, bannerSide: side, phaseText: `相手が${skill.name}のタイミングを合わせています…` }));
           const v = await until(m, (s) => s.qte[`${round}-${i}`]);
           if (v === FORFEIT_WIN || v === FORFEIT_LOSE) { broken = v; break; }
           qte = Number(v);
-        } else if (actor !== player) {
-          renderBattle(view({ phaseText: "相手の行動" }));
-          await wait(450);
         }
         if (skill.power && skill.hits > 1) {
           // 連続攻撃：1発ずつアニメで見せる。中の乱数を同じたねのものにする
@@ -230,20 +246,31 @@
         } else {
           const mark = log.length;
           act(actor, target, skill, qte, rng, log);
-          renderBattle(view({ phaseText: `${actor.side}の${skill.name}`, actor: actor.side,
-            fxCrit: fxCrit(log.slice(mark)), fxCut: fxCut(log.slice(mark)) }));
-          await wait(900);
+          const slice = log.slice(mark);
+          cueSupport(skill);
+          renderBattle(view({ banner: skill.name, bannerSide: side, phaseText: skill.name, actor: actor.side,
+            fxCrit: fxCrit(slice), fxCut: fxCut(slice), whiff: whiffOf(slice, actor.side),
+            whiffKind: slice.some((line) => line.includes("回避")) ? "evade" : "" }));
+          await wait(1500);
+        }
+        const buffs = buffGrants(skill);
+        if (buffs.length) {
+          const key = actor === player ? "player" : "enemy";
+          renderBattle(view({ banner: buffs.map((item) => item.name).join("・"), bannerSide: side, phaseText: "バフ", fxGrant: { [key]: buffs } }));
+          if (Sfx.buff) Sfx.buff();
+          await wait(1700);
         }
       }
       if (broken) { lost(broken === FORFEIT_WIN ? "相手がもどってこなかったので、対戦はここまでになったよ" : "はなれている間に、対戦が終わったよ"); break; }
       if (alive(player) && alive(enemy)) {
-        const mark = log.length;
-        endRound(lo, hi, log);
+        // ラウンドの終わり（毒・回復・技の回数の回復）。ad5eb04 から乱数を使うので、2人で同じたねの乱数を渡す
+        const before = log.length;
+        endRound(lo, hi, log, rng);
+        const tail = log.slice(before);
+        if (tail.some((line) => line.includes("毒で")) && Sfx.poison) Sfx.poison();
+        if (tail.some((line) => line.includes("回復した")) && Sfx.heal) Sfx.heal();
+        if (tail.some((line) => line.includes("もう1回使える")) && Sfx.recharge) Sfx.recharge();
         round += 1;
-        if (log.length > mark) {
-          renderBattle(view({ phaseText: "ラウンドの終わり", fxCrit: fxCrit(log.slice(mark)) }));
-          await wait(700);
-        }
       } else break;
     }
 
@@ -260,7 +287,7 @@
       player.hp = Math.max(0, player.hp);
       enemy.hp = Math.max(0, enemy.hp);
       shownHp = { player: player.hp, enemy: enemy.hp };
-      renderBattle(view({ phaseText, finished: true }));
+      renderBattle(view({ phaseText, finished: true, finale: phaseText }));
       send(m, { kind: "done" });
     }
   }
