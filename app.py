@@ -382,6 +382,12 @@ def index():
     return render_template("index.html", questions=questions, mock=is_mock())
 
 
+@app.get("/introduction")
+def introduction():
+    """ポスターのQRの行き先。QRには https://<ドメイン>/introduction だけを入れるので、中身は後から自由に作り変えてよい。"""
+    return render_template("introduction.html")
+
+
 @app.post("/api/card")
 def make_card():
     body = request.get_json(silent=True) or {}
