@@ -42,6 +42,7 @@ import drawing
 import store
 from types_data import ADVICE, AXIS_WORDS, TYPES, best_partners, match, rival
 import battle_data as bd
+import animal_data as ad
 
 
 def type_info(code: str) -> dict:
@@ -360,6 +361,8 @@ def result_payload(r: dict, token: str) -> dict:
             + [{"slot": "技", "name": n, "note": bd.SKILL_NOTES[n]} for n in b["others"]]
             + [{"slot": "タイプ", "name": bd.TYPE_SKILLS[b["type"]], "note": f"{t['name']}だけの技"},
                {"slot": f"{r['month']}月", "name": bd.MONTH_SKILLS[r["month"] - 1], "note": "誕生月の技"}])
+        if r.get("animal"):   # アニマル性格診断（2026-11-10）
+            out["animal"] = ad.payload(r["animal"])
     else:   # 2026-10-01までの16タイプのカード
         out["axes"] = [AXIS_WORDS[c] for c in r["type_code"]]
         out["partners"] = best_partners(r["type_code"])
@@ -838,7 +841,8 @@ def cards_delete():
 def result_page(token: str):
     """カードのQRコードから開く、その人だけの結果ページ。"""
     r = load_result(token)
-    return render_template("result.html", r=result_payload(r, token), in_plaza=store.in_plaza(token))
+    return render_template("result.html", r=result_payload(r, token), in_plaza=store.in_plaza(token),
+                           animal_questions=ad.questions_for_page())
 
 
 @app.get("/img/<name>")
@@ -866,6 +870,56 @@ def match_cards():
     m = match(ra["type_code"], rb["type_code"])
     write_log({"event": "match", "a": ra["serial"], "b": rb["serial"], "score": m["score"]})
     return jsonify({"ok": True, "a": TYPES[ra["type_code"]]["name"], "b": TYPES[rb["type_code"]]["name"], **m})
+
+
+# ===== アニマル性格診断と相性診断（2026-11-10）=====
+# 学園祭企画まとめ（PDF）の「アニマルMBTI」「相性診断」。パスポートの中で12問に答えると16の動物のどれかになる。
+# 相性は、友だちのパスポートのQR（中身は /r/<token> のアドレス）をカメラで読むか、パスポート番号を入れる。
+# 2人ともアニマル性格診断を済ませているときだけ出せる。
+
+@app.post("/api/animal")
+def animal_answer():
+    body = request.get_json(silent=True) or {}
+    token = str(body.get("token", ""))
+    r = load_result(token)
+    if not r.get("battle"):
+        return jsonify({"ok": False, "reason": "このカードでは遊べないよ"}), 400
+    try:
+        judged = ad.judge([str(a) for a in body.get("answers") or []])
+    except ValueError as e:
+        return jsonify({"ok": False, "reason": str(e)}), 400
+    store.update_result(token, {"animal": judged})
+    write_log({"event": "animal", "serial": r["serial"], "code": judged["code"], "redo": bool(r.get("animal"))})
+    return jsonify({"ok": True, "animal": ad.payload(judged)})
+
+
+@app.post("/api/animal/match")
+def animal_match():
+    body = request.get_json(silent=True) or {}
+    me = load_result(str(body.get("token", "")))
+    if not me.get("animal"):
+        return jsonify({"ok": False, "reason": "先にアニマル性格診断をしてね"}), 400
+    other = str(body.get("other", "")).strip()
+    m = re.search(r"/r/([A-Za-z0-9_-]{16})(?:[/?#]|$)", other)
+    found = None
+    if m:
+        found = store.get_result(m.group(1))
+    elif other.isdigit():
+        hit = store.find_by_serial(int(other))
+        found = hit[1] if hit else None
+    else:
+        return jsonify({"ok": False, "reason": "パスポートのQRか、番号（No.）を入れてね"}), 400
+    if not found:
+        return jsonify({"ok": False, "reason": "そのパスポートは見つからないよ。もう一度たしかめてね"}), 404
+    if found["serial"] == me["serial"]:
+        return jsonify({"ok": False, "reason": "これはあなたのパスポートだよ。友だちのを読んでね"}), 400
+    if not found.get("animal"):
+        return jsonify({"ok": False, "reason": f"No.{found['serial']:04d} の人は、まだアニマル性格診断をしていないよ。"
+                                               "先にやってもらってね", "serial": found["serial"]}), 409
+    res = ad.pair(me["animal"], found["animal"])
+    write_log({"event": "animal_match", "a": me["serial"], "b": found["serial"], "score": res["score"],
+               "by": "qr" if m else "number"})
+    return jsonify({"ok": True, "serial": found["serial"], **res})
 
 
 # ===== バトル（2026-10-02 案2）=====
@@ -998,7 +1052,8 @@ def stats():
     """試してもらった結果のまとめ。"""
     staff_only()
     return jsonify({"cards": store.count_results(), "refused": store.count_events("refused"),
-                    "matches": store.count_events("match")})
+                    "matches": store.count_events("match"), "animal": store.count_events("animal"),
+                    "animal_matches": store.count_events("animal_match")})
 
 
 if __name__ == "__main__":

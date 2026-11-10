@@ -45,6 +45,30 @@
   .battlebtn { display: block; text-align: center; margin-top: 14px; font-weight: 800; text-decoration: none; padding: 14px; border-radius: 14px;
     background: #1d4632; color: #e4c47e; }
   dd small { color: var(--muted); }
+  /* アニマル性格診断・相性診断（2026-11-10） */
+  .an-head { text-align: center; }
+  .an-emoji { font-size: 4.2rem; line-height: 1.1; }
+  .an-name { font-size: 1.6rem; font-weight: 800; margin: 2px 0; }
+  .an-catch { color: var(--accent); font-weight: 800; }
+  .radar { display: block; width: 100%; max-width: 300px; margin: 10px auto 4px; }
+  .radar .grid { fill: none; stroke: currentColor; opacity: .18; }
+  .radar .spoke { stroke: currentColor; opacity: .18; }
+  .radar .shape { fill: var(--accent); fill-opacity: .35; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; }
+  .radar text { fill: currentColor; font-size: 13px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; }
+  .radar text.off { opacity: .45; font-weight: 500; }
+  .aq-num { color: var(--muted); font-size: .85rem; text-align: center; }
+  .aq-bar { height: 6px; background: var(--panel2); border-radius: 99px; overflow: hidden; margin: 8px 0 12px; }
+  .aq-bar i { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+  .aq-q { font-size: 1.1rem; font-weight: 800; text-align: center; margin: 6px 0 14px; line-height: 1.6; }
+  .aq-choices { display: grid; gap: 10px; }
+  .aq-choices button { padding: 16px; font-size: 1rem; }
+  .linkbtn { background: none; color: var(--muted); text-decoration: underline; font-weight: 500; font-size: .85rem; padding: 6px; margin: 10px auto 0; display: block; }
+  .bigbtn { display: block; width: 100%; padding: 15px; font-size: 1.05rem; margin-top: 12px; }
+  .pair { display: flex; justify-content: center; align-items: center; gap: 14px; font-size: 2.8rem; }
+  .pair small { display: block; font-size: .8rem; color: var(--muted); text-align: center; }
+  .scan { position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 50; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; padding: 16px; color: #fff; text-align: center; }
+  .scan video { width: 100%; max-width: 420px; aspect-ratio: 1; object-fit: cover; border-radius: 16px; border: 3px solid var(--accent); background: #000; }
   footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: .8rem; line-height: 1.8; }
   footer a { color: var(--accent); }
 </style>
@@ -99,6 +123,61 @@
   </div>
 
   {% if r.battle %}
+  <!-- アニマル性格診断（2026-11-10）：12問の2択で、16の動物のどれかになる -->
+  <div class="panel" id="animal">
+    {% if r.animal %}{% set a = r.animal %}
+    <h2>アニマル性格診断</h2>
+    <div class="an-head">
+      <div class="kicker">動物で例えるなら、あなたは</div>
+      <div class="an-emoji" aria-hidden="true">{{ a.emoji }}</div>
+      <div class="an-name">{{ a.animal }}</div>
+      <div class="an-catch">{{ a.catch }}</div>
+    </div>
+    {% set g = a.radar %}
+    <svg class="radar" viewBox="0 0 {{ g.size }} {{ g.size }}" role="img" aria-label="性格のバランス：{{ a.axes | join('・') }}">
+      {% for poly in g.grid %}<polygon class="grid" points="{{ poly }}"/>{% endfor %}
+      {% for l in g.labels %}<line class="spoke" x1="{{ g.c }}" y1="{{ g.c }}" x2="{{ l.ex }}" y2="{{ l.ey }}"/>{% endfor %}
+      <polygon class="shape" points="{{ g.points }}"/>
+      {% for l in g.labels %}<text x="{{ l.x }}" y="{{ l.y }}" class="{{ '' if l.pt >= 2 else 'off' }}">{{ l.text }}</text>{% endfor %}
+    </svg>
+    <div class="axes">{% for w in a.axes %}<span>{{ w }}</span>{% endfor %}</div>
+    <p>{{ a.desc }}</p>
+    <p style="margin-top:8px">あるある：「{{ a.aruaru }}」</p>
+    <dl style="margin-top:12px">
+      <dt>強み</dt><dd>{{ a.strong }}</dd>
+      <dt>弱点</dt><dd>{{ a.weak }}</dd>
+      <dt>相性◎</dt><dd>{% for p in a.partners %}{{ p.emoji }} {{ p.animal }}{% if not loop.last %}、{% endif %}{% endfor %}</dd>
+    </dl>
+    <button class="linkbtn" id="aqRedo">もう一度診断する</button>
+    {% else %}
+    <h2>アニマル性格診断</h2>
+    <p>動物で例えるなら、あなたは何？ 2択の質問12問（約1分）に答えると、16の動物の中からあなたの動物と、性格のバランスがわかります。</p>
+    <button class="bigbtn" id="aqStart">診断をはじめる</button>
+    {% endif %}
+    <div id="aq" hidden>
+      <div class="aq-num" id="aqNum"></div>
+      <div class="aq-bar"><i id="aqBar"></i></div>
+      <div class="aq-q" id="aqQ"></div>
+      <div class="aq-choices"><button id="aqA"></button><button id="aqB"></button></div>
+      <button class="linkbtn" id="aqBack">← ひとつ戻る</button>
+    </div>
+    <p class="err" id="aqErr"></p>
+  </div>
+
+  <!-- 相性診断（2026-11-10）：友だちのパスポートのQRを読む／番号を入れる -->
+  <div class="panel" id="match">
+    <h2>相性診断</h2>
+    {% if r.animal %}
+    <p>友だちのパスポートのQRを読むと、2人の相性がわかります。2人ともアニマル性格診断をしておいてね。</p>
+    <button class="bigbtn" id="scanBtn">友だちのQRを読む</button>
+    <p style="margin-top:14px;font-size:.9rem">カメラが使えないときは、友だちのパスポート番号（左上の No.）を入れてね。あなたの番号は <b>No.{{ '%04d' % r.serial }}</b>。</p>
+    <div class="row"><input id="pairNo" type="number" min="1" inputmode="numeric" placeholder="相手の No."><button id="pairBtn">相性を見る</button></div>
+    <div class="matchres" id="pairRes"></div>
+    {% else %}
+    <p>先に上の「アニマル性格診断」をすると、友だちと相性診断ができるよ。</p>
+    {% endif %}
+  </div>
+
   <!-- バトル（2026-10-02 案2）：メンバーが作った動物バトルで戦える -->
   <div class="panel">
     <h2>バトル</h2>
@@ -160,6 +239,119 @@ if (document.getElementById('vsBtn')) document.getElementById('vsBtn').onclick =
   const n = document.getElementById('vs').value;
   if (n) location.href = '/battle/{{ r.token }}?vs=' + encodeURIComponent(n);
 };
+// ===== アニマル性格診断（2026-11-10） =====
+{% if r.battle %}
+const AQ = {{ animal_questions | tojson }};
+const TOKEN = {{ r.token | tojson }};
+let aqAns = [];
+const $id = (id) => document.getElementById(id);
+function aqRender() {
+  const i = aqAns.length;
+  $id('aqNum').textContent = `${i + 1} / ${AQ.length}`;
+  $id('aqBar').style.width = (i / AQ.length * 100) + '%';
+  $id('aqQ').textContent = AQ[i].q;
+  $id('aqA').textContent = AQ[i].a;
+  $id('aqB').textContent = AQ[i].b;
+  $id('aqBack').hidden = i === 0;
+}
+function aqOpen() {
+  aqAns = [];
+  $id('aq').hidden = false;
+  document.querySelectorAll('#animal > :not(#aq):not(h2):not(#aqErr)').forEach((el) => el.setAttribute('hidden', ''));   // svg は .hidden が効かないので属性で隠す
+  aqRender();
+  $id('animal').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+async function aqPick(v) {
+  aqAns.push(v);
+  if (aqAns.length < AQ.length) { aqRender(); return; }
+  $id('aqBar').style.width = '100%';
+  $id('aqA').disabled = $id('aqB').disabled = true;
+  try {
+    const res = await fetch('/api/animal', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: TOKEN, answers: aqAns }) });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.reason);
+    location.hash = 'animal';
+    location.reload();
+  } catch (e) {
+    $id('aqErr').textContent = (e && e.message) || 'うまく送れませんでした。もう一度試してね';
+    aqAns.pop();
+    $id('aqA').disabled = $id('aqB').disabled = false;
+  }
+}
+if ($id('aqStart')) $id('aqStart').onclick = aqOpen;
+if ($id('aqRedo')) $id('aqRedo').onclick = aqOpen;
+$id('aqA').onclick = () => aqPick('a');
+$id('aqB').onclick = () => aqPick('b');
+$id('aqBack').onclick = () => { aqAns.pop(); aqRender(); };
+
+// ===== 相性診断（2026-11-10） =====
+async function pairWith(other) {
+  const out = $id('pairRes');
+  out.innerHTML = '<p>しらべています…</p>';
+  const res = await fetch('/api/animal/match', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: TOKEN, other: String(other) }) });
+  const m = await res.json();
+  if (!m.ok) { out.innerHTML = `<p class="err">${esc(m.reason)}</p>`; return; }
+  out.innerHTML = `<div class="pair"><div>${esc(m.a.emoji)}<small>あなた<br>${esc(m.a.animal)}</small></div><div>×</div>
+    <div>${esc(m.b.emoji)}<small>No.${String(m.serial).padStart(4, '0')}<br>${esc(m.b.animal)}</small></div></div>
+    <div class="score">${m.score}%</div><div><b>${esc(m.title)}</b></div>
+    <ul>${m.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>`;
+  out.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+if ($id('pairBtn')) $id('pairBtn').onclick = () => { const n = $id('pairNo').value.trim(); if (n) pairWith(n); };
+
+// QRの読み取り：カメラの映像を少しずつ jsQR に渡し、パスポートのアドレス（/r/…）が読めたら止める。
+// jsQR はボタンを押したときだけ読みこむ（ページを軽くするため）
+function loadJsQR() {
+  if (window.jsQR) return Promise.resolve();
+  return new Promise((ok, ng) => { const s = document.createElement('script'); s.src = '/static/vendor/jsQR.js';
+    s.onload = ok; s.onerror = ng; document.head.appendChild(s); });
+}
+let scanStream = null;
+function scanClose() {
+  if (scanStream) scanStream.getTracks().forEach((t) => t.stop());
+  scanStream = null;
+  const el = $id('scanBox'); if (el) el.remove();
+}
+async function scanOpen() {
+  const box = document.createElement('div');
+  box.className = 'scan'; box.id = 'scanBox';
+  box.innerHTML = `<div>友だちのパスポートのQRを、わくの中に写してね</div>
+    <video playsinline muted></video><div id="scanMsg" class="err"></div><button id="scanCancel">やめる</button>`;
+  document.body.appendChild(box);
+  $id('scanCancel').onclick = scanClose;
+  try {
+    await loadJsQR();
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  } catch (e) {
+    $id('scanMsg').textContent = 'カメラが使えませんでした。下の欄に友だちの番号（No.）を入れてね';
+    return;
+  }
+  const video = box.querySelector('video');
+  video.srcObject = scanStream;
+  await video.play().catch(() => {});
+  const cv = document.createElement('canvas');
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  const tick = () => {
+    if (!scanStream) return;
+    if (video.readyState >= 2 && video.videoWidth) {
+      const w = 480, h = Math.round(video.videoHeight * w / video.videoWidth);
+      cv.width = w; cv.height = h;
+      ctx.drawImage(video, 0, 0, w, h);
+      const code = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+      if (code && code.data) {
+        if (/\/r\/[A-Za-z0-9_-]{16}/.test(code.data)) { scanClose(); pairWith(code.data); return; }
+        $id('scanMsg').textContent = 'パスポートのQRではないみたい。カードのQRを写してね';
+      }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+if ($id('scanBtn')) $id('scanBtn').onclick = scanOpen;
+{% endif %}
+
 if (document.getElementById('matchBtn')) document.getElementById('matchBtn').onclick = async () => {
   const b = document.getElementById('other').value;
   const out = document.getElementById('res');

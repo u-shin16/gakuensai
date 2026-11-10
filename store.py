@@ -68,6 +68,11 @@ def save_result(token: str, result: dict) -> None:
     col("results").document(token).set(result)
 
 
+def update_result(token: str, fields: dict) -> None:
+    """結果の一部だけ書き足す（アニマル性格診断の答えなど）。"""
+    col("results").document(token).update(fields)
+
+
 def get_result(token: str) -> dict | None:
     snap = col("results").document(token).get()
     return snap.to_dict() if snap.exists else None
