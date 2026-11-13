@@ -1,34 +1,14 @@
-"""アニマル性格診断と、2人の相性診断。2026-11-10
+"""アニマル診断と、2人の相性診断。2026-11-10（11-13に「自分で選ぶ」形へ変更）
 
-学園祭企画まとめ（PDF）の「パスポートで遊べるコンテンツ」のうち、
-  ・アニマルMBTI：動物で例えるなら、あなたは何か（レーダーチャートで見せる）
-  ・相性診断：友だちのパスポートのQRを読むと、2人の相性がわかる
-をパスポート（結果ページ /r/<token>）の中で遊べるようにしたもの。発行の質問（誕生月＋6問）とは別に、発行後に答える。
+学園祭企画まとめ（PDF）の「アニマルMBTI」「相性診断」を、パスポート（結果ページ /r/<token>）の中で遊べるようにしたもの。
+2026-11-13 ゆーしん「ただのMBTIじゃなく、どうぶつを16種類から選んで、そこから相性診断とかできる感じにしたい」
+  → 質問とレーダーチャートはやめ、16匹の中から「自分はこれ」と自分で選ぶ。相性は選んだ動物どうしで出す。
 
-画面には「MBTI」の名前を出さない（商標。16タイプのときと同じ方針）。名前は「アニマル性格診断」。
-質問・動物・文はすべてオリジナル。
-
-質問は16タイプ版（types_data.QUESTIONS）の10問に2問足した12問。4つの軸に3問ずつで、多数決なので引き分けにならない。
-相性の点数は types_data.match（理由つき）をそのまま使う。
+画面には「MBTI」の名前を出さない（商標）。内部では動物を4文字のコード（ESTJなど）で持ち、相性の点数の計算にだけ使う。
+動物・文はすべてオリジナル。
 """
 
 from __future__ import annotations
-
-import math
-
-from types_data import AXIS_WORDS, QUESTIONS as BASE_QUESTIONS, match
-
-AXES = ("EI", "SN", "TF", "JP")
-
-QUESTIONS = [
-    *[{"axis": q["axis"], "q": q["q"], "a": q["a"], "b": q["b"]} for q in BASE_QUESTIONS],
-    {"axis": "TF", "q": "友だちが描いた絵、正直いまいち。なんて言う？",
-     "a": ("直すといいところを言う", "T"), "b": ("いいところをほめる", "F")},
-    {"axis": "JP", "q": "宿題や課題は、いつやる？",
-     "a": ("早めに終わらせる", "J"), "b": ("ぎりぎりで一気にやる", "P")},
-]
-# 1軸3問ずつになっているか（足し忘れ・消し忘れの確認）
-assert all(sum(q["axis"] == ax for q in QUESTIONS) == 3 for ax in AXES)
 
 # emoji：絵のかわり（どの端末でも出る絵文字だけ）
 # catch：ひとことで言うと
@@ -85,58 +65,59 @@ ANIMALS = {
 assert len(ANIMALS) == 16
 
 
-def questions_for_page() -> list[dict]:
-    """画面に出す質問。答えは "a" か "b" で返してもらう。"""
-    return [{"q": q["q"], "a": q["a"][0], "b": q["b"][0]} for q in QUESTIONS]
-
-
-def judge(answers: list[str]) -> dict:
-    """12問の答え（"a"/"b"）から、4文字のコードと各側の点（0〜3）を出す。"""
-    if len(answers) != len(QUESTIONS) or any(a not in ("a", "b") for a in answers):
-        raise ValueError("12問ぶん a か b で答えてね")
-    score = {c: 0 for c in "EISNTFJP"}
-    for q, pick in zip(QUESTIONS, answers):
-        score[q[pick][1]] += 1
-    code = "".join(a if score[a] > score[b] else b for a, b in AXES)
-    return {"code": code, "score": score}
-
-
-# レーダーチャートの8本の線。向かい合う線が反対の性格になるように並べる（上がにぎやか、下がマイペース）
-RADAR_ORDER = ["E", "S", "T", "J", "I", "N", "F", "P"]
-
-
-def radar(score: dict, size: int = 300) -> dict:
-    """レーダーチャートの点（SVG用）。0点でも真ん中につぶれないよう、半径の2割から始める。"""
-    c, rmax = size / 2, size / 2 - 52
-    pts, labels, grid = [], [], []
-    for i, k in enumerate(RADAR_ORDER):
-        ang = math.radians(-90 + 45 * i)
-        v = score.get(k, 0) / 3
-        r = rmax * (0.2 + 0.8 * v)
-        pts.append(f"{c + r * math.cos(ang):.1f},{c + r * math.sin(ang):.1f}")
-        lx, ly = c + (rmax + 26) * math.cos(ang), c + (rmax + 26) * math.sin(ang)
-        labels.append({"x": round(lx, 1), "y": round(ly, 1), "text": AXIS_WORDS[k], "pt": score.get(k, 0),
-                       "ex": round(c + rmax * math.cos(ang), 1), "ey": round(c + rmax * math.sin(ang), 1)})
-    for f in (0.2, 0.4667, 0.7333, 1.0):   # 0点・1点・2点・3点の目もり
-        grid.append(" ".join(f"{c + rmax * f * math.cos(math.radians(-90 + 45 * i)):.1f},"
-                             f"{c + rmax * f * math.sin(math.radians(-90 + 45 * i)):.1f}" for i in range(8)))
-    return {"size": size, "c": c, "points": " ".join(pts), "labels": labels, "grid": grid}
-
-
 def best_partners(code: str, n: int = 2) -> list[dict]:
     ranked = sorted((c for c in ANIMALS if c != code), key=lambda c: (-match(code, c)["score"], c))
     return [ANIMALS[c] for c in ranked[:n]]
 
 
+def choices() -> list[dict]:
+    """選ぶ画面に出す16匹（並びは表のとおり）。"""
+    return [{"code": c, **{k: v[k] for k in ("animal", "emoji", "catch")}} for c, v in ANIMALS.items()]
+
+
 def payload(saved: dict) -> dict:
-    """保存した {"code", "score"} に、画面に出す中身を足す。"""
+    """保存した {"code"} に、画面に出す中身を足す。"""
     code = saved["code"]
-    return {**ANIMALS[code], "code": code, "radar": radar(saved["score"]),
-            "axes": [AXIS_WORDS[ch] for ch in code], "partners": best_partners(code)}
+    return {**ANIMALS[code], "code": code, "partners": best_partners(code)}
+
+
+def match(a: str, b: str) -> dict:
+    """2匹の相性。点の付け方は16タイプ版（types_data.match）と同じで、理由を動物の名前で書く。"""
+    A, B = ANIMALS[a]["animal"], ANIMALS[b]["animal"]
+    score, reasons = 60, []
+    if a == b:
+        reasons.append(f"同じ{A}どうし。言わなくても分かりあえる")
+    if a[1] == b[1]:
+        score += 12
+        if a != b:
+            reasons.append(f"{A}と{B}は、おもしろいと思うものが似ていて話がはずむ")
+    if a[0] != b[0]:
+        score += 8
+        e, i = (A, B) if a[0] == "E" else (B, A)
+        reasons.append(f"にぎやかな{e}と、マイペースな{i}。おたがいの足りないところを補える")
+    if a[2] == b[2]:
+        score += 8
+        if a != b:
+            reasons.append("大事にしているものが同じで、ぶつかりにくい")
+    if a[3] != b[3]:
+        score += 7
+        j, p = (A, B) if a[3] == "J" else (B, A)
+        reasons.append(f"計画を立てる{j}と、その場で決める{p}。いっしょだとちょうどいいバランス")
+    if not reasons:
+        reasons.append(f"{A}と{B}は、ちがうところだらけ。だからこそ、いっしょにいると新しい発見がある")
+    if score >= 90:
+        title = "最強コンビ"
+    elif score >= 80:
+        title = "息ぴったり"
+    elif score >= 70:
+        title = "いいチーム"
+    else:
+        title = "刺激しあうライバル"
+    return {"score": score, "title": title, "reasons": reasons}
 
 
 def pair(a: dict, b: dict) -> dict:
-    """2人の相性。a・b は保存した {"code", "score"}。"""
+    """2人の相性。a・b は保存した {"code"}。"""
     m = match(a["code"], b["code"])
     return {**m, "a": {k: ANIMALS[a["code"]][k] for k in ("animal", "emoji")},
             "b": {k: ANIMALS[b["code"]][k] for k in ("animal", "emoji")}}

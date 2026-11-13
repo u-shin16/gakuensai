@@ -361,7 +361,7 @@ def result_payload(r: dict, token: str) -> dict:
             + [{"slot": "技", "name": n, "note": bd.SKILL_NOTES[n]} for n in b["others"]]
             + [{"slot": "タイプ", "name": bd.TYPE_SKILLS[b["type"]], "note": f"{t['name']}だけの技"},
                {"slot": f"{r['month']}月", "name": bd.MONTH_SKILLS[r["month"] - 1], "note": "誕生月の技"}])
-        if r.get("animal"):   # アニマル性格診断（2026-11-10）
+        if r.get("animal"):   # アニマル診断（2026-11-10、11-13に自分で選ぶ形へ）
             out["animal"] = ad.payload(r["animal"])
     else:   # 2026-10-01までの16タイプのカード
         out["axes"] = [AXIS_WORDS[c] for c in r["type_code"]]
@@ -842,7 +842,7 @@ def result_page(token: str):
     """カードのQRコードから開く、その人だけの結果ページ。"""
     r = load_result(token)
     return render_template("result.html", r=result_payload(r, token), in_plaza=store.in_plaza(token),
-                           animal_questions=ad.questions_for_page())
+                           animal_choices=ad.choices())
 
 
 @app.get("/img/<name>")
@@ -872,10 +872,10 @@ def match_cards():
     return jsonify({"ok": True, "a": TYPES[ra["type_code"]]["name"], "b": TYPES[rb["type_code"]]["name"], **m})
 
 
-# ===== アニマル性格診断と相性診断（2026-11-10）=====
-# 学園祭企画まとめ（PDF）の「アニマルMBTI」「相性診断」。パスポートの中で12問に答えると16の動物のどれかになる。
+# ===== アニマル診断と相性診断（2026-11-10）=====
+# 学園祭企画まとめ（PDF）の「アニマルMBTI」「相性診断」。パスポートの中で16匹から自分の動物を選ぶ（2026-11-13）。
 # 相性は、友だちのパスポートのQR（中身は /r/<token> のアドレス）をカメラで読むか、パスポート番号を入れる。
-# 2人ともアニマル性格診断を済ませているときだけ出せる。
+# 2人とも動物を選んでいるときだけ出せる。
 
 @app.post("/api/animal")
 def animal_answer():
@@ -884,13 +884,12 @@ def animal_answer():
     r = load_result(token)
     if not r.get("battle"):
         return jsonify({"ok": False, "reason": "このカードでは遊べないよ"}), 400
-    try:
-        judged = ad.judge([str(a) for a in body.get("answers") or []])
-    except ValueError as e:
-        return jsonify({"ok": False, "reason": str(e)}), 400
-    store.update_result(token, {"animal": judged})
-    write_log({"event": "animal", "serial": r["serial"], "code": judged["code"], "redo": bool(r.get("animal"))})
-    return jsonify({"ok": True, "animal": ad.payload(judged)})
+    code = str(body.get("code", ""))
+    if code not in ad.ANIMALS:
+        return jsonify({"ok": False, "reason": "動物をえらんでね"}), 400
+    store.update_result(token, {"animal": {"code": code}})
+    write_log({"event": "animal", "serial": r["serial"], "code": code, "redo": bool(r.get("animal"))})
+    return jsonify({"ok": True, "animal": ad.payload({"code": code})})
 
 
 @app.post("/api/animal/match")
@@ -898,7 +897,7 @@ def animal_match():
     body = request.get_json(silent=True) or {}
     me = load_result(str(body.get("token", "")))
     if not me.get("animal"):
-        return jsonify({"ok": False, "reason": "先にアニマル性格診断をしてね"}), 400
+        return jsonify({"ok": False, "reason": "先にあなたの動物をえらんでね"}), 400
     other = str(body.get("other", "")).strip()
     m = re.search(r"/r/([A-Za-z0-9_-]{16})(?:[/?#]|$)", other)
     found = None
@@ -914,8 +913,8 @@ def animal_match():
     if found["serial"] == me["serial"]:
         return jsonify({"ok": False, "reason": "これはあなたのパスポートだよ。友だちのを読んでね"}), 400
     if not found.get("animal"):
-        return jsonify({"ok": False, "reason": f"No.{found['serial']:04d} の人は、まだアニマル性格診断をしていないよ。"
-                                               "先にやってもらってね", "serial": found["serial"]}), 409
+        return jsonify({"ok": False, "reason": f"No.{found['serial']:04d} の人は、まだ動物をえらんでいないよ。"
+                                               "先にえらんでもらってね", "serial": found["serial"]}), 409
     res = ad.pair(me["animal"], found["animal"])
     write_log({"event": "animal_match", "a": me["serial"], "b": found["serial"], "score": res["score"],
                "by": "qr" if m else "number"})
