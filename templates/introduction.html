@@ -3,19 +3,196 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>紹介ページ</title>
+<title>ANIMAL KINGDOM アニマルパスポート発券事務所｜神戸電子専門学校 学園祭2026</title>
+<meta name="description" content="11/21（土）神戸電子専門学校 学園祭2026。北野館3階「ANIMAL KINGDOM」で、あなただけの動物パスポートを発行します。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&family=Kaisei+Decol:wght@700&display=swap" rel="stylesheet">
+<!-- ポスターのQRの行き先（2026-11-13 中身を作成）。元はチームの企画書「ANIMAL KINGDOM パスポート発券所」のお客さん向けの部分。
+     見た目はアプリ（どうぶつ王国：草原・木の看板・緑のパスポート表紙）に合わせる。kingdom.css の .start/.gate/.cover/.flow は
+     トップ画面を1画面に収めるための上書きが入っているので使わず、このページ専用の名前（in-○○）にしている -->
 <style>
-  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    font-family: sans-serif; color: #2a2340; background: #f6f2ff; text-align: center; padding: 24px; }
-  h1 { font-size: 1.6rem; margin: 0 0 12px; }
-  p { margin: 0; color: #6a6280; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "M PLUS Rounded 1c", sans-serif; padding: 0 16px 48px; display: flex; justify-content: center; }
+  main { width: 100%; max-width: 460px; }
+  [hidden] { display: none !important; }
+
+  /* いちばん上：生息地の景色＋パスポートの表紙 */
+  .in-hero { width: 100vw; margin: 0 calc(50% - 50vw); height: clamp(220px, 58vw, 420px); position: relative; overflow: hidden; }
+  .in-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; opacity: 0;
+    -webkit-mask-image: linear-gradient(#000 65%, transparent); mask-image: linear-gradient(#000 65%, transparent);
+    transition: opacity 1.4s ease; }
+  .in-hero img.on { opacity: 1; }
+  .in-cover { position: relative; z-index: 2; width: 210px; margin: -86px auto 0; padding: 16px 16px 14px; text-align: center;
+    color: #e4c47e; border-radius: 8px 16px 16px 8px; transform: rotate(-2deg);
+    background: repeating-radial-gradient(circle at 50% 38%, rgba(228,196,126,.07) 0 1px, transparent 1px 7px),
+      linear-gradient(160deg, #2b6146, #1d4632 60%, #173a29);
+    box-shadow: inset 10px 0 0 rgba(0,0,0,.18), inset 11px 0 0 rgba(228,196,126,.25), inset 0 0 0 5px #1d4632,
+      inset 0 0 0 6px rgba(228,196,126,.55), 0 18px 30px rgba(40,30,10,.35), 0 3px 0 #10281c; }
+  .in-cover svg { width: 52px; height: 52px; display: block; margin: 0 auto 6px; }
+  .in-cover .t1 { font-family: "Kaisei Decol", serif; font-size: 1.25rem; letter-spacing: .12em; }
+  .in-cover .t2 { font-size: .55rem; letter-spacing: .3em; opacity: .8; margin: 2px 0 8px; }
+  .in-cover .t3 { font-family: "Kaisei Decol", serif; font-size: .74rem; letter-spacing: .04em; padding: 5px 0; white-space: nowrap;
+    border-top: 1px solid rgba(228,196,126,.5); border-bottom: 1px solid rgba(228,196,126,.5); }
+
+  .in-title { text-align: center; margin: 26px 0 6px; }
+  .in-title small { display: block; color: var(--muted); font-size: .78rem; font-weight: 800; letter-spacing: .1em; }
+  .in-title h1 { margin: 4px 0 0; font-size: 1.45rem; line-height: 1.4; }
+  .in-when { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
+  .in-when span { background: var(--panel); border: 2px solid #e2d5b2; border-radius: 99px; padding: 5px 14px; font-size: .85rem; font-weight: 800; }
+  .in-when b { color: var(--leaf-dark); }
+
+  .panel { border-radius: 16px; padding: 18px; margin-top: 16px; }
+  .panel h2 { margin: 0 0 10px; font-size: 1.08rem; }
+  .panel p { margin: 0; line-height: 1.85; }
+  .panel p + p { margin-top: 8px; }
+  .en { display: block; font-size: .62rem; letter-spacing: .25em; color: var(--muted); font-weight: 800; margin-bottom: 2px; }
+
+  /* 秘密結社Rからの招待状 */
+  .letter { position: relative; background: #fffdf6 !important; border: 2px dashed #c9b88f !important; box-shadow: none !important; }
+  .letter .seal { position: absolute; top: -14px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background: #b8402f;
+    color: #ffe9c9; display: grid; place-items: center; font-family: "Kaisei Decol", serif; font-size: 1.3rem;
+    box-shadow: 0 3px 0 #7d2a1f; transform: rotate(-10deg); }
+
+  /* 入国までのながれ */
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .steps li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; }
+  .steps i { font-style: normal; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--leaf); color: #fff; font-weight: 800; box-shadow: 0 3px 0 var(--leaf-dark); }
+  .steps b { display: block; }
+  .steps span { color: var(--muted); font-size: .88rem; line-height: 1.7; }
+
+  /* パスポートでできること */
+  .feats { display: grid; gap: 10px; }
+  .feat { display: grid; grid-template-columns: 52px 1fr; gap: 12px; align-items: center; background: var(--panel2); border-radius: 14px; padding: 12px; }
+  .feat .ic { font-size: 2rem; text-align: center; }
+  .feat b { display: block; color: var(--leaf-dark); }
+  .feat span { font-size: .86rem; line-height: 1.65; }
+
+  .points { margin: 0; padding-left: 1.2em; line-height: 1.85; }
+  .points li + li { margin-top: 4px; }
+
+  .price { display: grid; grid-template-columns: 1fr auto; gap: 10px 12px; margin: 0; align-items: baseline; }
+  .price dt { font-weight: 800; color: var(--text) !important; }
+  .price dd { margin: 0; font-weight: 800; font-size: 1.3rem; color: var(--wood-dark); }
+  .price dd small { font-size: .75rem; }
+  .note { color: var(--muted); font-size: .8rem; margin-top: 10px !important; }
+
+  .place dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; line-height: 1.6; }
+  .place dt { font-weight: 800; }
+  .place dd { margin: 0; }
+
+  footer { margin-top: 28px; text-align: center; font-size: .8rem; line-height: 1.8; }
+
+  @media (prefers-reduced-motion: reduce) { .in-hero img { transition: none; } }
 </style>
+<link rel="stylesheet" href="/static/kingdom.css">
 </head>
 <body>
 <main>
-  <h1>紹介ページ</h1>
-  <p>ただいま準備中です。</p>
+  <div class="in-hero" aria-hidden="true">
+    <img class="on" src="/static/habitat-illust-savanna.webp" alt="">
+    <img src="/static/habitat-illust-rainforest.webp" alt="">
+    <img src="/static/habitat-illust-ocean.webp" alt="">
+    <img src="/static/habitat-illust-antarctica.webp" alt="">
+    <img src="/static/habitat-illust-bamboo.webp" alt="">
+  </div>
+  <div class="in-cover">
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <circle cx="60" cy="60" r="56" fill="none" stroke="currentColor" stroke-width="2"/>
+      <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 4"/>
+      <g fill="currentColor">
+        <ellipse cx="60" cy="70" rx="15" ry="12.5"/>
+        <ellipse cx="41" cy="52" rx="6" ry="7.5"/><ellipse cx="52.5" cy="42" rx="6" ry="7.8"/>
+        <ellipse cx="67.5" cy="42" rx="6" ry="7.8"/><ellipse cx="79" cy="52" rx="6" ry="7.5"/>
+      </g>
+    </svg>
+    <div class="t1">ANIMAL KINGDOM</div>
+    <div class="t2">PASSPORT OFFICE</div>
+    <div class="t3">アニマルパスポート発券事務所</div>
+  </div>
+
+  <div class="in-title">
+    <small>神戸電子専門学校 学園祭2026</small>
+    <h1>あなただけの<br>動物パスポートを発行します</h1>
+  </div>
+  <div class="in-when">
+    <span><b>11/21（土）</b>10:00〜16:00</span>
+    <span>北野館 <b>3階</b></span>
+  </div>
+
+  <div class="panel letter">
+    <div class="seal" aria-hidden="true">R</div>
+    <span class="en">INVITATION</span>
+    <h2>ANIMAL KINGDOM への招待状</h2>
+    <p>ANIMAL KINGDOM は、野生への回帰を目的とする秘密結社Rが開発した仮想世界です。</p>
+    <p>本日、この王国にふさわしい人材を招くため、学園祭にパスポート発券事務所を開きました。動物の仮面をかぶったスーツ姿のキャストが、あなたの入国審査をお手伝いします。</p>
+    <p>審査に合格すると、あなただけのアバターとステータスがのったパスポートが発行されます。</p>
+  </div>
+
+  <div class="panel">
+    <span class="en">HOW TO ENTER</span>
+    <h2>入国までのながれ</h2>
+    <ol class="steps">
+      <li><i>1</i><div><b>チケットを買う</b><span>北野館3階の事務所で、パスポート発行チケットを買います。</span></div></li>
+      <li><i>2</i><div><b>スマホで入国審査</b><span>チケットのQRを読みこみ、いくつかの質問に答えます。スマホがない人は、お店のiPadでもできます。</span></div></li>
+      <li><i>3</i><div><b>受け取り時刻をチェック</b><span>審査が終わると、パスポートの受け取り時刻が出ます。待っている間は、学園祭を楽しんでください。</span></div></li>
+      <li><i>4</i><div><b>パスポートを受け取る</b><span>時刻になったら事務所へ。キャストが入国のハンコを押して、カードのパスポートをお渡しします。</span></div></li>
+    </ol>
+  </div>
+
+  <div class="panel">
+    <span class="en">WITH YOUR PASSPORT</span>
+    <h2>パスポートでできること</h2>
+    <p style="margin-bottom:12px">パスポートのQRを読むと、あなた専用のページが開きます。そこで、こんな遊びができます。</p>
+    <div class="feats">
+      <div class="feat"><div class="ic" aria-hidden="true">🦊</div><div><b>アニマル診断</b><span>16匹の動物から「自分はこれ！」を選ぶと、その動物のあるあるや強みがわかります。</span></div></div>
+      <div class="feat"><div class="ic" aria-hidden="true">💞</div><div><b>相性診断</b><span>友だちのパスポートのQRを読みこむと、2人の相性がわかります。</span></div></div>
+      <div class="feat"><div class="ic" aria-hidden="true">⚔️</div><div><b>ANIMAL BATTLE</b><span>あなたのアバターで対戦。コンピューターとも、友だちとも戦えます。</span></div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <span class="en">SELLING POINT</span>
+    <h2>ここがおすすめ</h2>
+    <ul class="points">
+      <li><b>世界観ごと楽しめる</b>：動物の仮面のキャストが、チケットの受付からパスポートのお渡しまで担当します。</li>
+      <li><b>カタチに残る</b>：あなただけのパスポートが、カードになって手元に残ります。学園祭の思い出にどうぞ。</li>
+      <li><b>友だちと盛り上がる</b>：相性診断やバトルで、いっしょに来た人と遊べます。</li>
+      <li><b>並ばずに遊べる</b>：審査はスマホでするので、列に並び続ける必要はありません。</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <span class="en">PRICE</span>
+    <h2>料金</h2>
+    <dl class="price">
+      <dt>パスポート発行</dt><dd>300<small>円</small></dd>
+      <dt>オリジナルストラップ</dt><dd>200<small>円</small></dd>
+    </dl>
+  </div>
+
+  <div class="panel place">
+    <span class="en">ACCESS</span>
+    <h2>開催日・場所</h2>
+    <dl>
+      <dt>日にち</dt><dd>2026年11月21日（土）10:00〜16:00</dd>
+      <dt>場所</dt><dd>神戸電子専門学校 北野館 3階</dd>
+      <dt>対象</dt><dd>学園祭に来た学生さん・ご家族、どなたでも</dd>
+    </dl>
+  </div>
+
+  <footer>
+    神戸電子専門学校 学園祭2026 ブース「ANIMAL KINGDOM」<br>
+    つくった人のほかのアプリ → <a href="https://webtool-labs.com/" target="_blank" rel="noopener">RakuYade</a>
+  </footer>
 </main>
+<script>
+// 上の景色を5秒ごとに入れかえる（動きを減らす設定でも入れかえは続ける。フェードだけ止める）
+(() => {
+  const imgs = document.querySelectorAll('.in-hero img');
+  let i = 0;
+  setInterval(() => { imgs[i].classList.remove('on'); i = (i + 1) % imgs.length; imgs[i].classList.add('on'); }, 5000);
+})();
+</script>
 </body>
 </html>
