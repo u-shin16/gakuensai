@@ -387,8 +387,9 @@ def index():
 
 @app.get("/introduction")
 def introduction():
-    """ポスターのQRの行き先。QRには https://<ドメイン>/introduction だけを入れるので、中身は後から自由に作り変えてよい。"""
-    return render_template("introduction.html")
+    """ポスターのQRの行き先。QRには https://<ドメイン>/introduction だけを入れるので、中身は後から自由に作り変えてよい。
+    2026-11-18：ゆーしんの依頼で、紹介ページは animal-passport の /lp へ転送する（元の introduction.html は残してある）。"""
+    return redirect("https://animal-passport.jpsarchgac.workers.dev/lp", code=302)
 
 
 @app.post("/api/card")
